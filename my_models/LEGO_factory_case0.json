@@ -1,0 +1,3157 @@
+{
+  "assetAdministrationShells": [
+    {
+      "idShort": "LEGO_factory",
+      "id": "urn:uuid:6475_0111_2062_9689",
+      "assetInformation": {
+        "assetKind": "Instance",
+        "globalAssetId": "urn:vicomtech:asset:lego_factory:cell_01",
+        "assetType": "LEGO_Manufacturing_Cell"
+      },
+      "submodels": [
+        {
+          "type": "ModelReference",
+          "keys": [
+            {
+              "type": "Submodel",
+              "value": "https://example.com/ids/sm/1340_1111_2062_7197"
+            }
+          ]
+        },
+        {
+          "type": "ModelReference",
+          "keys": [
+            {
+              "type": "Submodel",
+              "value": "https://example.com/ids/sm/1404_1121_2062_8641"
+            }
+          ]
+        },
+        {
+          "type": "ModelReference",
+          "keys": [
+            {
+              "type": "Submodel",
+              "value": "https://example.com/ids/sm/0145_8081_2062_1850"
+            }
+          ]
+        }
+      ],
+      "modelType": "AssetAdministrationShell"
+    },
+    {
+      "idShort": "SMIA_agent",
+      "id": "urn:uuid:6373_1111_2062_6896",
+      "assetInformation": {
+        "assetKind": "Instance",
+        "globalAssetId": "urn:vicomtech:asset:operator:operario_01",
+        "assetType": "HumanOperator"
+      },
+      "submodels": [
+        {
+          "type": "ModelReference",
+          "keys": [
+            {
+              "type": "Submodel",
+              "value": "https://example.com/ids/sm/2255_1111_2062_3424"
+            }
+          ]
+        }
+      ],
+      "modelType": "AssetAdministrationShell"
+    }
+  ],
+  "submodels": [
+    {
+      "category": "CONSTANT",
+      "idShort": "SubmodelWithCapabilitySkillOntology",
+      "id": "https://example.com/ids/sm/3130_1111_2062_1080",
+      "semanticId": {
+        "type": "ExternalReference",
+        "keys": [
+          {
+            "type": "GlobalReference",
+            "value": "http://www.w3id.org/upv-ehu/gcis/css-smia"
+          }
+        ]
+      },
+      "submodelElements": [
+        {
+          "category": "",
+          "idShort": "CapabilityRestrictedBy",
+          "semanticId": {
+            "type": "ExternalReference",
+            "keys": [
+              {
+                "type": "GlobalReference",
+                "value": "http://www.w3id.org/hsu-aut/css#isRestrictedBy"
+              }
+            ]
+          },
+          "valueType": "xs:string",
+          "value": "",
+          "modelType": "Property"
+        },
+        {
+          "category": "",
+          "idShort": "CapabilityRealizedBy",
+          "semanticId": {
+            "type": "ExternalReference",
+            "keys": [
+              {
+                "type": "GlobalReference",
+                "value": "http://www.w3id.org/hsu-aut/css#isRealizedBy"
+              }
+            ]
+          },
+          "valueType": "xs:string",
+          "value": "",
+          "modelType": "Property"
+        },
+        {
+          "category": "",
+          "idShort": "SkillAccessibleThrough",
+          "semanticId": {
+            "type": "ExternalReference",
+            "keys": [
+              {
+                "type": "GlobalReference",
+                "value": "http://www.w3id.org/hsu-aut/css#accessibleThrough"
+              }
+            ]
+          },
+          "valueType": "xs:string",
+          "value": "",
+          "modelType": "Property"
+        },
+        {
+          "category": "",
+          "idShort": "SkillAccessibleThroughAgentService",
+          "semanticId": {
+            "type": "ExternalReference",
+            "keys": [
+              {
+                "type": "GlobalReference",
+                "value": "http://www.w3id.org/upv-ehu/gcis/css-smia#AccessibleThroughAgentService"
+              }
+            ]
+          },
+          "valueType": "xs:string",
+          "value": "",
+          "modelType": "Property"
+        },
+        {
+          "category": "",
+          "idShort": "SkillAccessibleThroughAssetService",
+          "semanticId": {
+            "type": "ExternalReference",
+            "keys": [
+              {
+                "type": "GlobalReference",
+                "value": "http://www.w3id.org/upv-ehu/gcis/css-smia#AccessibleThroughAssetService"
+              }
+            ]
+          },
+          "valueType": "xs:string",
+          "value": "",
+          "modelType": "Property"
+        },
+        {
+          "category": "",
+          "idShort": "SkillHasParameter",
+          "semanticId": {
+            "type": "ExternalReference",
+            "keys": [
+              {
+                "type": "GlobalReference",
+                "value": "http://www.w3id.org/hsu-aut/css#hasParameter"
+              }
+            ]
+          },
+          "valueType": "xs:string",
+          "value": "",
+          "modelType": "Property"
+        },
+        {
+          "category": "",
+          "idShort": "SkillBehavioursConformsTo",
+          "semanticId": {
+            "type": "ExternalReference",
+            "keys": [
+              {
+                "type": "GlobalReference",
+                "value": "http://www.w3id.org/hsu-aut/css#behaviorConformsTo"
+              }
+            ]
+          },
+          "valueType": "xs:string",
+          "value": "",
+          "modelType": "Property"
+        },
+        {
+          "category": "",
+          "idShort": "SkillParameterExposedThrough",
+          "semanticId": {
+            "type": "ExternalReference",
+            "keys": [
+              {
+                "type": "GlobalReference",
+                "value": "urn:ehu:gcis:capabilityskillontology:1:1:skillparameterexposedthrough"
+              }
+            ]
+          },
+          "valueType": "xs:string",
+          "value": "",
+          "modelType": "Property"
+        }
+      ],
+      "modelType": "Submodel"
+    },
+    {
+      "category": "CONSTANT",
+      "idShort": "AssetInterfacesDescription",
+      "id": "https://example.com/ids/sm/1340_1111_2062_7197",
+      "semanticId": {
+        "type": "ExternalReference",
+        "keys": [
+          {
+            "type": "GlobalReference",
+            "value": "https://admin-shell.io/idta/AssetInterfacesDescription/1/0/Submodel"
+          }
+        ]
+      },
+      "submodelElements": [
+        {
+          "category": "",
+          "idShort": "InterfaceHTTP",
+          "semanticId": {
+            "type": "ExternalReference",
+            "keys": [
+              {
+                "type": "GlobalReference",
+                "value": "https://admin-shell.io/idta/AssetInterfacesDescription/1/0/Interface"
+              }
+            ]
+          },
+          "value": [
+            {
+              "category": "",
+              "idShort": "title",
+              "semanticId": {
+                "type": "ExternalReference",
+                "keys": [
+                  {
+                    "type": "GlobalReference",
+                    "value": "https://www.w3.org/2019/wot/td#title"
+                  }
+                ]
+              },
+              "valueType": "xs:string",
+              "value": " ",
+              "modelType": "Property"
+            },
+            {
+              "category": "",
+              "idShort": "created",
+              "semanticId": {
+                "type": "ExternalReference",
+                "keys": [
+                  {
+                    "type": "GlobalReference",
+                    "value": "http://purl.org/dc/terms/created"
+                  }
+                ]
+              },
+              "valueType": "xs:dateTime",
+              "value": "1000-01-01T00:00:00.0",
+              "modelType": "Property"
+            },
+            {
+              "category": "",
+              "idShort": "modified",
+              "semanticId": {
+                "type": "ExternalReference",
+                "keys": [
+                  {
+                    "type": "GlobalReference",
+                    "value": "http://purl.org/dc/terms/modified"
+                  }
+                ]
+              },
+              "valueType": "xs:dateTime",
+              "value": "1000-01-01T00:00:00.0",
+              "modelType": "Property"
+            },
+            {
+              "category": "",
+              "idShort": "support",
+              "semanticId": {
+                "type": "ExternalReference",
+                "keys": [
+                  {
+                    "type": "GlobalReference",
+                    "value": "https://www.w3.org/2019/wot/td#supportContact"
+                  }
+                ]
+              },
+              "valueType": "xs:anyURI",
+              "value": " ",
+              "modelType": "Property"
+            },
+            {
+              "category": "",
+              "idShort": "EndpointMetadata",
+              "semanticId": {
+                "type": "ExternalReference",
+                "keys": [
+                  {
+                    "type": "GlobalReference",
+                    "value": "https://admin-shell.io/idta/AssetInterfacesDescription/1/0/EndpointMetadata"
+                  }
+                ]
+              },
+              "value": [
+                {
+                  "category": "",
+                  "idShort": "base",
+                  "semanticId": {
+                    "type": "ExternalReference",
+                    "keys": [
+                      {
+                        "type": "GlobalReference",
+                        "value": "https://www.w3.org/2019/wot/td#baseURI"
+                      }
+                    ]
+                  },
+                  "valueType": "xs:anyURI",
+                  "value": "http://192.168.155.10:1880",
+                  "modelType": "Property"
+                },
+                {
+                  "category": "",
+                  "idShort": "contentType",
+                  "semanticId": {
+                    "type": "ExternalReference",
+                    "keys": [
+                      {
+                        "type": "GlobalReference",
+                        "value": "https://www.w3.org/2019/wot/hypermedia#forContentType"
+                      }
+                    ]
+                  },
+                  "valueType": "xs:string",
+                  "value": "application/json",
+                  "modelType": "Property"
+                },
+                {
+                  "category": "",
+                  "idShort": "securityDefinitions",
+                  "semanticId": {
+                    "type": "ExternalReference",
+                    "keys": [
+                      {
+                        "type": "GlobalReference",
+                        "value": "https://www.w3.org/2019/wot/td#definesSecurityScheme"
+                      }
+                    ]
+                  },
+                  "value": [
+                    {
+                      "category": "",
+                      "idShort": "nosec_sc",
+                      "semanticId": {
+                        "type": "ExternalReference",
+                        "keys": [
+                          {
+                            "type": "GlobalReference",
+                            "value": "https://www.w3.org/2019/wot/security#NoSecurityScheme"
+                          }
+                        ]
+                      },
+                      "value": [
+                        {
+                          "category": "",
+                          "idShort": "scheme",
+                          "semanticId": {
+                            "type": "ExternalReference",
+                            "keys": [
+                              {
+                                "type": "GlobalReference",
+                                "value": "https://www.w3.org/2019/wot/security#SecurityScheme"
+                              }
+                            ]
+                          },
+                          "valueType": "xs:string",
+                          "value": " ",
+                          "modelType": "Property"
+                        }
+                      ],
+                      "modelType": "SubmodelElementCollection"
+                    },
+                    {
+                      "category": "",
+                      "idShort": "auto_sc",
+                      "semanticId": {
+                        "type": "ExternalReference",
+                        "keys": [
+                          {
+                            "type": "GlobalReference",
+                            "value": "https://www.w3.org/2019/wot/security#AutoSecurityScheme"
+                          }
+                        ]
+                      },
+                      "value": [
+                        {
+                          "category": "",
+                          "idShort": "scheme",
+                          "semanticId": {
+                            "type": "ExternalReference",
+                            "keys": [
+                              {
+                                "type": "GlobalReference",
+                                "value": "https://www.w3.org/2019/wot/security#SecurityScheme"
+                              }
+                            ]
+                          },
+                          "valueType": "xs:string",
+                          "value": " ",
+                          "modelType": "Property"
+                        },
+                        {
+                          "category": "",
+                          "idShort": "proxy",
+                          "semanticId": {
+                            "type": "ExternalReference",
+                            "keys": [
+                              {
+                                "type": "GlobalReference",
+                                "value": "https://www.w3.org/2019/wot/security#proxy"
+                              }
+                            ]
+                          },
+                          "valueType": "xs:string",
+                          "value": " ",
+                          "modelType": "Property"
+                        }
+                      ],
+                      "modelType": "SubmodelElementCollection"
+                    },
+                    {
+                      "category": "",
+                      "idShort": "basic_sc",
+                      "semanticId": {
+                        "type": "ExternalReference",
+                        "keys": [
+                          {
+                            "type": "GlobalReference",
+                            "value": "https://www.w3.org/2019/wot/security#BasicSecurityScheme"
+                          }
+                        ]
+                      },
+                      "value": [
+                        {
+                          "category": "",
+                          "idShort": "scheme",
+                          "semanticId": {
+                            "type": "ExternalReference",
+                            "keys": [
+                              {
+                                "type": "GlobalReference",
+                                "value": "https://www.w3.org/2019/wot/security#SecurityScheme"
+                              }
+                            ]
+                          },
+                          "valueType": "xs:string",
+                          "value": " ",
+                          "modelType": "Property"
+                        },
+                        {
+                          "category": "",
+                          "idShort": "name",
+                          "semanticId": {
+                            "type": "ExternalReference",
+                            "keys": [
+                              {
+                                "type": "GlobalReference",
+                                "value": "https://www.w3.org/2019/wot/security#name"
+                              }
+                            ]
+                          },
+                          "valueType": "xs:string",
+                          "value": " ",
+                          "modelType": "Property"
+                        },
+                        {
+                          "category": "",
+                          "idShort": "in",
+                          "semanticId": {
+                            "type": "ExternalReference",
+                            "keys": [
+                              {
+                                "type": "GlobalReference",
+                                "value": "https://www.w3.org/2019/wot/security#in"
+                              }
+                            ]
+                          },
+                          "valueType": "xs:string",
+                          "value": " ",
+                          "modelType": "Property"
+                        },
+                        {
+                          "category": "",
+                          "idShort": "proxy",
+                          "semanticId": {
+                            "type": "ExternalReference",
+                            "keys": [
+                              {
+                                "type": "GlobalReference",
+                                "value": "https://www.w3.org/2019/wot/security#proxy"
+                              }
+                            ]
+                          },
+                          "valueType": "xs:string",
+                          "value": " ",
+                          "modelType": "Property"
+                        }
+                      ],
+                      "modelType": "SubmodelElementCollection"
+                    },
+                    {
+                      "category": "",
+                      "idShort": "combo_sc",
+                      "semanticId": {
+                        "type": "ExternalReference",
+                        "keys": [
+                          {
+                            "type": "GlobalReference",
+                            "value": "https://www.w3.org/2019/wot/security#ComboSecurityScheme"
+                          }
+                        ]
+                      },
+                      "value": [
+                        {
+                          "category": "",
+                          "idShort": "scheme",
+                          "semanticId": {
+                            "type": "ExternalReference",
+                            "keys": [
+                              {
+                                "type": "GlobalReference",
+                                "value": "https://www.w3.org/2019/wot/security#SecurityScheme"
+                              }
+                            ]
+                          },
+                          "valueType": "xs:string",
+                          "value": " ",
+                          "modelType": "Property"
+                        },
+                        {
+                          "category": "",
+                          "idShort": "proxy",
+                          "semanticId": {
+                            "type": "ExternalReference",
+                            "keys": [
+                              {
+                                "type": "GlobalReference",
+                                "value": "https://www.w3.org/2019/wot/security#proxy"
+                              }
+                            ]
+                          },
+                          "valueType": "xs:string",
+                          "value": " ",
+                          "modelType": "Property"
+                        }
+                      ],
+                      "modelType": "SubmodelElementCollection"
+                    },
+                    {
+                      "category": "",
+                      "idShort": "apikey_sc",
+                      "semanticId": {
+                        "type": "ExternalReference",
+                        "keys": [
+                          {
+                            "type": "GlobalReference",
+                            "value": "https://www.w3.org/2019/wot/security#APIKeySecurityScheme"
+                          }
+                        ]
+                      },
+                      "value": [
+                        {
+                          "category": "",
+                          "idShort": "scheme",
+                          "semanticId": {
+                            "type": "ExternalReference",
+                            "keys": [
+                              {
+                                "type": "GlobalReference",
+                                "value": "https://www.w3.org/2019/wot/security#SecurityScheme"
+                              }
+                            ]
+                          },
+                          "valueType": "xs:string",
+                          "value": " ",
+                          "modelType": "Property"
+                        },
+                        {
+                          "category": "",
+                          "idShort": "name",
+                          "semanticId": {
+                            "type": "ExternalReference",
+                            "keys": [
+                              {
+                                "type": "GlobalReference",
+                                "value": "https://www.w3.org/2019/wot/security#name"
+                              }
+                            ]
+                          },
+                          "valueType": "xs:string",
+                          "value": " ",
+                          "modelType": "Property"
+                        },
+                        {
+                          "category": "",
+                          "idShort": "in",
+                          "semanticId": {
+                            "type": "ExternalReference",
+                            "keys": [
+                              {
+                                "type": "GlobalReference",
+                                "value": "https://www.w3.org/2019/wot/security#in"
+                              }
+                            ]
+                          },
+                          "valueType": "xs:string",
+                          "value": " ",
+                          "modelType": "Property"
+                        },
+                        {
+                          "category": "",
+                          "idShort": "proxy",
+                          "semanticId": {
+                            "type": "ExternalReference",
+                            "keys": [
+                              {
+                                "type": "GlobalReference",
+                                "value": "https://www.w3.org/2019/wot/security#proxy"
+                              }
+                            ]
+                          },
+                          "valueType": "xs:string",
+                          "value": " ",
+                          "modelType": "Property"
+                        }
+                      ],
+                      "modelType": "SubmodelElementCollection"
+                    },
+                    {
+                      "category": "",
+                      "idShort": "psk_sc",
+                      "semanticId": {
+                        "type": "ExternalReference",
+                        "keys": [
+                          {
+                            "type": "GlobalReference",
+                            "value": "https://www.w3.org/2019/wot/security#PSKSecurityScheme"
+                          }
+                        ]
+                      },
+                      "value": [
+                        {
+                          "category": "",
+                          "idShort": "scheme",
+                          "semanticId": {
+                            "type": "ExternalReference",
+                            "keys": [
+                              {
+                                "type": "GlobalReference",
+                                "value": "https://www.w3.org/2019/wot/security#SecurityScheme"
+                              }
+                            ]
+                          },
+                          "valueType": "xs:string",
+                          "value": " ",
+                          "modelType": "Property"
+                        },
+                        {
+                          "category": "",
+                          "idShort": "identity",
+                          "semanticId": {
+                            "type": "ExternalReference",
+                            "keys": [
+                              {
+                                "type": "GlobalReference",
+                                "value": "https://www.w3.org/2019/wot/security#identity"
+                              }
+                            ]
+                          },
+                          "valueType": "xs:string",
+                          "value": " ",
+                          "modelType": "Property"
+                        },
+                        {
+                          "category": "",
+                          "idShort": "proxy",
+                          "semanticId": {
+                            "type": "ExternalReference",
+                            "keys": [
+                              {
+                                "type": "GlobalReference",
+                                "value": "https://www.w3.org/2019/wot/security#proxy"
+                              }
+                            ]
+                          },
+                          "valueType": "xs:string",
+                          "value": " ",
+                          "modelType": "Property"
+                        }
+                      ],
+                      "modelType": "SubmodelElementCollection"
+                    },
+                    {
+                      "category": "",
+                      "idShort": "digest_sc",
+                      "semanticId": {
+                        "type": "ExternalReference",
+                        "keys": [
+                          {
+                            "type": "GlobalReference",
+                            "value": "https://www.w3.org/2019/wot/security#DigestSecurityScheme"
+                          }
+                        ]
+                      },
+                      "value": [
+                        {
+                          "category": "",
+                          "idShort": "scheme",
+                          "semanticId": {
+                            "type": "ExternalReference",
+                            "keys": [
+                              {
+                                "type": "GlobalReference",
+                                "value": "https://www.w3.org/2019/wot/security#SecurityScheme"
+                              }
+                            ]
+                          },
+                          "valueType": "xs:string",
+                          "value": " ",
+                          "modelType": "Property"
+                        },
+                        {
+                          "category": "",
+                          "idShort": "name",
+                          "semanticId": {
+                            "type": "ExternalReference",
+                            "keys": [
+                              {
+                                "type": "GlobalReference",
+                                "value": "https://www.w3.org/2019/wot/security#name"
+                              }
+                            ]
+                          },
+                          "valueType": "xs:string",
+                          "value": " ",
+                          "modelType": "Property"
+                        },
+                        {
+                          "category": "",
+                          "idShort": "in",
+                          "semanticId": {
+                            "type": "ExternalReference",
+                            "keys": [
+                              {
+                                "type": "GlobalReference",
+                                "value": "https://www.w3.org/2019/wot/security#in"
+                              }
+                            ]
+                          },
+                          "valueType": "xs:string",
+                          "value": " ",
+                          "modelType": "Property"
+                        },
+                        {
+                          "category": "",
+                          "idShort": "qop",
+                          "semanticId": {
+                            "type": "ExternalReference",
+                            "keys": [
+                              {
+                                "type": "GlobalReference",
+                                "value": "https://www.w3.org/2019/wot/security#qop"
+                              }
+                            ]
+                          },
+                          "valueType": "xs:string",
+                          "value": " ",
+                          "modelType": "Property"
+                        },
+                        {
+                          "category": "",
+                          "idShort": "proxy",
+                          "semanticId": {
+                            "type": "ExternalReference",
+                            "keys": [
+                              {
+                                "type": "GlobalReference",
+                                "value": "https://www.w3.org/2019/wot/security#proxy"
+                              }
+                            ]
+                          },
+                          "valueType": "xs:string",
+                          "value": " ",
+                          "modelType": "Property"
+                        }
+                      ],
+                      "modelType": "SubmodelElementCollection"
+                    },
+                    {
+                      "category": "",
+                      "idShort": "bearer_sc",
+                      "semanticId": {
+                        "type": "ExternalReference",
+                        "keys": [
+                          {
+                            "type": "GlobalReference",
+                            "value": "https://www.w3.org/2019/wot/security#BearerSecurityScheme"
+                          }
+                        ]
+                      },
+                      "value": [
+                        {
+                          "category": "",
+                          "idShort": "scheme",
+                          "semanticId": {
+                            "type": "ExternalReference",
+                            "keys": [
+                              {
+                                "type": "GlobalReference",
+                                "value": "https://www.w3.org/2019/wot/security#SecurityScheme"
+                              }
+                            ]
+                          },
+                          "valueType": "xs:string",
+                          "value": " ",
+                          "modelType": "Property"
+                        },
+                        {
+                          "category": "",
+                          "idShort": "name",
+                          "semanticId": {
+                            "type": "ExternalReference",
+                            "keys": [
+                              {
+                                "type": "GlobalReference",
+                                "value": "https://www.w3.org/2019/wot/security#name"
+                              }
+                            ]
+                          },
+                          "valueType": "xs:string",
+                          "value": " ",
+                          "modelType": "Property"
+                        },
+                        {
+                          "category": "",
+                          "idShort": "in",
+                          "semanticId": {
+                            "type": "ExternalReference",
+                            "keys": [
+                              {
+                                "type": "GlobalReference",
+                                "value": "https://www.w3.org/2019/wot/security#in"
+                              }
+                            ]
+                          },
+                          "valueType": "xs:string",
+                          "value": " ",
+                          "modelType": "Property"
+                        },
+                        {
+                          "category": "",
+                          "idShort": "authorization",
+                          "semanticId": {
+                            "type": "ExternalReference",
+                            "keys": [
+                              {
+                                "type": "GlobalReference",
+                                "value": "https://www.w3.org/2019/wot/security#authorization"
+                              }
+                            ]
+                          },
+                          "valueType": "xs:string",
+                          "value": " ",
+                          "modelType": "Property"
+                        },
+                        {
+                          "category": "",
+                          "idShort": "alg",
+                          "semanticId": {
+                            "type": "ExternalReference",
+                            "keys": [
+                              {
+                                "type": "GlobalReference",
+                                "value": "https://www.w3.org/2019/wot/security#alg"
+                              }
+                            ]
+                          },
+                          "valueType": "xs:string",
+                          "value": " ",
+                          "modelType": "Property"
+                        },
+                        {
+                          "category": "",
+                          "idShort": "format",
+                          "semanticId": {
+                            "type": "ExternalReference",
+                            "keys": [
+                              {
+                                "type": "GlobalReference",
+                                "value": "https://www.w3.org/2019/wot/security#format"
+                              }
+                            ]
+                          },
+                          "valueType": "xs:string",
+                          "value": " ",
+                          "modelType": "Property"
+                        },
+                        {
+                          "category": "",
+                          "idShort": "proxy",
+                          "semanticId": {
+                            "type": "ExternalReference",
+                            "keys": [
+                              {
+                                "type": "GlobalReference",
+                                "value": "https://www.w3.org/2019/wot/security#proxy"
+                              }
+                            ]
+                          },
+                          "valueType": "xs:string",
+                          "value": " ",
+                          "modelType": "Property"
+                        }
+                      ],
+                      "modelType": "SubmodelElementCollection"
+                    },
+                    {
+                      "category": "",
+                      "idShort": "oauth2_sc",
+                      "semanticId": {
+                        "type": "ExternalReference",
+                        "keys": [
+                          {
+                            "type": "GlobalReference",
+                            "value": "https://www.w3.org/2019/wot/security#OAuth2SecurityScheme"
+                          }
+                        ]
+                      },
+                      "value": [
+                        {
+                          "category": "",
+                          "idShort": "scheme",
+                          "semanticId": {
+                            "type": "ExternalReference",
+                            "keys": [
+                              {
+                                "type": "GlobalReference",
+                                "value": "https://www.w3.org/2019/wot/security#SecurityScheme"
+                              }
+                            ]
+                          },
+                          "valueType": "xs:string",
+                          "value": " ",
+                          "modelType": "Property"
+                        },
+                        {
+                          "category": "",
+                          "idShort": "token",
+                          "semanticId": {
+                            "type": "ExternalReference",
+                            "keys": [
+                              {
+                                "type": "GlobalReference",
+                                "value": "https://www.w3.org/2019/wot/security#token"
+                              }
+                            ]
+                          },
+                          "valueType": "xs:anyURI",
+                          "value": " ",
+                          "modelType": "Property"
+                        },
+                        {
+                          "category": "",
+                          "idShort": "refresh",
+                          "semanticId": {
+                            "type": "ExternalReference",
+                            "keys": [
+                              {
+                                "type": "GlobalReference",
+                                "value": "https://www.w3.org/2019/wot/security#refresh"
+                              }
+                            ]
+                          },
+                          "valueType": "xs:anyURI",
+                          "value": " ",
+                          "modelType": "Property"
+                        },
+                        {
+                          "category": "",
+                          "idShort": "authorization",
+                          "semanticId": {
+                            "type": "ExternalReference",
+                            "keys": [
+                              {
+                                "type": "GlobalReference",
+                                "value": "https://www.w3.org/2019/wot/security#authorization"
+                              }
+                            ]
+                          },
+                          "valueType": "xs:anyURI",
+                          "value": " ",
+                          "modelType": "Property"
+                        },
+                        {
+                          "category": "",
+                          "idShort": "scopes",
+                          "semanticId": {
+                            "type": "ExternalReference",
+                            "keys": [
+                              {
+                                "type": "GlobalReference",
+                                "value": "https://www.w3.org/2019/wot/security#scopes"
+                              }
+                            ]
+                          },
+                          "valueType": "xs:string",
+                          "value": " ",
+                          "modelType": "Property"
+                        },
+                        {
+                          "category": "",
+                          "idShort": "flow",
+                          "semanticId": {
+                            "type": "ExternalReference",
+                            "keys": [
+                              {
+                                "type": "GlobalReference",
+                                "value": "https://www.w3.org/2019/wot/security#flow"
+                              }
+                            ]
+                          },
+                          "valueType": "xs:string",
+                          "value": " ",
+                          "modelType": "Property"
+                        },
+                        {
+                          "category": "",
+                          "idShort": "proxy",
+                          "semanticId": {
+                            "type": "ExternalReference",
+                            "keys": [
+                              {
+                                "type": "GlobalReference",
+                                "value": "https://www.w3.org/2019/wot/security#proxy"
+                              }
+                            ]
+                          },
+                          "valueType": "xs:anyURI",
+                          "value": " ",
+                          "modelType": "Property"
+                        }
+                      ],
+                      "modelType": "SubmodelElementCollection"
+                    }
+                  ],
+                  "modelType": "SubmodelElementCollection"
+                }
+              ],
+              "modelType": "SubmodelElementCollection"
+            },
+            {
+              "category": "",
+              "idShort": "InteractionMetadata",
+              "semanticId": {
+                "type": "ExternalReference",
+                "keys": [
+                  {
+                    "type": "GlobalReference",
+                    "value": "https://admin-shell.io/idta/AssetInterfacesDescription/1/0/InteractionMetadata"
+                  }
+                ]
+              },
+              "value": [
+                {
+                  "category": "",
+                  "idShort": "properties",
+                  "semanticId": {
+                    "type": "ExternalReference",
+                    "keys": [
+                      {
+                        "type": "GlobalReference",
+                        "value": "https://www.w3.org/2019/wot/td#PropertyAffordance"
+                      }
+                    ]
+                  },
+                  "value": [],
+                  "modelType": "SubmodelElementCollection"
+                },
+                {
+                  "category": "",
+                  "idShort": "actions",
+                  "semanticId": {
+                    "type": "ExternalReference",
+                    "keys": [
+                      {
+                        "type": "GlobalReference",
+                        "value": "https://www.w3.org/2019/wot/td#ActionAffordance"
+                      }
+                    ]
+                  },
+                  "value": [
+                    {
+                      "idShort": "pickPiece",
+                      "semanticId": {
+                        "type": "ExternalReference",
+                        "keys": [
+                          {
+                            "type": "GlobalReference",
+                            "value": "http://www.w3id.org/hsu-aut/css#SkillInterface"
+                          }
+                        ]
+                      },
+                      "value": [
+                        {
+                          "idShort": "forms",
+                          "semanticId": {
+                            "type": "ExternalReference",
+                            "keys": [
+                              {
+                                "type": "GlobalReference",
+                                "value": "https://www.w3.org/2019/wot/td#hasForm"
+                              }
+                            ]
+                          },
+                          "value": [
+                            {
+                              "idShort": "href",
+                              "semanticId": {
+                                "type": "ExternalReference",
+                                "keys": [
+                                  {
+                                    "type": "GlobalReference",
+                                    "value": "https://www.w3.org/2019/wot/hypermedia#hasTarget"
+                                  }
+                                ]
+                              },
+                              "valueType": "xs:string",
+                              "value": "/smia/lego/pick",
+                              "modelType": "Property"
+                            },
+                            {
+                              "idShort": "htv_methodName",
+                              "semanticId": {
+                                "type": "ExternalReference",
+                                "keys": [
+                                  {
+                                    "type": "GlobalReference",
+                                    "value": "https://www.w3.org/2011/http#methodName"
+                                  }
+                                ]
+                              },
+                              "valueType": "xs:string",
+                              "value": "POST",
+                              "modelType": "Property"
+                            },
+                            {
+                              "idShort": "contentType",
+                              "semanticId": {
+                                "type": "ExternalReference",
+                                "keys": [
+                                  {
+                                    "type": "GlobalReference",
+                                    "value": "https://www.w3.org/2019/wot/hypermedia#forContentType"
+                                  }
+                                ]
+                              },
+                              "valueType": "xs:string",
+                              "value": "application/json",
+                              "modelType": "Property"
+                            }
+                          ],
+                          "modelType": "SubmodelElementCollection"
+                        },
+                        {
+                          "idShort": "input",
+                          "value": [
+                            {
+                              "idShort": "color",
+                              "valueType": "xs:string",
+                              "modelType": "Property"
+                            },
+                            {
+                              "idShort": "position",
+                              "valueType": "xs:int",
+                              "modelType": "Property"
+                            }
+                          ],
+                          "modelType": "SubmodelElementCollection"
+                        }
+                      ],
+                      "modelType": "SubmodelElementCollection"
+                    },
+                    {
+                      "idShort": "placePiece",
+                      "semanticId": {
+                        "type": "ExternalReference",
+                        "keys": [
+                          {
+                            "type": "GlobalReference",
+                            "value": "http://www.w3id.org/hsu-aut/css#SkillInterface"
+                          }
+                        ]
+                      },
+                      "value": [
+                        {
+                          "idShort": "forms",
+                          "semanticId": {
+                            "type": "ExternalReference",
+                            "keys": [
+                              {
+                                "type": "GlobalReference",
+                                "value": "https://www.w3.org/2019/wot/td#hasForm"
+                              }
+                            ]
+                          },
+                          "value": [
+                            {
+                              "idShort": "href",
+                              "semanticId": {
+                                "type": "ExternalReference",
+                                "keys": [
+                                  {
+                                    "type": "GlobalReference",
+                                    "value": "https://www.w3.org/2019/wot/hypermedia#hasTarget"
+                                  }
+                                ]
+                              },
+                              "valueType": "xs:string",
+                              "value": "/smia/lego/place",
+                              "modelType": "Property"
+                            },
+                            {
+                              "idShort": "htv_methodName",
+                              "semanticId": {
+                                "type": "ExternalReference",
+                                "keys": [
+                                  {
+                                    "type": "GlobalReference",
+                                    "value": "https://www.w3.org/2011/http#methodName"
+                                  }
+                                ]
+                              },
+                              "valueType": "xs:string",
+                              "value": "POST",
+                              "modelType": "Property"
+                            },
+                            {
+                              "idShort": "contentType",
+                              "semanticId": {
+                                "type": "ExternalReference",
+                                "keys": [
+                                  {
+                                    "type": "GlobalReference",
+                                    "value": "https://www.w3.org/2019/wot/hypermedia#forContentType"
+                                  }
+                                ]
+                              },
+                              "valueType": "xs:string",
+                              "value": "application/json",
+                              "modelType": "Property"
+                            }
+                          ],
+                          "modelType": "SubmodelElementCollection"
+                        },
+                        {
+                          "idShort": "input",
+                          "value": [
+                            {
+                              "idShort": "position",
+                              "valueType": "xs:int",
+                              "modelType": "Property"
+                            }
+                          ],
+                          "modelType": "SubmodelElementCollection"
+                        }
+                      ],
+                      "modelType": "SubmodelElementCollection"
+                    }
+                  ],
+                  "modelType": "SubmodelElementCollection"
+                },
+                {
+                  "category": "",
+                  "idShort": "events",
+                  "semanticId": {
+                    "type": "ExternalReference",
+                    "keys": [
+                      {
+                        "type": "GlobalReference",
+                        "value": "https://www.w3.org/2019/wot/td#EventAffordance"
+                      }
+                    ]
+                  },
+                  "value": [],
+                  "modelType": "SubmodelElementCollection"
+                }
+              ],
+              "modelType": "SubmodelElementCollection"
+            },
+            {
+              "category": "",
+              "idShort": "ExternalDescriptor",
+              "semanticId": {
+                "type": "ExternalReference",
+                "keys": [
+                  {
+                    "type": "GlobalReference",
+                    "value": "https://admin-shell.io/idta/AssetInterfacesDescription/1/0/ExternalDescriptor"
+                  }
+                ]
+              },
+              "value": [
+                {
+                  "category": "",
+                  "idShort": "fileName",
+                  "semanticId": {
+                    "type": "ExternalReference",
+                    "keys": [
+                      {
+                        "type": "GlobalReference",
+                        "value": "https://admin-shell.io/idta/AssetInterfacesDescription/1/0/externalDescriptorName"
+                      }
+                    ]
+                  },
+                  "contentType": "text/plain",
+                  "modelType": "File"
+                }
+              ],
+              "modelType": "SubmodelElementCollection"
+            }
+          ],
+          "modelType": "SubmodelElementCollection"
+        },
+        {
+          "idShort": "Interface_00",
+          "semanticId": {
+            "type": "ExternalReference",
+            "keys": [
+              {
+                "type": "GlobalReference",
+                "value": "https://admin-shell.io/idta/AssetInterfacesDescription/1/0/Interface"
+              }
+            ]
+          },
+          "value": [
+            {
+              "idShort": "ExternalDescriptor",
+              "value": [
+                {
+                  "idShort": "cssOntology",
+                  "value": "/aasx/CSS-ontology-smia.owl",
+                  "contentType": "text/plain",
+                  "modelType": "File"
+                },
+                {
+                  "idShort": "css_smia_properties",
+                  "value": "/aasx/smia-initialization.properties",
+                  "contentType": "text/plain",
+                  "modelType": "File"
+                }
+              ],
+              "modelType": "SubmodelElementCollection"
+            }
+          ],
+          "modelType": "SubmodelElementCollection"
+        }
+      ],
+      "modelType": "Submodel"
+    },
+    {
+      "category": "CONSTANT",
+      "idShort": "SoftwareNameplate",
+      "id": "https://example.com/ids/sm/2255_1111_2062_3424",
+      "semanticId": {
+        "type": "ModelReference",
+        "keys": [
+          {
+            "type": "Submodel",
+            "value": "https://admin-shell.io/idta/SoftwareNameplate/1/0"
+          }
+        ]
+      },
+      "submodelElements": [
+        {
+          "category": "",
+          "idShort": "SoftwareNameplateInstance",
+          "semanticId": {
+            "type": "ExternalReference",
+            "keys": [
+              {
+                "type": "GlobalReference",
+                "value": "https://admin-shell.io/idta/SoftwareNameplate/1/0/SoftwareNameplate/SoftwareNameplateInstance"
+              }
+            ]
+          },
+          "value": [
+            {
+              "category": "",
+              "idShort": "SerialNumber",
+              "semanticId": {
+                "type": "ExternalReference",
+                "keys": [
+                  {
+                    "type": "GlobalReference",
+                    "value": "0173-1#02-AAM556#002"
+                  }
+                ]
+              },
+              "valueType": "xs:string",
+              "value": " ",
+              "modelType": "Property"
+            },
+            {
+              "category": "",
+              "idShort": "InventoryTag",
+              "semanticId": {
+                "type": "ExternalReference",
+                "keys": [
+                  {
+                    "type": "GlobalReference",
+                    "value": "https://admin-shell.io/idta/SoftwareNameplate/1/0/SoftwareNameplate/SoftwareNameplateInstance/InventoryTag"
+                  }
+                ]
+              },
+              "valueType": "xs:string",
+              "value": " ",
+              "modelType": "Property"
+            },
+            {
+              "category": "",
+              "idShort": "InstanceName",
+              "semanticId": {
+                "type": "ExternalReference",
+                "keys": [
+                  {
+                    "type": "GlobalReference",
+                    "value": "https://admin-shell.io/idta/SoftwareNameplate/1/0/SoftwareNameplate/SoftwareNameplateInstance/InstanceName"
+                  }
+                ]
+              },
+              "valueType": "xs:string",
+              "value": "smia_agent",
+              "modelType": "Property"
+            },
+            {
+              "category": "",
+              "idShort": "InstalledVersion",
+              "semanticId": {
+                "type": "ExternalReference",
+                "keys": [
+                  {
+                    "type": "GlobalReference",
+                    "value": "https://admin-shell.io/idta/SoftwareNameplate/1/0/SoftwareNameplate/SoftwareNameplateInstance/InstalledVersion"
+                  }
+                ]
+              },
+              "valueType": "xs:string",
+              "value": " 0.3.1",
+              "modelType": "Property"
+            },
+            {
+              "category": "",
+              "idShort": "InstallationDate",
+              "semanticId": {
+                "type": "ExternalReference",
+                "keys": [
+                  {
+                    "type": "GlobalReference",
+                    "value": "https://admin-shell.io/idta/SoftwareNameplate/1/0/SoftwareNameplate/SoftwareNameplateInstance/InstallationDate"
+                  }
+                ]
+              },
+              "valueType": "xs:date",
+              "value": "1000-01-01",
+              "modelType": "Property"
+            },
+            {
+              "category": "",
+              "idShort": "InstallationPath",
+              "semanticId": {
+                "type": "ExternalReference",
+                "keys": [
+                  {
+                    "type": "GlobalReference",
+                    "value": "https://admin-shell.io/idta/SoftwareNameplate/1/0/SoftwareNameplate/SoftwareNameplateInstance/InstallationPath"
+                  }
+                ]
+              },
+              "valueType": "xs:anyURI",
+              "value": " ",
+              "modelType": "Property"
+            },
+            {
+              "category": "",
+              "idShort": "InstallationSource",
+              "semanticId": {
+                "type": "ExternalReference",
+                "keys": [
+                  {
+                    "type": "GlobalReference",
+                    "value": "https://admin-shell.io/idta/SoftwareNameplate/1/0/SoftwareNameplate/SoftwareNameplateInstance/InstallationSource"
+                  }
+                ]
+              },
+              "valueType": "xs:anyURI",
+              "value": " ",
+              "modelType": "Property"
+            },
+            {
+              "category": "",
+              "idShort": "InstalledOnArchitecture",
+              "semanticId": {
+                "type": "ExternalReference",
+                "keys": [
+                  {
+                    "type": "GlobalReference",
+                    "value": "https://admin-shell.io/idta/SoftwareNameplate/1/0/SoftwareNameplate/SoftwareNameplateInstance/InstalledOnArchitecture"
+                  }
+                ]
+              },
+              "valueType": "xs:string",
+              "value": " ",
+              "modelType": "Property"
+            },
+            {
+              "category": "",
+              "idShort": "InstalledOnOS",
+              "semanticId": {
+                "type": "ExternalReference",
+                "keys": [
+                  {
+                    "type": "GlobalReference",
+                    "value": "https://admin-shell.io/idta/SoftwareNameplate/1/0/SoftwareNameplate/SoftwareNameplateInstance/InstalledOnOS"
+                  }
+                ]
+              },
+              "valueType": "xs:string",
+              "value": " ",
+              "modelType": "Property"
+            },
+            {
+              "category": "",
+              "idShort": "InstalledOnHost",
+              "semanticId": {
+                "type": "ExternalReference",
+                "keys": [
+                  {
+                    "type": "GlobalReference",
+                    "value": "https://admin-shell.io/idta/SoftwareNameplate/1/0/SoftwareNameplate/SoftwareNameplateInstance/InstalledOnHost"
+                  }
+                ]
+              },
+              "valueType": "xs:string",
+              "value": " ",
+              "modelType": "Property"
+            },
+            {
+              "category": "",
+              "idShort": "InstalledModules",
+              "semanticId": {
+                "type": "ExternalReference",
+                "keys": [
+                  {
+                    "type": "GlobalReference",
+                    "value": "https://admin-shell.io/idta/SoftwareNameplate/1/0/SoftwareNameplate/SoftwareNameplateInstance/InstalledModules"
+                  }
+                ]
+              },
+              "value": [
+                {
+                  "category": "",
+                  "idShort": "InstalledModule_01",
+                  "semanticId": {
+                    "type": "ExternalReference",
+                    "keys": [
+                      {
+                        "type": "GlobalReference",
+                        "value": "https://admin-shell.io/idta/SoftwareNameplate/1/0/SoftwareNameplate/SoftwareNameplateInstance/InstalledModule"
+                      }
+                    ]
+                  },
+                  "valueType": "xs:string",
+                  "value": " ",
+                  "modelType": "Property"
+                }
+              ],
+              "modelType": "SubmodelElementCollection"
+            },
+            {
+              "category": "",
+              "idShort": "ConfigurationPaths",
+              "semanticId": {
+                "type": "ExternalReference",
+                "keys": [
+                  {
+                    "type": "GlobalReference",
+                    "value": "https://admin-shell.io/idta/SoftwareNameplate/1/0/SoftwareNameplate/SoftwareNameplateInstance/ConfigurationPaths"
+                  }
+                ]
+              },
+              "value": [
+                {
+                  "category": "",
+                  "idShort": "ConfigurationPath_01",
+                  "semanticId": {
+                    "type": "ExternalReference",
+                    "keys": [
+                      {
+                        "type": "GlobalReference",
+                        "value": "https://admin-shell.io/idta/SoftwareNameplate/1/0/SoftwareNameplate/SoftwareNameplateInstance/ConfigurationPath"
+                      }
+                    ]
+                  },
+                  "value": [
+                    {
+                      "category": "",
+                      "idShort": "ConfigurationURI",
+                      "semanticId": {
+                        "type": "ExternalReference",
+                        "keys": [
+                          {
+                            "type": "GlobalReference",
+                            "value": "https://admin-shell.io/idta/SoftwareNameplate/1/0/SoftwareNameplate/SoftwareNameplateInstance/ConfigurationPath"
+                          }
+                        ]
+                      },
+                      "valueType": "xs:anyURI",
+                      "value": " ",
+                      "modelType": "Property"
+                    },
+                    {
+                      "category": "",
+                      "idShort": "ConfigurationType",
+                      "semanticId": {
+                        "type": "ExternalReference",
+                        "keys": [
+                          {
+                            "type": "GlobalReference",
+                            "value": "https://admin-shell.io/idta/SoftwareNameplate/1/0/SoftwareNameplate/SoftwareNameplateInstance/ConfigurationType"
+                          }
+                        ]
+                      },
+                      "valueType": "xs:string",
+                      "value": " ",
+                      "modelType": "Property"
+                    }
+                  ],
+                  "modelType": "SubmodelElementCollection"
+                }
+              ],
+              "modelType": "SubmodelElementCollection"
+            },
+            {
+              "category": "",
+              "idShort": "SLAInformation",
+              "semanticId": {
+                "type": "ExternalReference",
+                "keys": [
+                  {
+                    "type": "GlobalReference",
+                    "value": "https://admin-shell.io/idta/SoftwareNameplate/1/0/SoftwareNameplate/SoftwareNameplateInstance/SLAInformation"
+                  }
+                ]
+              },
+              "valueType": "xs:string",
+              "value": " ",
+              "modelType": "Property"
+            },
+            {
+              "category": "",
+              "idShort": "Contact_01",
+              "semanticId": {
+                "type": "ExternalReference",
+                "keys": [
+                  {
+                    "type": "GlobalReference",
+                    "value": "https://admin-shell.io/zvei/nameplate/1/0/ContactInformations/ContactInformation"
+                  }
+                ]
+              },
+              "value": [
+                {
+                  "category": "",
+                  "idShort": "RoleOfContactPerson",
+                  "semanticId": {
+                    "type": "ExternalReference",
+                    "keys": [
+                      {
+                        "type": "GlobalReference",
+                        "value": "0173-1#02-AAO204#003"
+                      }
+                    ]
+                  },
+                  "valueType": "xs:string",
+                  "value": " ",
+                  "modelType": "Property"
+                },
+                {
+                  "category": "",
+                  "idShort": "NationalCode",
+                  "semanticId": {
+                    "type": "ExternalReference",
+                    "keys": [
+                      {
+                        "type": "GlobalReference",
+                        "value": "0173-1#02-AAO134#002"
+                      }
+                    ]
+                  },
+                  "modelType": "MultiLanguageProperty"
+                },
+                {
+                  "category": "",
+                  "idShort": "Language_01",
+                  "semanticId": {
+                    "type": "ExternalReference",
+                    "keys": [
+                      {
+                        "type": "GlobalReference",
+                        "value": "https://admin-shell.io/zvei/nameplate/1/0/ContactInformations/ContactInformation/Language"
+                      }
+                    ]
+                  },
+                  "valueType": "xs:string",
+                  "value": " ",
+                  "modelType": "Property"
+                },
+                {
+                  "category": "",
+                  "idShort": "TimeZone",
+                  "semanticId": {
+                    "type": "ExternalReference",
+                    "keys": [
+                      {
+                        "type": "GlobalReference",
+                        "value": "https://admin-shell.io/zvei/nameplate/1/0/ContactInformations/ContactInformation/TimeZone"
+                      }
+                    ]
+                  },
+                  "valueType": "xs:string",
+                  "value": " ",
+                  "modelType": "Property"
+                },
+                {
+                  "category": "",
+                  "idShort": "CityTown",
+                  "semanticId": {
+                    "type": "ExternalReference",
+                    "keys": [
+                      {
+                        "type": "GlobalReference",
+                        "value": "0173-1#02-AAO132#002"
+                      }
+                    ]
+                  },
+                  "modelType": "MultiLanguageProperty"
+                },
+                {
+                  "category": "",
+                  "idShort": "Company",
+                  "semanticId": {
+                    "type": "ExternalReference",
+                    "keys": [
+                      {
+                        "type": "GlobalReference",
+                        "value": "0173-1#02-AAW001#001"
+                      }
+                    ]
+                  },
+                  "modelType": "MultiLanguageProperty"
+                },
+                {
+                  "category": "",
+                  "idShort": "Department",
+                  "semanticId": {
+                    "type": "ExternalReference",
+                    "keys": [
+                      {
+                        "type": "GlobalReference",
+                        "value": "0173-1#02-AAO127#003"
+                      }
+                    ]
+                  },
+                  "modelType": "MultiLanguageProperty"
+                },
+                {
+                  "category": "",
+                  "idShort": "Phone",
+                  "semanticId": {
+                    "type": "ExternalReference",
+                    "keys": [
+                      {
+                        "type": "GlobalReference",
+                        "value": "https://admin-shell.io/zvei/nameplate/1/0/ContactInformations/ContactInformation/Phone"
+                      }
+                    ]
+                  },
+                  "value": [
+                    {
+                      "category": "",
+                      "idShort": "TelephoneNumber",
+                      "semanticId": {
+                        "type": "ExternalReference",
+                        "keys": [
+                          {
+                            "type": "GlobalReference",
+                            "value": "0173-1#02-AAO136#002"
+                          }
+                        ]
+                      },
+                      "modelType": "MultiLanguageProperty"
+                    },
+                    {
+                      "category": "",
+                      "idShort": "TypeOfTelephone",
+                      "semanticId": {
+                        "type": "ExternalReference",
+                        "keys": [
+                          {
+                            "type": "GlobalReference",
+                            "value": "0173-1#02-AAO137#003"
+                          }
+                        ]
+                      },
+                      "valueType": "xs:string",
+                      "value": " ",
+                      "modelType": "Property"
+                    },
+                    {
+                      "category": "",
+                      "idShort": "AvailableTime",
+                      "semanticId": {
+                        "type": "ExternalReference",
+                        "keys": [
+                          {
+                            "type": "GlobalReference",
+                            "value": "https://admin-shell.io/zvei/nameplate/1/0/ContactInformations/ContactInformation/AvailableTime/"
+                          }
+                        ]
+                      },
+                      "modelType": "MultiLanguageProperty"
+                    }
+                  ],
+                  "modelType": "SubmodelElementCollection"
+                },
+                {
+                  "category": "",
+                  "idShort": "Fax",
+                  "semanticId": {
+                    "type": "ExternalReference",
+                    "keys": [
+                      {
+                        "type": "GlobalReference",
+                        "value": "0173-1#02-AAQ834#005"
+                      }
+                    ]
+                  },
+                  "value": [
+                    {
+                      "category": "",
+                      "idShort": "FaxNumber",
+                      "semanticId": {
+                        "type": "ExternalReference",
+                        "keys": [
+                          {
+                            "type": "GlobalReference",
+                            "value": "0173-1#02-AAO195#002"
+                          }
+                        ]
+                      },
+                      "modelType": "MultiLanguageProperty"
+                    },
+                    {
+                      "category": "",
+                      "idShort": "TypeOfFaxNumber",
+                      "semanticId": {
+                        "type": "ExternalReference",
+                        "keys": [
+                          {
+                            "type": "GlobalReference",
+                            "value": "0173-1#02-AAO196#003"
+                          }
+                        ]
+                      },
+                      "valueType": "xs:string",
+                      "value": " ",
+                      "modelType": "Property"
+                    }
+                  ],
+                  "modelType": "SubmodelElementCollection"
+                },
+                {
+                  "category": "",
+                  "idShort": "Email",
+                  "semanticId": {
+                    "type": "ExternalReference",
+                    "keys": [
+                      {
+                        "type": "GlobalReference",
+                        "value": "0173-1#02-AAQ836#005"
+                      }
+                    ]
+                  },
+                  "value": [
+                    {
+                      "category": "",
+                      "idShort": "EmailAddress",
+                      "semanticId": {
+                        "type": "ExternalReference",
+                        "keys": [
+                          {
+                            "type": "GlobalReference",
+                            "value": "0173-1#02-AAO198#002"
+                          }
+                        ]
+                      },
+                      "valueType": "xs:string",
+                      "value": " ",
+                      "modelType": "Property"
+                    },
+                    {
+                      "category": "",
+                      "idShort": "PublicKey",
+                      "semanticId": {
+                        "type": "ExternalReference",
+                        "keys": [
+                          {
+                            "type": "GlobalReference",
+                            "value": "0173-1#02-AAO200#002"
+                          }
+                        ]
+                      },
+                      "modelType": "MultiLanguageProperty"
+                    },
+                    {
+                      "category": "",
+                      "idShort": "TypeOfEmailAddress",
+                      "semanticId": {
+                        "type": "ExternalReference",
+                        "keys": [
+                          {
+                            "type": "GlobalReference",
+                            "value": "0173-1#02-AAO199#003"
+                          }
+                        ]
+                      },
+                      "valueType": "xs:string",
+                      "value": " ",
+                      "modelType": "Property"
+                    },
+                    {
+                      "category": "",
+                      "idShort": "TypeOfPublicKey",
+                      "semanticId": {
+                        "type": "ExternalReference",
+                        "keys": [
+                          {
+                            "type": "GlobalReference",
+                            "value": "0173-1#02-AAO201#002"
+                          }
+                        ]
+                      },
+                      "modelType": "MultiLanguageProperty"
+                    }
+                  ],
+                  "modelType": "SubmodelElementCollection"
+                },
+                {
+                  "category": "",
+                  "idShort": "IPCommunication0101",
+                  "semanticId": {
+                    "type": "ExternalReference",
+                    "keys": [
+                      {
+                        "type": "GlobalReference",
+                        "value": "https://admin-shell.io/zvei/nameplate/1/0/ContactInformations/"
+                      }
+                    ]
+                  },
+                  "value": [
+                    {
+                      "category": "",
+                      "idShort": "AddressOfAdditionalLink",
+                      "semanticId": {
+                        "type": "ExternalReference",
+                        "keys": [
+                          {
+                            "type": "GlobalReference",
+                            "value": "0173-1#02-AAQ326#002"
+                          }
+                        ]
+                      },
+                      "valueType": "xs:string",
+                      "value": " ",
+                      "modelType": "Property"
+                    },
+                    {
+                      "category": "",
+                      "idShort": "TypeOfCommunication",
+                      "semanticId": {
+                        "type": "ExternalReference",
+                        "keys": [
+                          {
+                            "type": "GlobalReference",
+                            "value": "https://admin-shell.io/zvei/nameplate/1/0/ ContactInformations/ContactInformation/IPCommunication/TypeOfCommunication"
+                          }
+                        ]
+                      },
+                      "valueType": "xs:string",
+                      "value": " ",
+                      "modelType": "Property"
+                    },
+                    {
+                      "category": "",
+                      "idShort": "AvailableTime",
+                      "semanticId": {
+                        "type": "ExternalReference",
+                        "keys": [
+                          {
+                            "type": "GlobalReference",
+                            "value": "https://admin-shell.io/zvei/nameplate/1/0/ContactInformations/ContactInformation/AvailableTime/"
+                          }
+                        ]
+                      },
+                      "modelType": "MultiLanguageProperty"
+                    }
+                  ],
+                  "modelType": "SubmodelElementCollection"
+                },
+                {
+                  "category": "",
+                  "idShort": "Street",
+                  "semanticId": {
+                    "type": "ExternalReference",
+                    "keys": [
+                      {
+                        "type": "GlobalReference",
+                        "value": "0173-1#02-AAO128#002"
+                      }
+                    ]
+                  },
+                  "modelType": "MultiLanguageProperty"
+                },
+                {
+                  "category": "",
+                  "idShort": "Zipcode",
+                  "semanticId": {
+                    "type": "ExternalReference",
+                    "keys": [
+                      {
+                        "type": "GlobalReference",
+                        "value": "0173-1#02-AAO129#002"
+                      }
+                    ]
+                  },
+                  "modelType": "MultiLanguageProperty"
+                },
+                {
+                  "category": "",
+                  "idShort": "POBox",
+                  "semanticId": {
+                    "type": "ExternalReference",
+                    "keys": [
+                      {
+                        "type": "GlobalReference",
+                        "value": "0173-1#02-AAO130#002"
+                      }
+                    ]
+                  },
+                  "modelType": "MultiLanguageProperty"
+                },
+                {
+                  "category": "",
+                  "idShort": "ZipCodeOfPOBox",
+                  "semanticId": {
+                    "type": "ExternalReference",
+                    "keys": [
+                      {
+                        "type": "GlobalReference",
+                        "value": "0173-1#02-AAO131#002"
+                      }
+                    ]
+                  },
+                  "modelType": "MultiLanguageProperty"
+                },
+                {
+                  "category": "",
+                  "idShort": "StateCounty",
+                  "semanticId": {
+                    "type": "ExternalReference",
+                    "keys": [
+                      {
+                        "type": "GlobalReference",
+                        "value": "0173-1#02-AAO133#002"
+                      }
+                    ]
+                  },
+                  "modelType": "MultiLanguageProperty"
+                },
+                {
+                  "category": "",
+                  "idShort": "NameOfContact",
+                  "semanticId": {
+                    "type": "ExternalReference",
+                    "keys": [
+                      {
+                        "type": "GlobalReference",
+                        "value": "0173-1#02-AAO205#002"
+                      }
+                    ]
+                  },
+                  "modelType": "MultiLanguageProperty"
+                },
+                {
+                  "category": "",
+                  "idShort": "FirstName",
+                  "semanticId": {
+                    "type": "ExternalReference",
+                    "keys": [
+                      {
+                        "type": "GlobalReference",
+                        "value": "0173-1#02-AAO206#002"
+                      }
+                    ]
+                  },
+                  "modelType": "MultiLanguageProperty"
+                },
+                {
+                  "category": "",
+                  "idShort": "MiddleNames",
+                  "semanticId": {
+                    "type": "ExternalReference",
+                    "keys": [
+                      {
+                        "type": "GlobalReference",
+                        "value": "0173-1#02-AAO207#002"
+                      }
+                    ]
+                  },
+                  "modelType": "MultiLanguageProperty"
+                },
+                {
+                  "category": "",
+                  "idShort": "Title",
+                  "semanticId": {
+                    "type": "ExternalReference",
+                    "keys": [
+                      {
+                        "type": "GlobalReference",
+                        "value": "0173-1#02-AAO208#003"
+                      }
+                    ]
+                  },
+                  "modelType": "MultiLanguageProperty"
+                },
+                {
+                  "category": "",
+                  "idShort": "AcademicTitle",
+                  "semanticId": {
+                    "type": "ExternalReference",
+                    "keys": [
+                      {
+                        "type": "GlobalReference",
+                        "value": "0173-1#02-AAO209#003"
+                      }
+                    ]
+                  },
+                  "modelType": "MultiLanguageProperty"
+                },
+                {
+                  "category": "",
+                  "idShort": "FurtherDetailsOfContact",
+                  "semanticId": {
+                    "type": "ExternalReference",
+                    "keys": [
+                      {
+                        "type": "GlobalReference",
+                        "value": "0173-1#02-AAO210#002"
+                      }
+                    ]
+                  },
+                  "modelType": "MultiLanguageProperty"
+                },
+                {
+                  "category": "",
+                  "idShort": "AddressOfAdditionalLink",
+                  "semanticId": {
+                    "type": "ExternalReference",
+                    "keys": [
+                      {
+                        "type": "GlobalReference",
+                        "value": "0173-1#02-AAQ326#002"
+                      }
+                    ]
+                  },
+                  "valueType": "xs:string",
+                  "value": " ",
+                  "modelType": "Property"
+                }
+              ],
+              "modelType": "SubmodelElementCollection"
+            }
+          ],
+          "modelType": "SubmodelElementCollection"
+        }
+      ],
+      "modelType": "Submodel"
+    },
+    {
+      "idShort": "CapabilitiesAndSkills",
+      "id": "https://example.com/ids/sm/1404_1121_2062_8641",
+      "kind": "Instance",
+      "submodelElements": [
+        {
+          "idShort": "Capability_PickPiece",
+          "semanticId": {
+            "type": "ExternalReference",
+            "keys": [
+              {
+                "type": "GlobalReference",
+                "value": "http://www.w3id.org/upv-ehu/gcis/css-smia#AssetCapability"
+              }
+            ]
+          },
+          "qualifiers": [
+            {
+              "semanticId": {
+                "type": "ExternalReference",
+                "keys": [
+                  {
+                    "type": "GlobalReference",
+                    "value": "http://www.w3id.org/upv-ehu/gcis/css-smia#hasLifecycle"
+                  }
+                ]
+              },
+              "kind": "ConceptQualifier",
+              "type": "hasLifecycle",
+              "valueType": "xs:string",
+              "value": "OFFER"
+            }
+          ],
+          "value": [
+            {
+              "idShort": "position",
+              "valueType": "xs:int",
+              "modelType": "Property"
+            }
+          ],
+          "modelType": "SubmodelElementCollection"
+        },
+        {
+          "idShort": "Capability_PlacePiece",
+          "semanticId": {
+            "type": "ExternalReference",
+            "keys": [
+              {
+                "type": "GlobalReference",
+                "value": "http://www.w3id.org/upv-ehu/gcis/css-smia#AssetCapability"
+              }
+            ]
+          },
+          "qualifiers": [
+            {
+              "semanticId": {
+                "type": "ExternalReference",
+                "keys": [
+                  {
+                    "type": "GlobalReference",
+                    "value": "http://www.w3id.org/upv-ehu/gcis/css-smia#hasLifecycle"
+                  }
+                ]
+              },
+              "kind": "ConceptQualifier",
+              "type": "hasLifecycle",
+              "valueType": "xs:string",
+              "value": "OFFER"
+            }
+          ],
+          "value": [
+            {
+              "idShort": "position",
+              "valueType": "xs:int",
+              "modelType": "Property"
+            }
+          ],
+          "modelType": "SubmodelElementCollection"
+        },
+        {
+          "idShort": "Skill_PickPiece",
+          "semanticId": {
+            "type": "ExternalReference",
+            "keys": [
+              {
+                "type": "GlobalReference",
+                "value": "http://www.w3id.org/hsu-aut/css#Skill"
+              }
+            ]
+          },
+          "qualifiers": [
+            {
+              "semanticId": {
+                "type": "ExternalReference",
+                "keys": [
+                  {
+                    "type": "GlobalReference",
+                    "value": "http://www.w3id.org/upv-ehu/gcis/css-smia#hasImplementationType"
+                  }
+                ]
+              },
+              "kind": "ConceptQualifier",
+              "type": "hasImplementationType",
+              "valueType": "xs:string",
+              "value": "OPERATION"
+            }
+          ],
+          "valueType": "xs:string",
+          "modelType": "Property"
+        },
+        {
+          "idShort": "Skill_PlacePiece",
+          "semanticId": {
+            "type": "ExternalReference",
+            "keys": [
+              {
+                "type": "GlobalReference",
+                "value": "http://www.w3id.org/hsu-aut/css#Skill"
+              }
+            ]
+          },
+          "qualifiers": [
+            {
+              "semanticId": {
+                "type": "ExternalReference",
+                "keys": [
+                  {
+                    "type": "GlobalReference",
+                    "value": "http://www.w3id.org/upv-ehu/gcis/css-smia#hasImplementationType"
+                  }
+                ]
+              },
+              "kind": "ConceptQualifier",
+              "type": "hasImplementationType",
+              "valueType": "xs:string",
+              "value": "OPERATION"
+            }
+          ],
+          "valueType": "xs:string",
+          "modelType": "Property"
+        }
+      ],
+      "modelType": "Submodel"
+    },
+    {
+      "idShort": "SemanticRelationships",
+      "id": "https://example.com/ids/sm/0145_8081_2062_1850",
+      "kind": "Instance",
+      "submodelElements": [
+        {
+          "idShort": "rel_CapPick_isRealizedBySkill_SkillPick",
+          "semanticId": {
+            "type": "ExternalReference",
+            "keys": [
+              {
+                "type": "GlobalReference",
+                "value": "http://www.w3id.org/hsu-aut/css#isRealizedBy"
+              }
+            ]
+          },
+          "first": {
+            "type": "ModelReference",
+            "keys": [
+              {
+                "type": "Submodel",
+                "value": "https://example.com/ids/sm/1404_1121_2062_8641"
+              },
+              {
+                "type": "SubmodelElementCollection",
+                "value": "Capability_PickPiece"
+              }
+            ]
+          },
+          "second": {
+            "type": "ModelReference",
+            "keys": [
+              {
+                "type": "Submodel",
+                "value": "https://example.com/ids/sm/1404_1121_2062_8641"
+              },
+              {
+                "type": "Property",
+                "value": "Skill_PickPiece"
+              }
+            ]
+          },
+          "modelType": "RelationshipElement"
+        },
+        {
+          "idShort": "rel_CapPlace_isRealizedBySkill_SkillPlace",
+          "semanticId": {
+            "type": "ExternalReference",
+            "keys": [
+              {
+                "type": "GlobalReference",
+                "value": "http://www.w3id.org/hsu-aut/css#isRealizedBy"
+              }
+            ]
+          },
+          "first": {
+            "type": "ModelReference",
+            "keys": [
+              {
+                "type": "Submodel",
+                "value": "https://example.com/ids/sm/1404_1121_2062_8641"
+              },
+              {
+                "type": "SubmodelElementCollection",
+                "value": "Capability_PlacePiece"
+              }
+            ]
+          },
+          "second": {
+            "type": "ModelReference",
+            "keys": [
+              {
+                "type": "Submodel",
+                "value": "https://example.com/ids/sm/1404_1121_2062_8641"
+              },
+              {
+                "type": "Property",
+                "value": "Skill_PlacePiece"
+              }
+            ]
+          },
+          "modelType": "RelationshipElement"
+        },
+        {
+          "idShort": "rel_SkillPick_hasSkillInterface",
+          "semanticId": {
+            "type": "ExternalReference",
+            "keys": [
+              {
+                "type": "GlobalReference",
+                "value": "http://www.w3id.org/upv-ehu/gcis/css-smia#accessibleThroughAssetService"
+              }
+            ]
+          },
+          "first": {
+            "type": "ModelReference",
+            "keys": [
+              {
+                "type": "Submodel",
+                "value": "https://example.com/ids/sm/1404_1121_2062_8641"
+              },
+              {
+                "type": "Property",
+                "value": "Skill_PickPiece"
+              }
+            ]
+          },
+          "second": {
+            "type": "ModelReference",
+            "keys": [
+              {
+                "type": "Submodel",
+                "value": "https://example.com/ids/sm/1340_1111_2062_7197"
+              },
+              {
+                "type": "SubmodelElementCollection",
+                "value": "InterfaceHTTP"
+              },
+              {
+                "type": "SubmodelElementCollection",
+                "value": "InteractionMetadata"
+              },
+              {
+                "type": "SubmodelElementCollection",
+                "value": "actions"
+              },
+              {
+                "type": "SubmodelElementCollection",
+                "value": "pickPiece"
+              }
+            ]
+          },
+          "modelType": "RelationshipElement"
+        },
+        {
+          "idShort": "rel_SkillPlace_hasSkillInterface",
+          "semanticId": {
+            "type": "ExternalReference",
+            "keys": [
+              {
+                "type": "GlobalReference",
+                "value": "http://www.w3id.org/upv-ehu/gcis/css-smia#accessibleThroughAssetService"
+              }
+            ]
+          },
+          "first": {
+            "type": "ModelReference",
+            "keys": [
+              {
+                "type": "Submodel",
+                "value": "https://example.com/ids/sm/1404_1121_2062_8641"
+              },
+              {
+                "type": "Property",
+                "value": "Skill_PlacePiece"
+              }
+            ]
+          },
+          "second": {
+            "type": "ModelReference",
+            "keys": [
+              {
+                "type": "Submodel",
+                "value": "https://example.com/ids/sm/1340_1111_2062_7197"
+              },
+              {
+                "type": "SubmodelElementCollection",
+                "value": "InterfaceHTTP"
+              },
+              {
+                "type": "SubmodelElementCollection",
+                "value": "InteractionMetadata"
+              },
+              {
+                "type": "SubmodelElementCollection",
+                "value": "actions"
+              },
+              {
+                "type": "SubmodelElementCollection",
+                "value": "placePiece"
+              }
+            ]
+          },
+          "modelType": "RelationshipElement"
+        }
+      ],
+      "modelType": "Submodel"
+    }
+  ],
+  "conceptDescriptions": [
+    {
+      "idShort": "CD_AssetCapability",
+      "id": "http://www.w3id.org/upv-ehu/gcis/css-smia#AssetCapability",
+      "modelType": "ConceptDescription"
+    },
+    {
+      "idShort": "CD_Skill",
+      "id": "http://www.w3id.org/hsu-aut/css#Skill",
+      "modelType": "ConceptDescription"
+    },
+    {
+      "idShort": "CD_CSS_SMIA_Ontology",
+      "id": "http://www.w3id.org/upv-ehu/gcis/css-smia",
+      "modelType": "ConceptDescription"
+    },
+    {
+      "idShort": "CD_isRealizedBySkill",
+      "id": "http://www.w3id.org/hsu-aut/css#isRealizedBySkill",
+      "modelType": "ConceptDescription"
+    },
+    {
+      "idShort": "ManufacturingCapability",
+      "id": "http://www.w3id.org/hsu-aut/css#Capability",
+      "embeddedDataSpecifications": [
+        {
+          "dataSpecification": {
+            "type": "ExternalReference",
+            "keys": [
+              {
+                "type": "GlobalReference",
+                "value": "https://admin-shell.io/DataSpecificationTemplates/DataSpecificationIec61360/3/0"
+              }
+            ]
+          },
+          "dataSpecificationContent": {
+            "preferredName": [
+              {
+                "language": "en",
+                "text": "ManufacturingCapability"
+              }
+            ],
+            "shortName": [
+              {
+                "language": "en",
+                "text": "N/A"
+              }
+            ],
+            "unit": "",
+            "definition": [
+              {
+                "language": "en",
+                "text": "N/A"
+              }
+            ],
+            "modelType": "DataSpecificationIec61360"
+          }
+        }
+      ],
+      "modelType": "ConceptDescription"
+    },
+    {
+      "idShort": "AgentCapability",
+      "id": "http://www.w3id.org/upv-ehu/gcis/css-smia#AgentCapability",
+      "embeddedDataSpecifications": [
+        {
+          "dataSpecification": {
+            "type": "ExternalReference",
+            "keys": [
+              {
+                "type": "GlobalReference",
+                "value": "https://admin-shell.io/DataSpecificationTemplates/DataSpecificationIec61360/3/0"
+              }
+            ]
+          },
+          "dataSpecificationContent": {
+            "preferredName": [
+              {
+                "language": "en",
+                "text": "AgentCapability"
+              }
+            ],
+            "shortName": [
+              {
+                "language": "en",
+                "text": "N/A"
+              }
+            ],
+            "unit": "",
+            "definition": [
+              {
+                "language": "en",
+                "text": "N/A"
+              }
+            ],
+            "modelType": "DataSpecificationIec61360"
+          }
+        }
+      ],
+      "modelType": "ConceptDescription"
+    },
+    {
+      "idShort": "CapabilityRestrictedBy",
+      "id": "http://www.w3id.org/hsu-aut/css#isRestrictedBy",
+      "embeddedDataSpecifications": [
+        {
+          "dataSpecification": {
+            "type": "ExternalReference",
+            "keys": [
+              {
+                "type": "GlobalReference",
+                "value": "https://admin-shell.io/DataSpecificationTemplates/DataSpecificationIec61360/3/0"
+              }
+            ]
+          },
+          "dataSpecificationContent": {
+            "preferredName": [
+              {
+                "language": "en",
+                "text": "CapabilityRestrictedBy"
+              }
+            ],
+            "shortName": [
+              {
+                "language": "en",
+                "text": "N/A"
+              }
+            ],
+            "unit": "",
+            "definition": [
+              {
+                "language": "en",
+                "text": "N/A"
+              }
+            ],
+            "modelType": "DataSpecificationIec61360"
+          }
+        }
+      ],
+      "modelType": "ConceptDescription"
+    },
+    {
+      "idShort": "CapabilityConstraint",
+      "id": "http://www.w3id.org/hsu-aut/css#CapabilityConstraint",
+      "embeddedDataSpecifications": [
+        {
+          "dataSpecification": {
+            "type": "ExternalReference",
+            "keys": [
+              {
+                "type": "GlobalReference",
+                "value": "https://admin-shell.io/DataSpecificationTemplates/DataSpecificationIec61360/3/0"
+              }
+            ]
+          },
+          "dataSpecificationContent": {
+            "preferredName": [
+              {
+                "language": "en",
+                "text": "CapabilityConstraint"
+              }
+            ],
+            "shortName": [
+              {
+                "language": "en",
+                "text": "N/A"
+              }
+            ],
+            "unit": "",
+            "definition": [
+              {
+                "language": "en",
+                "text": "N/A"
+              }
+            ],
+            "modelType": "DataSpecificationIec61360"
+          }
+        }
+      ],
+      "modelType": "ConceptDescription"
+    },
+    {
+      "idShort": "CapabilityRealizedBy",
+      "id": "http://www.w3id.org/hsu-aut/css#isRealizedBy",
+      "embeddedDataSpecifications": [
+        {
+          "dataSpecification": {
+            "type": "ExternalReference",
+            "keys": [
+              {
+                "type": "GlobalReference",
+                "value": "https://admin-shell.io/DataSpecificationTemplates/DataSpecificationIec61360/3/0"
+              }
+            ]
+          },
+          "dataSpecificationContent": {
+            "preferredName": [
+              {
+                "language": "en",
+                "text": "CapabilityRealizedBy"
+              }
+            ],
+            "shortName": [
+              {
+                "language": "en",
+                "text": "N/A"
+              }
+            ],
+            "unit": "",
+            "definition": [
+              {
+                "language": "en",
+                "text": "N/A"
+              }
+            ],
+            "modelType": "DataSpecificationIec61360"
+          }
+        }
+      ],
+      "modelType": "ConceptDescription"
+    },
+    {
+      "idShort": "SkillAccessibleThrough",
+      "id": "http://www.w3id.org/hsu-aut/css#accessibleThrough",
+      "embeddedDataSpecifications": [
+        {
+          "dataSpecification": {
+            "type": "ExternalReference",
+            "keys": [
+              {
+                "type": "GlobalReference",
+                "value": "https://admin-shell.io/DataSpecificationTemplates/DataSpecificationIec61360/3/0"
+              }
+            ]
+          },
+          "dataSpecificationContent": {
+            "preferredName": [
+              {
+                "language": "en",
+                "text": "SkillAccessibleThrough"
+              }
+            ],
+            "shortName": [
+              {
+                "language": "en",
+                "text": "N/A"
+              }
+            ],
+            "unit": "",
+            "definition": [
+              {
+                "language": "en",
+                "text": "N/A"
+              }
+            ],
+            "modelType": "DataSpecificationIec61360"
+          }
+        }
+      ],
+      "modelType": "ConceptDescription"
+    },
+    {
+      "idShort": "SkillAccessibleThroughAgentService",
+      "id": "http://www.w3id.org/upv-ehu/gcis/css-smia#AccessibleThroughAgentService",
+      "embeddedDataSpecifications": [
+        {
+          "dataSpecification": {
+            "type": "ExternalReference",
+            "keys": [
+              {
+                "type": "GlobalReference",
+                "value": "https://admin-shell.io/DataSpecificationTemplates/DataSpecificationIec61360/3/0"
+              }
+            ]
+          },
+          "dataSpecificationContent": {
+            "preferredName": [
+              {
+                "language": "en",
+                "text": "SkillAccessibleThroughAgentService"
+              }
+            ],
+            "shortName": [
+              {
+                "language": "en",
+                "text": "N/A"
+              }
+            ],
+            "unit": "",
+            "definition": [
+              {
+                "language": "en",
+                "text": "N/A"
+              }
+            ],
+            "modelType": "DataSpecificationIec61360"
+          }
+        }
+      ],
+      "modelType": "ConceptDescription"
+    },
+    {
+      "idShort": "SkillAccessibleThroughAssetService",
+      "id": "http://www.w3id.org/upv-ehu/gcis/css-smia#AccessibleThroughAssetService",
+      "embeddedDataSpecifications": [
+        {
+          "dataSpecification": {
+            "type": "ExternalReference",
+            "keys": [
+              {
+                "type": "GlobalReference",
+                "value": "https://admin-shell.io/DataSpecificationTemplates/DataSpecificationIec61360/3/0"
+              }
+            ]
+          },
+          "dataSpecificationContent": {
+            "preferredName": [
+              {
+                "language": "en",
+                "text": "SkillAccessibleThroughAssetService"
+              }
+            ],
+            "shortName": [
+              {
+                "language": "en",
+                "text": "N/A"
+              }
+            ],
+            "unit": "",
+            "definition": [
+              {
+                "language": "en",
+                "text": "N/A"
+              }
+            ],
+            "modelType": "DataSpecificationIec61360"
+          }
+        }
+      ],
+      "modelType": "ConceptDescription"
+    },
+    {
+      "idShort": "SkillInterface",
+      "id": "http://www.w3id.org/hsu-aut/css#SkillInterface",
+      "embeddedDataSpecifications": [
+        {
+          "dataSpecification": {
+            "type": "ExternalReference",
+            "keys": [
+              {
+                "type": "GlobalReference",
+                "value": "https://admin-shell.io/DataSpecificationTemplates/DataSpecificationIec61360/3/0"
+              }
+            ]
+          },
+          "dataSpecificationContent": {
+            "preferredName": [
+              {
+                "language": "en",
+                "text": "SkillInterface"
+              }
+            ],
+            "shortName": [
+              {
+                "language": "en",
+                "text": "N/A"
+              }
+            ],
+            "unit": "",
+            "definition": [
+              {
+                "language": "en",
+                "text": "N/A"
+              }
+            ],
+            "modelType": "DataSpecificationIec61360"
+          }
+        }
+      ],
+      "modelType": "ConceptDescription"
+    },
+    {
+      "idShort": "SkillHasParameter",
+      "id": "http://www.w3id.org/hsu-aut/css#hasParameter",
+      "embeddedDataSpecifications": [
+        {
+          "dataSpecification": {
+            "type": "ExternalReference",
+            "keys": [
+              {
+                "type": "GlobalReference",
+                "value": "https://admin-shell.io/DataSpecificationTemplates/DataSpecificationIec61360/3/0"
+              }
+            ]
+          },
+          "dataSpecificationContent": {
+            "preferredName": [
+              {
+                "language": "en",
+                "text": "SkillHasParameter"
+              }
+            ],
+            "shortName": [
+              {
+                "language": "en",
+                "text": "N/A"
+              }
+            ],
+            "unit": "",
+            "definition": [
+              {
+                "language": "en",
+                "text": "N/A"
+              }
+            ],
+            "modelType": "DataSpecificationIec61360"
+          }
+        }
+      ],
+      "modelType": "ConceptDescription"
+    },
+    {
+      "idShort": "SkillParameter",
+      "id": "http://www.w3id.org/hsu-aut/css#SkillParameter",
+      "embeddedDataSpecifications": [
+        {
+          "dataSpecification": {
+            "type": "ExternalReference",
+            "keys": [
+              {
+                "type": "GlobalReference",
+                "value": "https://admin-shell.io/DataSpecificationTemplates/DataSpecificationIec61360/3/0"
+              }
+            ]
+          },
+          "dataSpecificationContent": {
+            "preferredName": [
+              {
+                "language": "en",
+                "text": "SkillParameter"
+              }
+            ],
+            "shortName": [
+              {
+                "language": "en",
+                "text": "N/A"
+              }
+            ],
+            "unit": "",
+            "definition": [
+              {
+                "language": "en",
+                "text": "N/A"
+              }
+            ],
+            "modelType": "DataSpecificationIec61360"
+          }
+        }
+      ],
+      "modelType": "ConceptDescription"
+    },
+    {
+      "idShort": "SkillBehavioursConformsTo",
+      "id": "http://www.w3id.org/hsu-aut/css#behaviorConformsTo",
+      "embeddedDataSpecifications": [
+        {
+          "dataSpecification": {
+            "type": "ExternalReference",
+            "keys": [
+              {
+                "type": "GlobalReference",
+                "value": "https://admin-shell.io/DataSpecificationTemplates/DataSpecificationIec61360/3/0"
+              }
+            ]
+          },
+          "dataSpecificationContent": {
+            "preferredName": [
+              {
+                "language": "en",
+                "text": "SkillBehavioursConformsTo"
+              }
+            ],
+            "shortName": [
+              {
+                "language": "en",
+                "text": "N/A"
+              }
+            ],
+            "unit": "",
+            "definition": [
+              {
+                "language": "en",
+                "text": "N/A"
+              }
+            ],
+            "modelType": "DataSpecificationIec61360"
+          }
+        }
+      ],
+      "modelType": "ConceptDescription"
+    },
+    {
+      "idShort": "SkillStateMachine",
+      "id": "http://www.w3id.org/hsu-aut/css#StateMachine",
+      "embeddedDataSpecifications": [
+        {
+          "dataSpecification": {
+            "type": "ExternalReference",
+            "keys": [
+              {
+                "type": "GlobalReference",
+                "value": "https://admin-shell.io/DataSpecificationTemplates/DataSpecificationIec61360/3/0"
+              }
+            ]
+          },
+          "dataSpecificationContent": {
+            "preferredName": [
+              {
+                "language": "en",
+                "text": "SkillStateMachine"
+              }
+            ],
+            "shortName": [
+              {
+                "language": "en",
+                "text": "N/A"
+              }
+            ],
+            "unit": "",
+            "definition": [
+              {
+                "language": "en",
+                "text": "N/A"
+              }
+            ],
+            "modelType": "DataSpecificationIec61360"
+          }
+        }
+      ],
+      "modelType": "ConceptDescription"
+    },
+    {
+      "idShort": "SkillParameterExposedThrough",
+      "id": "urn:ehu:gcis:capabilityskillontology:1:1:skillparameterexposedthrough",
+      "embeddedDataSpecifications": [
+        {
+          "dataSpecification": {
+            "type": "ExternalReference",
+            "keys": [
+              {
+                "type": "GlobalReference",
+                "value": "https://admin-shell.io/DataSpecificationTemplates/DataSpecificationIec61360/3/0"
+              }
+            ]
+          },
+          "dataSpecificationContent": {
+            "preferredName": [
+              {
+                "language": "en",
+                "text": "SkillParameterExposedThrough"
+              }
+            ],
+            "shortName": [
+              {
+                "language": "en",
+                "text": "N/A"
+              }
+            ],
+            "unit": "",
+            "definition": [
+              {
+                "language": "en",
+                "text": "N/A"
+              }
+            ],
+            "modelType": "DataSpecificationIec61360"
+          }
+        }
+      ],
+      "modelType": "ConceptDescription"
+    },
+    {
+      "idShort": "CD_ActionAffordance",
+      "id": "https://www.w3.org/2019/wot/td#ActionAffordance",
+      "modelType": "ConceptDescription"
+    },
+    {
+      "idShort": "CD_hasForms",
+      "id": "https://www.w3.org/2019/wot/td#hasForm",
+      "modelType": "ConceptDescription"
+    },
+    {
+      "idShort": "CD_hasTarget",
+      "id": "https://www.w3.org/2019/wot/hypermedia#hasTarget",
+      "modelType": "ConceptDescription"
+    },
+    {
+      "idShort": "CD_methodName",
+      "id": "https://www.w3.org/2011/http#methodName",
+      "modelType": "ConceptDescription"
+    },
+    {
+      "idShort": "CD_forContentType",
+      "id": "https://www.w3.org/2019/wot/hypermedia#forContentType",
+      "modelType": "ConceptDescription"
+    }
+  ]
+}

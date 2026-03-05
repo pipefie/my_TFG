@@ -1,0 +1,59 @@
+services:
+
+  smia:
+    image: ekhurtado/smia:latest-alpine
+    container_name: smia
+    environment:
+      - AAS_MODEL_NAME=LEGO_factory_case0.aasx
+      - AAS_ID=urn:uuid:6475_0111_2062_9689
+      - AGENT_ID=SMIA_agent@ejabberd
+      - AGENT_PASSWD=asd
+    depends_on:
+      xmpp-server:
+        condition: service_healthy
+    volumes:
+      - ../src/smia/agents/smia_agent.py:/usr/local/lib/python3.12/site-packages/smia/agents/smia_agent.py
+      - ./aas:/smia_archive/config/aas
+
+  xmpp-server:
+    image: ghcr.io/processone/ejabberd
+    container_name: ejabberd
+    environment:
+      - ERLANG_NODE_ARG=admin@ejabberd
+      - ERLANG_COOKIE=dummycookie123
+      - CTL_ON_CREATE=! register SMIA_agent ejabberd asd ; register operator001 ejabberd gcis1234
+    ports:
+      - "5222:5222"
+      - "5269:5269"
+      - "5280:5280"
+      - "5443:5443"
+    volumes:
+      - ./xmpp_server/ejabberd.yml:/opt/ejabberd/conf/ejabberd.yml
+      - ejabberd_data:/opt/ejabberd/database
+    healthcheck:
+      test: netstat -nl | grep -q 5222
+      start_period: 5s
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  smia-operator:
+    image: ekhurtado/smia-use-cases:latest-operator
+    container_name: smia-operator
+    environment:
+      - AAS_MODEL_NAME=SMIA_Operator_article.aasx
+      - AGENT_ID=operator001@ejabberd
+      - AGENT_PASSWD=gcis1234
+    depends_on:
+      xmpp-server:
+        condition: service_healthy
+    volumes:
+      - ./aas:/smia_archive/config/aas
+      - ../additional_tools/extended_agents/smia_operator_agent/operator_gui_behaviours.py:/operator_gui_behaviours.py
+      - ../additional_tools/extended_agents/smia_operator_agent/operator_gui_logic.py:/operator_gui_logic.py
+      - ../additional_tools/extended_agents/smia_operator_agent/htmls:/htmls
+    ports:
+      - "10000:10000"
+
+volumes:
+  ejabberd_data:

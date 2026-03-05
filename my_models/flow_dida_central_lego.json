@@ -1,0 +1,123 @@
+[
+  {
+    "id": "ba889291cc994610",
+    "type": "tab",
+    "label": "LEGO Commands (SMIA)",
+    "disabled": false,
+    "info": "",
+    "env": []
+  },
+  {
+    "id": "75e0dac724dd1a62",
+    "type": "http in",
+    "z": "ba889291cc994610",
+    "name": "Pick Endpoint",
+    "url": "/smia/lego/pick",
+    "method": "post",
+    "upload": true,
+    "swaggerDoc": "",
+    "x": 130,
+    "y": 240,
+    "wires": [
+      [
+        "67d511398393fb77"
+      ]
+    ]
+  },
+  {
+    "id": "b4e8ba9d14ea1264",
+    "type": "mqtt out",
+    "z": "ba889291cc994610",
+    "name": "Pick command",
+    "topic": "",
+    "qos": "1",
+    "retain": "",
+    "respTopic": "",
+    "contentType": "",
+    "userProps": "",
+    "correl": "",
+    "expiry": "",
+    "broker": "central-broker",
+    "x": 720,
+    "y": 140,
+    "wires": []
+  },
+  {
+    "id": "67d511398393fb77",
+    "type": "json",
+    "z": "ba889291cc994610",
+    "name": "Parser",
+    "property": "payload",
+    "action": "",
+    "pretty": false,
+    "x": 330,
+    "y": 240,
+    "wires": [
+      [
+        "d9ceb7c9f3889e94"
+      ]
+    ]
+  },
+  {
+    "id": "d9ceb7c9f3889e94",
+    "type": "function",
+    "z": "ba889291cc994610",
+    "name": "Validate+Publish pickPiece",
+    "func": "// Case 0 compatibility mode:\n// - Keep strict validation when position is provided\n// - If position is missing, use DEFAULT_POSITION for SMIA calls without skill params\n\nconst DEFAULT_POSITION = 0; // set to null to enforce strict mode\n\nconst body = (msg.payload && typeof msg.payload === \"object\") ? msg.payload : {};\nconst query = (msg.req && msg.req.query) ? msg.req.query : {};\n\nlet posRaw;\nif (body.position !== undefined && body.position !== null && body.position !== \"\") {\n  posRaw = body.position;\n} else if (query.position !== undefined && query.position !== null && query.position !== \"\") {\n  posRaw = query.position;\n} else if (body.skillParams && body.skillParams.position !== undefined) {\n  posRaw = body.skillParams.position;\n}\n\nlet source = \"request\";\nif ((posRaw === undefined || posRaw === null || posRaw === \"\") && DEFAULT_POSITION !== null) {\n  posRaw = DEFAULT_POSITION;\n  source = \"default\";\n}\n\nif (posRaw === undefined || posRaw === null || posRaw === \"\") {\n  msg.statusCode = 400;\n  msg.payload = { status: \"error\", reason: \"Missing field: position\" };\n  return [null, msg];\n}\n\nconst pos = Number(posRaw);\nif (!Number.isInteger(pos) || pos < 0 || pos > 8) {\n  msg.statusCode = 400;\n  msg.payload = { status: \"error\", reason: \"position must be integer 0..8\" };\n  return [null, msg];\n}\n\nmsg.topic = \"vicom/61/piso_0/lab/lego/commands\";\nmsg.payload = `bandera_custom:${pos}`;\n\nconst httpMsg = {\n  statusCode: 200,\n  payload: {\n    status: \"ok\",\n    published: msg.topic,\n    payload: msg.payload,\n    position: pos,\n    source\n  }\n};\n\nreturn [msg, httpMsg];\n",
+    "outputs": 2,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 520,
+    "y": 240,
+    "wires": [
+      [
+        "b4e8ba9d14ea1264"
+      ],
+      [
+        "fe3e6859e5831800"
+      ]
+    ]
+  },
+  {
+    "id": "fe3e6859e5831800",
+    "type": "http response",
+    "z": "ba889291cc994610",
+    "name": "http response",
+    "statusCode": "",
+    "headers": {},
+    "x": 720,
+    "y": 320,
+    "wires": []
+  },
+  {
+    "id": "central-broker",
+    "type": "mqtt-broker",
+    "name": "central",
+    "broker": "mosquitto-central",
+    "port": "1883",
+    "clientid": "",
+    "autoConnect": true,
+    "usetls": false,
+    "compatmode": false,
+    "protocolVersion": "4",
+    "keepalive": "60",
+    "cleansession": true,
+    "autoUnsubscribe": true,
+    "birthTopic": "",
+    "birthQos": "0",
+    "birthPayload": "",
+    "birthMsg": {},
+    "closeTopic": "",
+    "closePayload": "",
+    "closeMsg": {},
+    "willTopic": "",
+    "willQos": "0",
+    "willPayload": "",
+    "willMsg": {},
+    "userProps": "",
+    "sessionExpiry": ""
+  }
+]
