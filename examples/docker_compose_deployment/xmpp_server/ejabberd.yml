@@ -91,6 +91,11 @@ listen:
 s2s_use_starttls: optional
 
 acl:
+  admin:
+    user:
+      - "admin@localhost"
+      - "smia_agent@localhost"
+      - "smia_agent@ejabberd"
   local:
     user_regexp: ""
   loopback:

@@ -1,0 +1,1011 @@
+.
+├── additional_resources
+│   ├── aas_ontology_reader
+│   │   ├── aas_ontology_reader_info.py
+│   │   ├── aas_ontology_reader.py
+│   │   ├── LICENSE
+│   │   └── utilities.py
+│   ├── aasx_package_explorer_resources
+│   │   ├── IDTA-02007-1-0_Template_Software_Nameplate.add-options.json
+│   │   ├── IDTA-02017-1-0_Template_Asset_Interfaces_Description.add-options.json
+│   │   ├── LICENSE
+│   │   ├── README.md
+│   │   ├── SMIA-css-qualifier-presets.json
+│   │   └── SMIA-css-semantic-ids-sm.add-options.json
+│   ├── css_smia_ontology
+│   │   ├── capability_skill_module.py
+│   │   ├── catalog-v001.xml
+│   │   ├── CSS-ontology-smia.owl
+│   │   └── LICENSE
+│   ├── gui_agent
+│   │   ├── aas_uploads
+│   │   │   ├── AAS_with_all_SMEs.xml
+│   │   │   ├── AA.xml
+│   │   │   ├── PruebaCapabilitySkill_1.json
+│   │   │   ├── SMIA_demo_1.aasx
+│   │   │   ├── SMIA_TransportRobot_with_OWL.aasx
+│   │   │   └── SMIA_TransportRobot.xml
+│   │   ├── docker-compose.yml
+│   │   ├── Dockerfile_gui_agent
+│   │   ├── gui_agent_deployment.yaml
+│   │   ├── gui_agent.py
+│   │   ├── gui_agent_service.yaml
+│   │   ├── gui_features
+│   │   │   ├── behaviours.py
+│   │   │   ├── general_features.py
+│   │   │   └── __init__.py
+│   │   ├── htmls
+│   │   │   ├── aas_library.html
+│   │   │   ├── aas_loader.html
+│   │   │   ├── aas_loader_submit.html
+│   │   │   ├── negotiation.html
+│   │   │   ├── negotiation_submit.html
+│   │   │   ├── own_programming_language_editor.html
+│   │   │   ├── receive_acl.html
+│   │   │   ├── send_acl.html
+│   │   │   ├── send_acl_submit.html
+│   │   │   ├── send_acl_submit_v0.html
+│   │   │   ├── send_acl_v0.html
+│   │   │   ├── smia_operator.html
+│   │   │   ├── smia_operator_submit.html
+│   │   │   └── templates
+│   │   │       ├── smia_spade_template_example.html
+│   │   │       ├── spade_html_aside.html
+│   │   │       ├── spade_html_css_links.html
+│   │   │       ├── spade_html_header.html
+│   │   │       └── spade_html_scripts.html
+│   │   ├── receiver.py
+│   │   ├── requirements.txt
+│   │   ├── sender_agent_opc_ua_deployment.yaml
+│   │   ├── sender_agent_ros_deployment.yaml
+│   │   ├── spade_style.css
+│   │   └── static
+│   │       ├── favicon.ico
+│   │       ├── loading.gif
+│   │       ├── loading_line.gif
+│   │       ├── requesting.gif
+│   │       └── SMIA_favicon.ico
+│   ├── python_xmpp_server
+│   │   ├── LICENSE
+│   │   ├── pyjabber.db
+│   │   └── smia_server.py
+│   └── visual_resources
+│       ├── SMIA_approach_presentation.pdf
+│       └── SMIA_v0_2_0_demo.mp4
+├── additional_tools
+│   ├── camunda_smia_plugin
+│   │   ├── LICENSE
+│   │   └── src
+│   │       ├── client
+│   │       │   ├── ConfigOverlay.js
+│   │       │   ├── index.js
+│   │       │   ├── smia-kb-utils.js
+│   │       │   ├── smiaPaletteProviders
+│   │       │   │   ├── index.js
+│   │       │   │   └── SMIAPaletteProvider.js
+│   │       │   ├── SMIAPlugin.js
+│   │       │   └── smiaPropertiesProviders
+│   │       │       ├── index.js
+│   │       │       ├── properties
+│   │       │       │   └── smiaPropertiesDescriptor.json
+│   │       │       └── smiaPropertiesProvider.js
+│   │       ├── index.js
+│   │       ├── menu
+│   │       │   └── menu.js
+│   │       ├── package.json
+│   │       ├── resources
+│   │       │   ├── camunda.json
+│   │       │   ├── circle-check-solid.svg
+│   │       │   ├── circle-question-solid.svg
+│   │       │   ├── circle-xmark-solid.svg
+│   │       │   ├── screencast.gif
+│   │       │   ├── SMIA_logo_horizontal.svg
+│   │       │   ├── SMIA_logo_vertical.svg
+│   │       │   └── timer.svg
+│   │       ├── style
+│   │       │   └── style.css
+│   │       ├── Usage_information.txt
+│   │       └── webpack.config.js
+│   ├── extended_agents
+│   │   ├── smia_hi
+│   │   │   ├── docker
+│   │   │   │   ├── docker-compose.yml
+│   │   │   │   └── Dockerfile_SMIA_HI
+│   │   │   ├── LICENSE
+│   │   │   └── src
+│   │   │       ├── smia_archive
+│   │   │       │   ├── config
+│   │   │       │   │   ├── aas
+│   │   │       │   │   │   └── CeDRI_Operator_instance.aasx
+│   │   │       │   │   ├── CSS-ontology-smia.owl
+│   │   │       │   │   └── smia-initialization.properties
+│   │   │       │   ├── log
+│   │   │       │   │   ├── errors
+│   │   │       │   │   │   ├── aasInfrastructureSvcHistory.log
+│   │   │       │   │   │   ├── aasServicesHistory.log
+│   │   │       │   │   │   ├── assetRelatedSvcHistory.log
+│   │   │       │   │   │   ├── capabilitySkillHistory.log
+│   │   │       │   │   │   └── submodelServicesHistory.log
+│   │   │       │   │   ├── services
+│   │   │       │   │   │   ├── aasInfrastructureSvcHistory.log
+│   │   │       │   │   │   ├── aasServicesHistory.log
+│   │   │       │   │   │   ├── assetRelatedSvcHistory.log
+│   │   │       │   │   │   ├── capabilitySkillHistory.log
+│   │   │       │   │   │   └── submodelServicesHistory.log
+│   │   │       │   │   └── smia_dt.log
+│   │   │       │   └── status
+│   │   │       │       └── smia_dt.json
+│   │   │       └── smia_hi
+│   │   │           ├── behaviours
+│   │   │           │   ├── __init__.py
+│   │   │           │   ├── receive_acl_behaviour.py
+│   │   │           │   └── smia_hi_gui_behaviour.py
+│   │   │           ├── htmls
+│   │   │           │   ├── smia_hi_dashboard.html
+│   │   │           │   ├── static
+│   │   │           │   │   └── SMIA_favicon.ico
+│   │   │           │   └── templates
+│   │   │           │       ├── spade_html_aside.html
+│   │   │           │       ├── spade_html_css_links.html
+│   │   │           │       ├── spade_html_header.html
+│   │   │           │       └── spade_html_scripts.html
+│   │   │           ├── __init__.py
+│   │   │           ├── logic
+│   │   │           │   ├── __init__.py
+│   │   │           │   └── smia_hi_agent_services.py
+│   │   │           ├── smia_hi_starter.py
+│   │   │           └── utilities
+│   │   │               ├── gui_utils.py
+│   │   │               └── __init__.py
+│   │   ├── smia_operator_agent
+│   │   │   ├── deploy
+│   │   │   │   └── docker-compose.yml
+│   │   │   ├── Dockerfile
+│   │   │   ├── htmls
+│   │   │   │   ├── smia_operator.html
+│   │   │   │   ├── smia_operator_submit.html
+│   │   │   │   ├── static
+│   │   │   │   │   ├── loading_line.gif
+│   │   │   │   │   ├── requesting.gif
+│   │   │   │   │   └── SMIA_favicon.ico
+│   │   │   │   └── templates
+│   │   │   │       ├── spade_html_aside.html
+│   │   │   │       ├── spade_html_css_links.html
+│   │   │   │       ├── spade_html_header.html
+│   │   │   │       └── spade_html_scripts.html
+│   │   │   ├── LICENSE
+│   │   │   ├── operator_gui_behaviours.py
+│   │   │   ├── operator_gui_logic.py
+│   │   │   ├── SMIA_operator.aasx
+│   │   │   └── smia_operator_starter.py
+│   │   └── smia_pe
+│   │       ├── docker
+│   │       │   ├── docker-compose.yml
+│   │       │   ├── Dockerfile_SMIA_PE
+│   │       │   └── requirements.txt
+│   │       ├── LICENSE
+│   │       └── src
+│   │           ├── smia_archive
+│   │           │   ├── config
+│   │           │   │   ├── aas
+│   │           │   │   │   ├── SPEIA_CeDRI_ScenarioA.aasx
+│   │           │   │   │   └── SPEIA_CeDRI_ScenarioB.aasx
+│   │           │   │   ├── ontology.owl
+│   │           │   │   └── smia-initialization.properties
+│   │           │   ├── log
+│   │           │   │   ├── errors
+│   │           │   │   │   ├── aasInfrastructureSvcHistory.log
+│   │           │   │   │   ├── aasServicesHistory.log
+│   │           │   │   │   ├── assetRelatedSvcHistory.log
+│   │           │   │   │   ├── capabilitySkillHistory.log
+│   │           │   │   │   └── submodelServicesHistory.log
+│   │           │   │   ├── services
+│   │           │   │   │   ├── aasInfrastructureSvcHistory.log
+│   │           │   │   │   ├── aasServicesHistory.log
+│   │           │   │   │   ├── assetRelatedSvcHistory.log
+│   │           │   │   │   ├── capabilitySkillHistory.log
+│   │           │   │   │   └── submodelServicesHistory.log
+│   │           │   │   └── smia_dt.log
+│   │           │   └── status
+│   │           │       └── smia_dt.json
+│   │           └── smia_pe
+│   │               ├── behaviours
+│   │               │   ├── bpmn_performer_behaviour.py
+│   │               │   ├── __init__.py
+│   │               │   ├── receive_acl_behaviour.py
+│   │               │   └── smia_pe_gui_behaviour.py
+│   │               ├── htmls
+│   │               │   ├── smia_pe_dashboard.html
+│   │               │   ├── smia_pe_tracking.html
+│   │               │   ├── static
+│   │               │   │   └── SMIA_favicon.ico
+│   │               │   └── templates
+│   │               │       ├── spade_html_aside.html
+│   │               │       ├── spade_html_css_links.html
+│   │               │       ├── spade_html_header.html
+│   │               │       └── spade_html_scripts.html
+│   │               ├── __init__.py
+│   │               ├── smia_pe_starter.py
+│   │               └── utilities
+│   │                   ├── gui_utils.py
+│   │                   ├── __init__.py
+│   │                   ├── smia_bpmn_info.py
+│   │                   ├── smia_bpmn_utils.py
+│   │                   └── smia_pe_aas_model_utils.py
+│   └── infrastructure_components
+│       ├── smia_i_kb
+│       │   ├── LICENSE
+│       │   ├── smia_kb_openapi3_0_4.yaml
+│       │   └── src
+│       │       ├── docker-compose.yml
+│       │       ├── Dockerfile_SMIA_KB
+│       │       ├── git_push.sh
+│       │       ├── README.md
+│       │       ├── requirements.txt
+│       │       ├── setup.py
+│       │       ├── SMIA_KB_logo.png
+│       │       ├── swagger_server
+│       │       │   ├── aas_infrastructure_tools
+│       │       │   │   ├── aas_model_utils.py
+│       │       │   │   ├── aas_open_api_tools.py
+│       │       │   │   ├── aas_repository_information.py
+│       │       │   │   ├── aas_repository_infrastructure_info.py
+│       │       │   │   └── __init__.py
+│       │       │   ├── controllers
+│       │       │   │   ├── aas_repository_api_controller.py
+│       │       │   │   ├── authorization_controller.py
+│       │       │   │   ├── capability_api_controller.py
+│       │       │   │   ├── controllers_util.py
+│       │       │   │   ├── __init__.py
+│       │       │   │   ├── pet_controller.py
+│       │       │   │   ├── serialization_api_controller.py
+│       │       │   │   ├── skill_api_controller.py
+│       │       │   │   ├── smia_api_controller.py
+│       │       │   │   ├── store_controller.py
+│       │       │   │   └── user_controller.py
+│       │       │   ├── css_smia_ontology
+│       │       │   │   ├── css_ontology_utils.py
+│       │       │   │   ├── CSS-SMIA-KB-ontology.owl
+│       │       │   │   ├── css_smia_module.py
+│       │       │   │   ├── css_smia_ontology.py
+│       │       │   │   ├── __init__.py
+│       │       │   │   ├── persistence.sqlite3
+│       │       │   │   └── persistence.sqlite3-journal
+│       │       │   ├── encoder.py
+│       │       │   ├── __init__.py
+│       │       │   ├── __main__.py
+│       │       │   ├── models
+│       │       │   │   ├── api_response.py
+│       │       │   │   ├── asset.py
+│       │       │   │   ├── base_model_.py
+│       │       │   │   ├── capability_constraint.py
+│       │       │   │   ├── capability.py
+│       │       │   │   ├── category.py
+│       │       │   │   ├── datatypes.py
+│       │       │   │   ├── error.py
+│       │       │   │   ├── __init__.py
+│       │       │   │   ├── order.py
+│       │       │   │   ├── pet.py
+│       │       │   │   ├── skill_parameter.py
+│       │       │   │   ├── skill.py
+│       │       │   │   ├── smia_instance.py
+│       │       │   │   ├── tag.py
+│       │       │   │   └── user.py
+│       │       │   ├── swagger
+│       │       │   │   └── swagger.yaml
+│       │       │   ├── test
+│       │       │   │   ├── __init__.py
+│       │       │   │   ├── test_capability_api_controller.py
+│       │       │   │   ├── test_pet_controller.py
+│       │       │   │   ├── test_skill_api_controller.py
+│       │       │   │   ├── test_smiaapi_controller.py
+│       │       │   │   ├── test_store_controller.py
+│       │       │   │   └── test_user_controller.py
+│       │       │   ├── type_util.py
+│       │       │   └── util.py
+│       │       ├── test-requirements.txt
+│       │       └── tox.ini
+│       └── smia_ism
+│           ├── deploy
+│           │   ├── aas
+│           │   │   └── SMIA_InfrastructureServicesManager.aasx
+│           │   ├── docker-compose.yml
+│           │   └── xmpp_server
+│           │       └── ejabberd.yml
+│           ├── docker
+│           │   ├── docker-compose.yml
+│           │   ├── Dockerfile_SMIA_ISM
+│           │   └── requirements.txt
+│           ├── LICENSE
+│           └── src
+│               ├── smia_archive
+│               │   ├── config
+│               │   │   ├── aas
+│               │   │   │   ├── metrics
+│               │   │   │   │   └── gcis1-metrics.csv
+│               │   │   │   └── SMIA_InfrastructureServicesManager.aasx
+│               │   │   ├── ontology.owl
+│               │   │   └── smia-initialization.properties
+│               │   ├── log
+│               │   │   ├── errors
+│               │   │   │   ├── aasInfrastructureSvcHistory.log
+│               │   │   │   ├── aasServicesHistory.log
+│               │   │   │   ├── assetRelatedSvcHistory.log
+│               │   │   │   ├── capabilitySkillHistory.log
+│               │   │   │   └── submodelServicesHistory.log
+│               │   │   ├── services
+│               │   │   │   ├── aasInfrastructureSvcHistory.log
+│               │   │   │   ├── aasServicesHistory.log
+│               │   │   │   ├── assetRelatedSvcHistory.log
+│               │   │   │   ├── capabilitySkillHistory.log
+│               │   │   │   └── submodelServicesHistory.log
+│               │   │   └── smia_dt.log
+│               │   └── status
+│               │       └── smia_dt.json
+│               └── smia_ism
+│                   ├── behaviours
+│                   │   ├── acl_openapi_handling_behaviour.py
+│                   │   ├── handle_acl_openapi_behaviour.py
+│                   │   └── __init__.py
+│                   ├── external_infrastructures
+│                   │   ├── aas_repository_infrastructure.py
+│                   │   ├── __init__.py
+│                   │   └── smia_kb_infrastructure.py
+│                   ├── __init__.py
+│                   ├── logic
+│                   │   ├── acl_open_api_services.py
+│                   │   └── __init__.py
+│                   ├── smia_ism_starter.py
+│                   └── utilities
+│                       ├── acl_open_api_utils.py
+│                       ├── general_utils.py
+│                       ├── __init__.py
+│                       └── smia_acl_message_info.py
+├── CONTRIBUTING.md
+├── docker
+│   ├── CSS-ontology-smia.owl
+│   ├── docker-compose.yml
+│   ├── Dockerfile_SMIA
+│   ├── Dockerfile_SMIA_base
+│   ├── Dockerfile_SMIA_full
+│   ├── Dockerfile_SMIA_full_base
+│   └── requirements.txt
+├── docs
+│   ├── aas_developer_guide.rst
+│   ├── about_the_project.rst
+│   ├── apidoc
+│   │   ├── modules.rst
+│   │   ├── smia.aas_model.aas_model_utils.rst
+│   │   ├── smia.aas_model.extended_aas_model.rst
+│   │   ├── smia.aas_model.extended_aas.rst
+│   │   ├── smia.aas_model.extended_base.rst
+│   │   ├── smia.aas_model.extended_concept_description.rst
+│   │   ├── smia.aas_model.extended_submodel.rst
+│   │   ├── smia.aas_model.rst
+│   │   ├── smia.agents.extensible_smia_agent.rst
+│   │   ├── smia.agents.rst
+│   │   ├── smia.agents.smia_agent.rst
+│   │   ├── smia.agents.smia_app_agent.rst
+│   │   ├── smia.agents.smia_resource_agent.rst
+│   │   ├── smia.assetconnection.asset_connection.rst
+│   │   ├── smia.assetconnection.http_asset_connection.rst
+│   │   ├── smia.assetconnection.rst
+│   │   ├── smia.behaviours.aas_fsm_behaviour.rst
+│   │   ├── smia.behaviours.acl_handling_behaviour.rst
+│   │   ├── smia.behaviours.check_physical_asset_behaviour.rst
+│   │   ├── smia.behaviours.end_behaviour.rst
+│   │   ├── smia.behaviours.idle_behaviour.rst
+│   │   ├── smia.behaviours.init_aas_archive_behaviour.rst
+│   │   ├── smia.behaviours.init_aas_model_behaviour.rst
+│   │   ├── smia.behaviours.negotiating_behaviour.rst
+│   │   ├── smia.behaviours.rst
+│   │   ├── smia.behaviours.specific_handle_behaviours.handle_aas_related_svc_behaviour.rst
+│   │   ├── smia.behaviours.specific_handle_behaviours.handle_capability_behaviour.rst
+│   │   ├── smia.behaviours.specific_handle_behaviours.handle_negotiation_behaviour.rst
+│   │   ├── smia.behaviours.specific_handle_behaviours.handle_svc_response_behaviour.rst
+│   │   ├── smia.behaviours.specific_handle_behaviours.rst
+│   │   ├── smia.css_ontology.capability_skill_module.rst
+│   │   ├── smia.css_ontology.capability_skill_ontology.rst
+│   │   ├── smia.css_ontology.css_ontology_utils.rst
+│   │   ├── smia.css_ontology.css_operations.rst
+│   │   ├── smia.css_ontology.rst
+│   │   ├── smia.launchers.rst
+│   │   ├── smia.launchers.smia_cli_starter.rst
+│   │   ├── smia.launchers.smia_docker_starter.rst
+│   │   ├── smia.launchers.smia_starter.rst
+│   │   ├── smia.logic.acl_smia_messages_utils.rst
+│   │   ├── smia.logic.agent_services.rst
+│   │   ├── smia.logic.exceptions.rst
+│   │   ├── smia.logic.inter_smia_interactions_utils.rst
+│   │   ├── smia.logic.negotiation_utils.rst
+│   │   ├── smia.logic.rst
+│   │   ├── smia.logic.services_utils.rst
+│   │   ├── smia.rst
+│   │   ├── smia.states.rst
+│   │   ├── smia.states.state_booting_resource.rst
+│   │   ├── smia.states.state_booting.rst
+│   │   ├── smia.states.state_idle.rst
+│   │   ├── smia.states.state_running.rst
+│   │   ├── smia.states.state_stopping.rst
+│   │   ├── smia.utilities.aas_model_extension_utils.rst
+│   │   ├── smia.utilities.aas_related_services_info.rst
+│   │   ├── smia.utilities.fipa_acl_info.rst
+│   │   ├── smia.utilities.general_utils.rst
+│   │   ├── smia.utilities.properties_file_utils.rst
+│   │   ├── smia.utilities.rst
+│   │   ├── smia.utilities.smia_archive_utils.rst
+│   │   ├── smia.utilities.smia_general_info.rst
+│   │   └── smia.utilities.smia_info.rst
+│   ├── CODE_OF_CONDUCT.md
+│   ├── conf.py
+│   ├── CONTRIBUTING.md
+│   ├── environment_builder.rst
+│   ├── getting_started.rst
+│   ├── glossary.rst
+│   ├── index.rst
+│   ├── make.bat
+│   ├── Makefile
+│   ├── recommended_links.rst
+│   ├── release_notes.md
+│   ├── requirements.txt
+│   ├── smia_user_guide
+│   │   ├── aas_development_guide.rst
+│   │   ├── extension_guide.rst
+│   │   ├── guided_tutorials
+│   │   │   ├── guided_tutorial_extension.rst
+│   │   │   └── guided_tutorials.rst
+│   │   ├── installation_guide.rst
+│   │   ├── smia_configuration_guide.rst
+│   │   ├── smia_user_guide.rst
+│   │   └── start_up_guide.rst
+│   ├── sphinx-apidoc_command.bash
+│   ├── _static
+│   │   ├── css
+│   │   │   ├── custom.css
+│   │   │   └── smia-environment-builder-style.css
+│   │   ├── images
+│   │   │   ├── AASX_Package_Explorer_1.png
+│   │   │   ├── AASX_PE_step1.png
+│   │   │   ├── AASX_PE_step2.png
+│   │   │   ├── AASX_PE_step3.png
+│   │   │   ├── AASX_PE_step4.jpg
+│   │   │   ├── AASX_PE_step5.jpg
+│   │   │   ├── AASX_PE_step6.jpg
+│   │   │   ├── guides_images
+│   │   │   │   ├── SMIA_guided_tutorial_asset_info.jpg
+│   │   │   │   └── SMIA_guided_tutorial_steps.jpg
+│   │   │   ├── I4_0_SMIA_favicon.png
+│   │   │   ├── I4_0_SMIA_favicon.svg
+│   │   │   ├── I4_0_SMIA_logo_rtd.png
+│   │   │   ├── SMIA_favicon.ico
+│   │   │   ├── SMIA_logo_negative.png
+│   │   │   ├── SMIA_logo_positive.png
+│   │   │   └── use_cases_images
+│   │   │       ├── SMIA_coop_trans_logis_dashboard.jpg
+│   │   │       ├── SMIA_coop_trans_logis_dashboard_results.jpg
+│   │   │       ├── SMIA_coop_trans_logis_dev.jpg
+│   │   │       └── SMIA_coop_trans_logis_graphical.jpg
+│   │   └── js
+│   │       └── smia-environment-builder.js
+│   ├── _templates
+│   │   └── layout.html
+│   └── use_cases
+│       ├── cooperative_transport_logistics.rst
+│       └── use_cases.rst
+├── examples
+│   ├── CeDRI_PunchingMachine_instanceA.aasx
+│   ├── docker_compose_deployment
+│   │   ├── aas
+│   │   │   └── SMIA_tutorial_1.aasx
+│   │   ├── docker-compose.yml
+│   │   └── xmpp_server
+│   │       └── ejabberd.yml
+│   ├── ServiceHistory.log
+│   ├── smia_extended
+│   │   ├── build_docker_image.sh
+│   │   ├── Dockerfile
+│   │   └── extended_smia_launcher.py
+│   ├── smia-initialization.properties
+│   ├── SMIA_Operator_article.aasx
+│   ├── SMIA_prueba_desarrollo_AAS.aasx
+│   ├── SMIA_test_64_css.aasx
+│   ├── SMIA_test_64_sm.aasx
+│   ├── SMIA_TransportRobot_article_1.aasx
+│   ├── SMIA_TransportRobot_article_2.aasx
+│   ├── SMIA_TransportRobot_without_OWL.aasx
+│   ├── SMIA_TransportRobot_with_OWL.aasx
+│   └── tutorials
+│       ├── SMIA_extension_guided_tutorial
+│       │   ├── CSS_AAS_model_base.aasx
+│       │   ├── README_es.md
+│       │   ├── README.md
+│       │   ├── SMIA_extension_guided_tutorial.aasx
+│       │   └── src
+│       │       ├── extended_agent_capability.py
+│       │       ├── extended_asset_interface.py
+│       │       ├── extended_services.py
+│       │       └── extended_smia_launcher.py
+│       ├── SMIA_extension_tutorial
+│       │   ├── my_extended_launcher.py
+│       │   ├── my_extended_logic.py
+│       │   └── SMIA_extension_tutorial_1.aasx
+│       └── SMIA_tutorial_1.aasx
+├── images
+│   ├── SMIA_logo_negative.png
+│   ├── SMIA_logo_positive.png
+│   ├── SMIA_logo_vertical.png
+│   └── SMIA_social_preview_image.png
+├── LICENSE
+├── MANIFEST.in
+├── models
+│   └── aasx
+│       ├── LEGO_factory_case0.aasx
+│       └── LEGO_factory_case0.json
+├── pyproject.toml
+├── README.md
+├── README_pypi.md
+├── readthedocs.yaml
+├── smia_archive
+│   ├── config
+│   │   ├── aas
+│   │   │   ├── CeDRI_IndexedLine_instanceB.aasx
+│   │   │   ├── CeDRI_IndustrialRobot_instance.aasx
+│   │   │   ├── CeDRI_Operator_instance.aasx
+│   │   │   ├── CeDRI_PunchingMachine_instanceA.aasx
+│   │   │   ├── SMIA_Operator_article.aasx
+│   │   │   ├── SMIA_prueba_desarrollo_AAS2.aasx
+│   │   │   ├── SMIA_prueba_desarrollo_AAS.aasx
+│   │   │   ├── SMIA_test_64_css.aasx
+│   │   │   ├── SMIA_test_64_sm.aasx
+│   │   │   ├── SMIA_TransportRobot_article_1.aasx
+│   │   │   ├── SMIA_TransportRobot_article_2.aasx
+│   │   │   ├── SMIA_TransportRobot_article.aasx
+│   │   │   ├── SMIA_TransportRobot_without_OWL.aasx
+│   │   │   ├── SMIA_TransportRobot_with_OWL.aasx
+│   │   │   └── SMIA_tutorial_1.aasx
+│   │   ├── CSS-ontology-smia.owl
+│   │   ├── ExampleV3.aasx
+│   │   ├── initial configuration
+│   │   ├── ontology.owl
+│   │   ├── SMIA_demo_1.aasx
+│   │   ├── smia-initialization.properties
+│   │   ├── SMIA_TransportRobot.aasx
+│   │   ├── SMIA_TransportRobot_with_OWL.aasx
+│   │   └── SMIA_TransportRobot.xml
+│   ├── log
+│   │   ├── errors
+│   │   │   ├── aasInfrastructureSvcHistory.log
+│   │   │   ├── aasServicesHistory.log
+│   │   │   ├── assetRelatedSvcHistory.log
+│   │   │   ├── capabilitySkillHistory.log
+│   │   │   └── submodelServicesHistory.log
+│   │   ├── services
+│   │   │   ├── aasInfrastructureSvcHistory.log
+│   │   │   ├── aasServicesHistory.log
+│   │   │   ├── assetRelatedSvcHistory.log
+│   │   │   ├── capabilitySkillHistory.log
+│   │   │   └── submodelServicesHistory.log
+│   │   └── smia_dt.log
+│   └── status
+│       └── smia_dt.json
+├── src
+│   ├── smia
+│   │   ├── aas_model
+│   │   │   ├── aas_model_utils.py
+│   │   │   ├── extended_aas_model.py
+│   │   │   ├── extended_aas.py
+│   │   │   ├── extended_base.py
+│   │   │   ├── extended_concept_description.py
+│   │   │   ├── extended_submodel.py
+│   │   │   ├── __init__.py
+│   │   │   └── __pycache__
+│   │   │       ├── aas_model_utils.cpython-310.pyc
+│   │   │       ├── extended_aas.cpython-310.pyc
+│   │   │       ├── extended_aas_model.cpython-310.pyc
+│   │   │       ├── extended_base.cpython-310.pyc
+│   │   │       ├── extended_concept_description.cpython-310.pyc
+│   │   │       ├── extended_submodel.cpython-310.pyc
+│   │   │       └── __init__.cpython-310.pyc
+│   │   ├── agents
+│   │   │   ├── extensible_smia_agent.py
+│   │   │   ├── __init__.py
+│   │   │   ├── __pycache__
+│   │   │   │   ├── extensible_smia_agent.cpython-310.pyc
+│   │   │   │   ├── __init__.cpython-310.pyc
+│   │   │   │   ├── smia_agent.cpython-310.pyc
+│   │   │   │   ├── smia_app_agent.cpython-310.pyc
+│   │   │   │   └── smia_resource_agent.cpython-310.pyc
+│   │   │   ├── smia_agent.py
+│   │   │   ├── smia_app_agent.py
+│   │   │   └── smia_resource_agent.py
+│   │   ├── assetconnection
+│   │   │   ├── asset_connection.py
+│   │   │   ├── http_asset_connection.py
+│   │   │   ├── __init__.py
+│   │   │   └── __pycache__
+│   │   │       ├── asset_connection.cpython-310.pyc
+│   │   │       ├── http_asset_connection.cpython-310.pyc
+│   │   │       └── __init__.cpython-310.pyc
+│   │   ├── behaviours
+│   │   │   ├── aas_fsm_behaviour.py
+│   │   │   ├── acl_handling_behaviour.py
+│   │   │   ├── check_physical_asset_behaviour.py
+│   │   │   ├── end_behaviour.py
+│   │   │   ├── idle_behaviour.py
+│   │   │   ├── init_aas_archive_behaviour.py
+│   │   │   ├── init_aas_model_behaviour.py
+│   │   │   ├── __init__.py
+│   │   │   ├── negotiating_behaviour.py
+│   │   │   ├── __pycache__
+│   │   │   │   ├── aas_fsm_behaviour.cpython-310.pyc
+│   │   │   │   ├── acl_handling_behaviour.cpython-310.pyc
+│   │   │   │   ├── check_physical_asset_behaviour.cpython-310.pyc
+│   │   │   │   ├── end_behaviour.cpython-310.pyc
+│   │   │   │   ├── idle_behaviour.cpython-310.pyc
+│   │   │   │   ├── init_aas_archive_behaviour.cpython-310.pyc
+│   │   │   │   ├── init_aas_model_behaviour.cpython-310.pyc
+│   │   │   │   ├── __init__.cpython-310.pyc
+│   │   │   │   └── negotiating_behaviour.cpython-310.pyc
+│   │   │   └── specific_handle_behaviours
+│   │   │       ├── handle_aas_related_svc_behaviour.py
+│   │   │       ├── handle_capability_behaviour.py
+│   │   │       ├── handle_negotiation_behaviour.py
+│   │   │       ├── handle_svc_response_behaviour.py
+│   │   │       ├── __init__.py
+│   │   │       └── __pycache__
+│   │   │           ├── handle_aas_related_svc_behaviour.cpython-310.pyc
+│   │   │           ├── handle_capability_behaviour.cpython-310.pyc
+│   │   │           ├── handle_negotiation_behaviour.cpython-310.pyc
+│   │   │           ├── handle_svc_response_behaviour.cpython-310.pyc
+│   │   │           └── __init__.cpython-310.pyc
+│   │   ├── css_ontology
+│   │   │   ├── capability_skill_module.py
+│   │   │   ├── capability_skill_ontology.py
+│   │   │   ├── css_ontology_utils.py
+│   │   │   ├── css_operations.py
+│   │   │   ├── __init__.py
+│   │   │   └── __pycache__
+│   │   │       ├── capability_skill_module.cpython-310.pyc
+│   │   │       ├── capability_skill_ontology.cpython-310.pyc
+│   │   │       ├── css_ontology_utils.cpython-310.pyc
+│   │   │       ├── css_operations.cpython-310.pyc
+│   │   │       └── __init__.cpython-310.pyc
+│   │   ├── __init__.py
+│   │   ├── launchers
+│   │   │   ├── __init__.py
+│   │   │   ├── __pycache__
+│   │   │   │   ├── __init__.cpython-310.pyc
+│   │   │   │   ├── smia_cli_starter.cpython-310.pyc
+│   │   │   │   ├── smia_docker_starter.cpython-310.pyc
+│   │   │   │   └── smia_starter.cpython-310.pyc
+│   │   │   ├── smia_cli_starter.py
+│   │   │   ├── smia_docker_starter.py
+│   │   │   └── smia_starter.py
+│   │   ├── logic
+│   │   │   ├── acl_smia_messages_utils.py
+│   │   │   ├── agent_services.py
+│   │   │   ├── exceptions.py
+│   │   │   ├── __init__.py
+│   │   │   ├── inter_smia_interactions_utils.py
+│   │   │   ├── negotiation_utils.py
+│   │   │   ├── __pycache__
+│   │   │   │   ├── acl_smia_messages_utils.cpython-310.pyc
+│   │   │   │   ├── agent_services.cpython-310.pyc
+│   │   │   │   ├── exceptions.cpython-310.pyc
+│   │   │   │   ├── __init__.cpython-310.pyc
+│   │   │   │   ├── inter_smia_interactions_utils.cpython-310.pyc
+│   │   │   │   ├── negotiation_utils.cpython-310.pyc
+│   │   │   │   └── services_utils.cpython-310.pyc
+│   │   │   └── services_utils.py
+│   │   ├── __pycache__
+│   │   │   └── __init__.cpython-310.pyc
+│   │   ├── states
+│   │   │   ├── __init__.py
+│   │   │   ├── __pycache__
+│   │   │   │   ├── __init__.cpython-310.pyc
+│   │   │   │   ├── state_booting.cpython-310.pyc
+│   │   │   │   ├── state_booting_resource.cpython-310.pyc
+│   │   │   │   ├── state_idle.cpython-310.pyc
+│   │   │   │   ├── state_running.cpython-310.pyc
+│   │   │   │   └── state_stopping.cpython-310.pyc
+│   │   │   ├── state_booting.py
+│   │   │   ├── state_booting_resource.py
+│   │   │   ├── state_idle.py
+│   │   │   ├── state_running.py
+│   │   │   └── state_stopping.py
+│   │   └── utilities
+│   │       ├── aas_model_extension_utils.py
+│   │       ├── aas_related_services_info.py
+│   │       ├── fipa_acl_info.py
+│   │       ├── general_utils.py
+│   │       ├── __init__.py
+│   │       ├── properties_file_utils.py
+│   │       ├── __pycache__
+│   │       │   ├── aas_model_extension_utils.cpython-310.pyc
+│   │       │   ├── aas_related_services_info.cpython-310.pyc
+│   │       │   ├── fipa_acl_info.cpython-310.pyc
+│   │       │   ├── general_utils.cpython-310.pyc
+│   │       │   ├── __init__.cpython-310.pyc
+│   │       │   ├── properties_file_utils.cpython-310.pyc
+│   │       │   ├── smia_archive_utils.cpython-310.pyc
+│   │       │   ├── smia_general_info.cpython-310.pyc
+│   │       │   └── smia_info.cpython-310.pyc
+│   │       ├── smia_archive_utils.py
+│   │       ├── smia_general_info.py
+│   │       └── smia_info.py
+│   └── smia.egg-info
+│       ├── dependency_links.txt
+│       ├── PKG-INFO
+│       ├── requires.txt
+│       ├── SOURCES.txt
+│       └── top_level.txt
+├── System Volume Information
+├── tests
+│   └── performance_tests
+│       ├── aas_models
+│       │   ├── SMIA_test_16_css.aasx
+│       │   ├── SMIA_test_16_sm.aasx
+│       │   ├── SMIA_test_1_css.aasx
+│       │   ├── SMIA_test_1_sm.aasx
+│       │   ├── SMIA_test_2_css.aasx
+│       │   ├── SMIA_test_2_sm.aasx
+│       │   ├── SMIA_test_32_css.aasx
+│       │   ├── SMIA_test_32_sm.aasx
+│       │   ├── SMIA_test_4_css.aasx
+│       │   ├── SMIA_test_4_sm.aasx
+│       │   ├── SMIA_test_64_css.aasx
+│       │   ├── SMIA_test_64_sm.aasx
+│       │   ├── SMIA_test_8_css.aasx
+│       │   ├── SMIA_test_8_sm.aasx
+│       │   └── SMIA_test_simple.aasx
+│       ├── negotiation_requester
+│       │   ├── Dockerfile
+│       │   ├── neg_requester_starter.py
+│       │   ├── __pycache__
+│       │   │   └── request_acl_neg_behaviour.cpython-310.pyc
+│       │   └── request_acl_neg_behaviour.py
+│       ├── run_benchmarking_evaluation.sh
+│       ├── run_negotiation_evaluation.sh
+│       ├── run_scaling_evaluation.sh
+│       └── run_self_configuration_evaluation.sh
+├── tree.txt
+└── use_cases
+    ├── cedri_ipb_demonstrator
+    │   ├── deploy
+    │   │   ├── aas
+    │   │   │   ├── CeDRI_asset_type.aasx
+    │   │   │   ├── CeDRI_IndexedLine_instanceA.aasx
+    │   │   │   ├── CeDRI_IndexedLine_instanceB.aasx
+    │   │   │   ├── CeDRI_IndexedLine_type.aasx
+    │   │   │   ├── CeDRI_IndustrialRobot_instance.aasx
+    │   │   │   ├── CeDRI_IndustrialRobot_type.aasx
+    │   │   │   ├── CeDRI_Operator_instance.aasx
+    │   │   │   ├── CeDRI_Operator_type.aasx
+    │   │   │   ├── CeDRI_PunchingMachine_instanceA.aasx
+    │   │   │   ├── CeDRI_PunchingMachine_instanceB.aasx
+    │   │   │   ├── CeDRI_PunchingMachine_type.aasx
+    │   │   │   ├── SMIA_PE_CeDRI_ScenarioA.aasx
+    │   │   │   └── SMIA_PE_CeDRI_ScenarioB.aasx
+    │   │   ├── basyx
+    │   │   │   ├── aas-env.properties
+    │   │   │   ├── aas-registry.yml
+    │   │   │   └── sm-registry.yml
+    │   │   ├── docker-compose-infrastructure.yml
+    │   │   ├── docker-compose-instances.yml
+    │   │   ├── docker-compose.yml
+    │   │   ├── logo
+    │   │   │   ├── favicon.ico
+    │   │   │   └── SMIA_logo.ico
+    │   │   ├── nodered
+    │   │   │   ├── flows.json
+    │   │   │   ├── package.json
+    │   │   │   ├── package-lock.json
+    │   │   │   └── settings.js
+    │   │   └── xmpp_server
+    │   │       └── ejabberd.yml
+    │   └── operational_evaluation
+    │       ├── historical_metrics
+    │       │   ├── failures
+    │       │   │   ├── test1
+    │       │   │   │   ├── smia-cedri-industrial-robot-metrics.csv
+    │       │   │   │   ├── smia-hi-operator-metrics.csv
+    │       │   │   │   ├── smia-indexedline-a-metrics.csv
+    │       │   │   │   ├── smia-indexedline-b-metrics.csv
+    │       │   │   │   ├── smia-ism-metrics.csv
+    │       │   │   │   ├── smia-pe-metrics.csv
+    │       │   │   │   ├── smia-punchingmachine-a-metrics.csv
+    │       │   │   │   └── smia-punchingmachine-b-metrics.csv
+    │       │   │   ├── test2
+    │       │   │   │   ├── smia-cedri-industrial-robot-metrics.csv
+    │       │   │   │   ├── smia-hi-operator-metrics.csv
+    │       │   │   │   ├── smia-indexedline-a-metrics.csv
+    │       │   │   │   ├── smia-indexedline-b-metrics.csv
+    │       │   │   │   ├── smia-ism-metrics.csv
+    │       │   │   │   ├── smia-pe-metrics.csv
+    │       │   │   │   ├── smia-punchingmachine-a-metrics.csv
+    │       │   │   │   └── smia-punchingmachine-b-metrics.csv
+    │       │   │   └── test3
+    │       │   │       ├── smia-cedri-industrial-robot-metrics.csv
+    │       │   │       ├── smia-hi-operator-metrics.csv
+    │       │   │       ├── smia-indexedline-a-metrics.csv
+    │       │   │       ├── smia-indexedline-b-metrics.csv
+    │       │   │       ├── smia-ism-metrics.csv
+    │       │   │       ├── smia-pe-metrics.csv
+    │       │   │       ├── smia-punchingmachine-a-metrics.csv
+    │       │   │       └── smia-punchingmachine-b-metrics.csv
+    │       │   ├── productionNormal_10_p
+    │       │   │   └── test1
+    │       │   │       ├── smia-cedri-industrial-robot-metrics.csv
+    │       │   │       ├── smia-hi-operator-metrics.csv
+    │       │   │       ├── smia-indexedline-a-metrics.csv
+    │       │   │       ├── smia-indexedline-b-metrics.csv
+    │       │   │       ├── smia-ism-metrics.csv
+    │       │   │       ├── smia-pe-metrics.csv
+    │       │   │       ├── smia-punchingmachine-a-metrics.csv
+    │       │   │       └── smia-punchingmachine-b-metrics.csv
+    │       │   ├── productionNormal_15_p
+    │       │   │   └── test1
+    │       │   │       ├── smia-cedri-industrial-robot-metrics.csv
+    │       │   │       ├── smia-hi-operator-metrics.csv
+    │       │   │       ├── smia-indexedline-a-metrics.csv
+    │       │   │       ├── smia-indexedline-b-metrics.csv
+    │       │   │       ├── smia-ism-metrics.csv
+    │       │   │       ├── smia-pe-metrics.csv
+    │       │   │       ├── smia-punchingmachine-a-metrics.csv
+    │       │   │       └── smia-punchingmachine-b-metrics.csv
+    │       │   ├── productionNormal_1_p
+    │       │   │   ├── test1
+    │       │   │   │   ├── smia-cedri-industrial-robot-metrics.csv
+    │       │   │   │   ├── smia-hi-operator-metrics.csv
+    │       │   │   │   ├── smia-indexedline-a-metrics.csv
+    │       │   │   │   ├── smia-indexedline-b-metrics.csv
+    │       │   │   │   ├── smia-ism-metrics.csv
+    │       │   │   │   ├── smia-pe-metrics.csv
+    │       │   │   │   ├── smia-punchingmachine-a-metrics.csv
+    │       │   │   │   └── smia-punchingmachine-b-metrics.csv
+    │       │   │   └── test2
+    │       │   │       ├── smia-cedri-industrial-robot-metrics.csv
+    │       │   │       ├── smia-hi-operator-metrics.csv
+    │       │   │       ├── smia-indexedline-a-metrics.csv
+    │       │   │       ├── smia-indexedline-b-metrics.csv
+    │       │   │       ├── smia-ism-metrics.csv
+    │       │   │       ├── smia-pe-metrics.csv
+    │       │   │       ├── smia-punchingmachine-a-metrics.csv
+    │       │   │       └── smia-punchingmachine-b-metrics.csv
+    │       │   ├── productionNormal_20_p
+    │       │   │   └── test1
+    │       │   │       ├── smia-cedri-industrial-robot-metrics.csv
+    │       │   │       ├── smia-hi-operator-metrics.csv
+    │       │   │       ├── smia-indexedline-a-metrics.csv
+    │       │   │       ├── smia-indexedline-b-metrics.csv
+    │       │   │       ├── smia-ism-metrics.csv
+    │       │   │       ├── smia-pe-metrics.csv
+    │       │   │       ├── smia-punchingmachine-a-metrics.csv
+    │       │   │       └── smia-punchingmachine-b-metrics.csv
+    │       │   ├── productionNormal_5_p
+    │       │   │   └── test1
+    │       │   │       ├── smia-cedri-industrial-robot-metrics.csv
+    │       │   │       ├── smia-hi-operator-metrics.csv
+    │       │   │       ├── smia-indexedline-a-metrics.csv
+    │       │   │       ├── smia-indexedline-b-metrics.csv
+    │       │   │       ├── smia-ism-metrics.csv
+    │       │   │       ├── smia-pe-metrics.csv
+    │       │   │       ├── smia-punchingmachine-a-metrics.csv
+    │       │   │       └── smia-punchingmachine-b-metrics.csv
+    │       │   └── productionOperator
+    │       │       ├── test1
+    │       │       │   ├── smia-cedri-industrial-robot-metrics.csv
+    │       │       │   ├── smia-hi-operator-metrics.csv
+    │       │       │   ├── smia-indexedline-a-metrics.csv
+    │       │       │   ├── smia-indexedline-b-metrics.csv
+    │       │       │   ├── smia-ism-metrics.csv
+    │       │       │   ├── smia-pe-metrics.csv
+    │       │       │   ├── smia-punchingmachine-a-metrics.csv
+    │       │       │   └── smia-punchingmachine-b-metrics.csv
+    │       │       └── test2
+    │       │           ├── smia-cedri-industrial-robot-metrics.csv
+    │       │           ├── smia-hi-operator-metrics.csv
+    │       │           ├── smia-indexedline-a-metrics.csv
+    │       │           ├── smia-indexedline-b-metrics.csv
+    │       │           ├── smia-ism-metrics.csv
+    │       │           ├── smia-pe-metrics.csv
+    │       │           ├── smia-punchingmachine-a-metrics.csv
+    │       │           └── smia-punchingmachine-b-metrics.csv
+    │       ├── metrics
+    │       │   ├── smia-cedri-industrial-robot-metrics.csv
+    │       │   ├── smia-hi-operator-metrics.csv
+    │       │   ├── smia-indexedline-a-metrics.csv
+    │       │   ├── smia-indexedline-b-metrics.csv
+    │       │   ├── smia-ism-metrics.csv
+    │       │   ├── smia-pe-metrics.csv
+    │       │   ├── smia-punchingmachine-a-metrics.csv
+    │       │   └── smia-punchingmachine-b-metrics.csv
+    │       └── SMIA_CeDRI_metrics_analysis.xlsx
+    ├── cooperative_transport_logistics
+    │   └── deploy
+    │       ├── aas
+    │       │   ├── SMIA_Operator_article.aasx
+    │       │   ├── SMIA_TransportRobot_article_1.aasx
+    │       │   └── SMIA_TransportRobot_article_2.aasx
+    │       ├── docker-compose.yml
+    │       └── xmpp_server
+    │           └── ejabberd.yml
+    ├── simple_human_in_the_mesh
+    │   ├── deploy
+    │   │   ├── aas
+    │   │   │   ├── SMIA_Operator_article.aasx
+    │   │   │   ├── SMIA_TransportRobot_article_1.aasx
+    │   │   │   └── SMIA_TransportRobot_article_2.aasx
+    │   │   ├── docker-compose.yml
+    │   │   └── xmpp_server
+    │   │       └── ejabberd.yml
+    │   ├── operational_evaluation
+    │   │   ├── metrics
+    │   │   │   ├── operator001_metrics.csv
+    │   │   │   ├── requests_metrics.csv
+    │   │   │   ├── SMIA_metrics_analysis.xlsx
+    │   │   │   ├── transportrobot001_metrics.csv
+    │   │   │   └── transportrobot002_metrics.csv
+    │   │   └── metrics_calculator.py
+    │   ├── smia_archive
+    │   │   ├── config
+    │   │   │   ├── aas
+    │   │   │   │   └── SMIA_Operator_article.aasx
+    │   │   │   ├── ontology.owl
+    │   │   │   └── smia-initialization.properties
+    │   │   ├── log
+    │   │   │   ├── errors
+    │   │   │   │   ├── aasInfrastructureSvcHistory.log
+    │   │   │   │   ├── aasServicesHistory.log
+    │   │   │   │   ├── assetRelatedSvcHistory.log
+    │   │   │   │   ├── capabilitySkillHistory.log
+    │   │   │   │   └── submodelServicesHistory.log
+    │   │   │   ├── services
+    │   │   │   │   ├── aasInfrastructureSvcHistory.log
+    │   │   │   │   ├── aasServicesHistory.log
+    │   │   │   │   ├── assetRelatedSvcHistory.log
+    │   │   │   │   ├── capabilitySkillHistory.log
+    │   │   │   │   └── submodelServicesHistory.log
+    │   │   │   └── smia_dt.log
+    │   │   └── status
+    │   │       └── smia_dt.json
+    │   └── smia_operator_code
+    │       ├── build_docker_image.sh
+    │       ├── Dockerfile
+    │       ├── htmls
+    │       │   ├── smia_operator.html
+    │       │   ├── smia_operator_submit.html
+    │       │   ├── static
+    │       │   │   ├── loading_line.gif
+    │       │   │   ├── requesting.gif
+    │       │   │   └── SMIA_favicon.ico
+    │       │   └── templates
+    │       │       ├── spade_html_aside.html
+    │       │       ├── spade_html_css_links.html
+    │       │       ├── spade_html_header.html
+    │       │       └── spade_html_scripts.html
+    │       ├── operator_gui_behaviours.py
+    │       ├── operator_gui_logic.py
+    │       └── smia_operator_starter.py
+    └── warehouse_transport
+        ├── deploy
+        │   ├── robot_agent2_1_dt_configmap.yaml
+        │   ├── robot_agent2_dt_configmap.yaml
+        │   ├── robot_agent2_dt_deployment.yaml
+        │   ├── robot_agent_dt_configmap.yaml
+        │   ├── robot_agent_dt_deployment.yaml
+        │   ├── ros_aas_core_archive_pvc.yaml
+        │   └── ros_aas_core_archive_pv.yaml
+        └── transport_asset_integration
+            └── transport_asset_integration
+                ├── docker
+                │   ├── Dockerfile_Asset_Integration
+                │   └── requirements.txt
+                └── src
+                    ├── asset_integration_main.py
+                    ├── AssetServicesInfo.py
+                    ├── AssetServices.py
+                    ├── ROSAssetIntegration.py
+                    └── ROSSystemInfo.py
+
+209 directories, 800 files

@@ -4,9 +4,10 @@ services:
     image: ekhurtado/smia:latest-alpine
     container_name: smia
     environment:
-      - AAS_MODEL_NAME=<path_to_AASX_package>
-      - AGENT_ID=<agent-id>@ejabberd
-      - AGENT_PSSWD=<agent-password>
+      - AAS_MODEL_NAME=SMIA_tutorial_1.aasx
+      - AAS_ID=https://example.com/ids/sm/5025_6142_2052_1473
+      - AGENT_ID=admin@ejabberd
+      - AGENT_PASSWD=asd
     depends_on:
       xmpp-server:
         condition: service_healthy
@@ -19,7 +20,8 @@ services:
     environment:
       - ERLANG_NODE_ARG=admin@ejabberd
       - ERLANG_COOKIE=dummycookie123
-      - CTL_ON_CREATE=! register admin localhost asd
+      #- CTL_ON_CREATE=! register admin localhost asd
+      - CTL_ON_CREATE=! register admin ejabberd asd && register operator001 ejabberd gcis1234
     ports:
       - "5222:5222"
       - "5269:5269"
@@ -33,3 +35,18 @@ services:
       interval: 5s
       timeout: 5s
       retries: 10
+
+  smia-operator:
+    image: ekhurtado/smia-use-cases:latest-operator
+    container_name: smia-operator
+    environment:
+      - AAS_MODEL_NAME=SMIA_Operator_article.aasx
+      - AGENT_ID=operator001@ejabberd
+      - AGENT_PSSWD=gcis1234
+    depends_on:
+      xmpp-server:
+        condition: service_healthy
+    volumes:
+      - ./aas:/smia_archive/config/aas
+    ports:
+      - 10000:10000

@@ -228,8 +228,24 @@ class SMIAAgent(Agent):
             assetconnection.asset_connection: class of the asset connection
         """
         async with self.lock:  # safe access to a shared object of the agent
+            def _ref_keys_tuple(ref_obj):
+                """
+                Normalize ModelReference keys for robust comparisons across BaSyx objects.
+                """
+                if ref_obj is None or not hasattr(ref_obj, "key"):
+                    return None
+                try:
+                    return tuple((str(key.type), key.value) for key in ref_obj.key)
+                except Exception:
+                    return None
+
+            requested_ref_keys = _ref_keys_tuple(asset_connection_ref)
             for conn_ref, conn_class in self.asset_connections.items():
                 if conn_ref == asset_connection_ref:
+                    return conn_class
+                if str(conn_ref) == str(asset_connection_ref):
+                    return conn_class
+                if requested_ref_keys is not None and _ref_keys_tuple(conn_ref) == requested_ref_keys:
                     return conn_class
             raise AASModelReadingError("There is not asset connection class linked to {}".format(asset_connection_ref),
                                        asset_connection_ref, "MissingAssetConnectionClass")
