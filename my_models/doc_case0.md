@@ -108,6 +108,29 @@ Three physical machines are involved:
 
 The three containers (`smia`, `smia-operator`, `ejabberd`) run in the same Docker Compose network and resolve each other by container name. SMIA and SMIA Operator both connect to ejabberd at the hostname `ejabberd` on port `5222`. The `smia-operator` exposes port `10000` to the host for browser access.
 
+### 2.4 Architectural Rationale
+
+Two deliberate architectural choices drive this deployment. A full academic justification with alternatives and trade-off analysis is in `memoire.md §14.7`. A summary follows.
+
+**Decision 1 — Docker Compose for the SMIA stack**
+
+The core problem: SMIA and SMIA-Operator must reach the same XMPP server by hostname. Without containers this requires manual ejabberd installation and hostname configuration on a shared lab machine — error-prone and non-reproducible.
+
+Docker Compose puts all three services (`xmpp-server`, `smia`, `smia-operator`) on a shared Docker bridge network. The hostname `ejabberd` resolves automatically. `depends_on: condition: service_healthy` enforces startup order. `CTL_ON_CREATE` auto-registers XMPP accounts on first boot.
+
+- **Strengths:** one-command deploy, reproducible on any machine, isolated network, startup order enforced, version-controlled in git.
+- **Weaknesses:** single host = single point of failure; no horizontal scaling; the `smia_agent.py` volume-mount patch is fragile if the upstream image updates.
+- **Rejected alternatives:** bare-metal install (dependency conflicts, not reproducible), Kubernetes (overkill), Docker Swarm (unnecessary complexity for single-host).
+
+**Decision 2 — Edge + Central data processing**
+
+The lab hosts multiple physical machines (fischertechnik, KUKA, etc.). A per-machine **edge stack** (mosquitto + node-red + postgres) provides local processing, data locality, and fault isolation — if the central node goes down, each machine keeps operating locally. A shared **central DIDA node** (`192.168.155.10`) aggregates cross-machine data and hosts the HTTP→MQTT bridge used by SMIA.
+
+- **Strengths:** fault isolation (edge survives central failure), separation of concerns (per-machine flows vs. global knowledge), independent scalability (add a machine without touching others).
+- **Weaknesses:** SMIA's AID endpoint points to DIDA central, not to a fischertechnik-specific edge node — so the central Node-RED **is** in the critical path for Case 0 commands despite the edge architecture; operational complexity grows with the number of nodes.
+- **Rejected alternatives:** single centralised broker (single point of failure for all machines), direct SMIA→MQTT (SMIA uses HTTP-only AID; no native MQTT output).
+- **Improvement path:** deploy a Linux edge node per machine so SMIA's AID can point to the edge directly, reserving central for aggregation only.
+
 ---
 
 ## 3. Technologies Used

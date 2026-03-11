@@ -1061,6 +1061,127 @@ Node-RED → mosquitto-central (DIDA central)
 
 The payload format expected by the fischertechnik control software is `bandera_custom:<n>` where `<n>` is the warehouse slot position index (0–8). The topic `vicom/61/piso_0/lab/lego/commands` retains its historical name; it physically routes to the fischertechnik Training Factory.
 
+### 14.7 Architectural Decisions — Justification and Alternatives
+
+Two major architectural decisions shape the Case 0 deployment. Both were chosen pragmatically to fit a research lab context, and each carries specific trade-offs that must be understood to evaluate, extend, or adapt the system.
+
+#### 14.7.1 Docker Compose for the SMIA Agent Stack
+
+**Problem statement.** SMIA (the manufacturing agent) and SMIA-Operator (the GUI agent) communicate exclusively via XMPP. For that communication to work, both agents must resolve the same XMPP server hostname (`ejabberd`) and reach it on port 5222. Without isolation, this requires manually installing and configuring ejabberd on the host machine, managing hostname resolution across processes, and handling dependency startup order. On a shared lab machine running multiple projects simultaneously, these requirements introduce risk of conflicts and non-reproducibility.
+
+**Chosen approach.** Three Docker services are defined in a single `docker-compose.yml`: `xmpp-server` (ejabberd), `smia`, and `smia-operator`. All three share the same Docker-managed bridge network, so the hostname `ejabberd` is automatically resolvable within the network without any `/etc/hosts` modifications. Agents start only after the XMPP server passes a health check on port 5222 (`depends_on: condition: service_healthy`).
+
+**Strengths:**
+
+| Strength | Rationale |
+|---|---|
+| One-command deployment | `docker compose up -d` from the repository — no manual installation steps for any service |
+| Reproducibility | The same images, volumes, and configuration produce identical behaviour on any machine with Docker installed |
+| Isolated network | Containers communicate via Docker bridge; the hostname `ejabberd` resolves internally without touching host network configuration |
+| Controlled startup order | Health-check-based `depends_on` ensures agents connect to ejabberd only after it is ready, eliminating race conditions |
+| Automated XMPP account provisioning | `CTL_ON_CREATE` registers both agent accounts (`SMIA_agent@ejabberd` and `operator001@ejabberd`) on the first container start, removing manual `ejabberdctl` steps |
+| Version-controlled configuration | All service definitions, ejabberd configuration, and AASX files are tracked in git alongside the source code |
+| Customizable without image rebuilds | Docker volume mounts allow overriding specific files (`smia_agent.py` patch, AASX models, ejabberd config) without building new container images |
+
+**Weaknesses and limitations:**
+
+| Limitation | Explanation |
+|---|---|
+| Single host — single point of failure | All three services run on one machine; host failure takes down the entire SMIA stack |
+| No horizontal scaling | Each SMIA container manages one asset; scaling to many assets means expanding the same Compose file rather than distributing across machines |
+| Fragile file-level patch | The `smia_agent.py` bug fix is applied by mounting a patched file over the container image's copy. If the upstream `ekhurtado/smia` image is updated, the patch may become stale or conflict with new code. The correct long-term fix is an upstream pull request or a maintained fork |
+| Network port exposure | XMPP ports (5222, 5269) and the operator GUI port (10000) are exposed on the host. Acceptable in a controlled lab network; not suitable for production environments without a firewall or reverse proxy |
+| Shared AAS folder fragility | Both `smia` and `smia-operator` mount the same `./aas/` directory. Any non-AASX file placed in that folder (e.g., backup files, XML exports) causes the operator GUI to return a 500 error during AAS discovery |
+
+**Alternatives considered and rejected:**
+
+| Alternative | Reason for rejection |
+|---|---|
+| Bare-metal installation (no Docker) | Non-reproducible; dependency conflicts on shared lab machine; manual XMPP server setup; no clean reset mechanism |
+| Kubernetes | Significant operational overhead (cluster setup, manifests, ingress, persistent volume claims) unjustified for a single-host proof-of-concept |
+| Docker Swarm | Adds multi-host orchestration complexity not needed when all services fit on one machine |
+| One virtual machine per service | Higher resource overhead; slower startup; inter-VM networking requires additional configuration |
+| Manual `docker run` with explicit `--network` | Requires scripting the startup sequence, health checks, and dependency ordering by hand — fragile and not reproducible by others |
+
+**Potential improvements for later cases:**
+- Submit the `smia_agent.py` fix upstream to the SMIA repository to eliminate the file-level patch.
+- Add `mem_limit` and `cpus` constraints in the Compose file to prevent resource starvation on a shared machine.
+- For production-scale or multi-machine deployments (Cases 1–N), migrate to a lightweight Kubernetes distribution (k3s) or Docker Swarm to distribute agents across machines.
+
+---
+
+#### 14.7.2 Edge + Central Data Processing Architecture
+
+**Problem statement.** The DIDA laboratory hosts multiple physical manufacturing machines (fischertechnik Training Factory, KUKA robot, others). Each machine produces data (sensor readings, command acknowledgements, status events) and needs to receive commands. Two architectural extremes exist: a fully centralised broker and flow processor (simple to manage but a single point of failure for all machines), or fully isolated per-machine stacks with no shared infrastructure (maximum isolation but no cross-machine knowledge or unified data store). A middle ground was selected.
+
+**Chosen approach.** Each machine has a dedicated **edge node** consisting of its own Mosquitto broker, Node-RED flow, and PostgreSQL database for local, machine-specific data. In addition, a shared **central DIDA node** (IP `192.168.155.10`) runs a Mosquitto broker, Node-RED instance, and PostgreSQL database for aggregated, cross-machine knowledge. An MQTT bridge connects each machine's local broker to the central broker, propagating selected topics.
+
+In Case 0, the specific data path is:
+
+```
+SMIA container
+    │  HTTP POST to 192.168.155.10:1880 (AID-defined endpoint)
+    ▼
+DIDA Central — Node-RED (HTTP → MQTT bridge)
+    │  MQTT publish (topic: vicom/61/piso_0/lab/lego/commands)
+    ▼
+DIDA Central — Mosquitto broker (central)
+    │  MQTT bridge (pre-configured)
+    ▼
+fischertechnik machine — Mosquitto broker (local)
+    │  MQTT subscribe
+    ▼
+fischertechnik control software → warehouse crane macro
+```
+
+**Strengths:**
+
+| Strength | Rationale |
+|---|---|
+| Fault isolation | If the central DIDA node goes down, edge nodes continue operating: local brokers still receive and process MQTT messages from local sources |
+| Separation of concerns | Machine-specific data pipelines live on their respective edge nodes; the central node handles only aggregation and cross-machine analytics |
+| Edge processing | Validation, payload transformation, and defaulting (e.g., the `DEFAULT_POSITION = 0` fallback in Node-RED) happen close to the machine, reducing latency for time-sensitive operations |
+| Independent scalability | Adding a new machine means deploying an additional edge stack without modifying any existing node or the central configuration |
+| Data locality | Raw, high-frequency machine data remains at the edge; only summary or event-level data is forwarded to the central node, reducing central bandwidth and storage load |
+| Clear ownership boundaries | Each edge node can be administered, updated, and restarted independently; teams or individuals responsible for a machine manage their own edge stack |
+
+**Weaknesses and limitations:**
+
+| Limitation | Explanation |
+|---|---|
+| Operational complexity | More nodes means more services to configure, monitor, and troubleshoot. A silent failure anywhere in the chain (MQTT bridge, edge broker, central broker, Node-RED) can break the flow without an obvious error |
+| Configuration duplication | Mosquitto configuration, Node-RED flows, and Docker Compose definitions are replicated across edge machines. Without infrastructure-as-code tooling (e.g., Ansible), configuration drift between machines is difficult to detect |
+| Central node in the critical path for Case 0 | SMIA's AID endpoint points to the central DIDA node (`192.168.155.10:1880`), not to a fischertechnik-specific edge node. Consequently, if the central Node-RED instance is unavailable, commands cannot reach the fischertechnik machine even if its local stack is fully healthy. This partially undermines the fault-isolation argument for Case 0 specifically |
+| MQTT bridge dependency | The bridge between the central broker and the fischertechnik local broker must be pre-configured and remain stable. If the bridge fails, commands accumulate at the central broker but never arrive at the machine |
+| No unified monitoring | Without a tool such as Grafana/Prometheus, there is no single dashboard for health and throughput across all edge nodes |
+| Cross-machine data correlation | If cross-machine analytics are required (e.g., correlating fischertechnik events with KUKA robot events), explicit data synchronisation logic must be designed at the Node-RED level; it does not arise automatically |
+
+**Observation — pragmatic trade-off in Case 0.** A strict edge-computing design would have SMIA's AID point to a fischertechnik-specific edge endpoint. The central DIDA node is used instead because: (1) the fischertechnik Windows machine does not expose a general-purpose HTTP server for custom flows; (2) the central DIDA machine has Node-RED pre-installed and already serves as the protocol bridge for the laboratory; (3) the MQTT bridge from central to the fischertechnik machine is already pre-configured. This is a pragmatic and justified choice given the existing lab infrastructure, but it should be explicitly recognised as a limitation of the current deployment.
+
+**Alternatives considered and rejected:**
+
+| Alternative | Reason for rejection |
+|---|---|
+| Single centralised broker for all machines | Eliminates fault isolation; all machine traffic shares one broker; one broker failure stops all machines simultaneously |
+| Direct SMIA → MQTT (bypassing Node-RED) | SMIA's communication interface is defined by the AID standard, which describes HTTP endpoints. SMIA does not natively publish MQTT; bypassing Node-RED would require modifying SMIA or redefining the AID standard for this deployment |
+| Direct SMIA → fischertechnik machine | The fischertechnik machine runs Windows-based control software and is not accessible as an HTTP server. Direct access would also break the asset-agnostic design of SMIA (the agent would need asset-specific network knowledge not encoded in the AAS) |
+| No edge storage (all data to central) | Central node becomes a bottleneck; machine data is lost if central is unavailable during collection |
+
+**Potential improvements:**
+- If a Linux-based edge node (e.g., Raspberry Pi) is deployed per machine, the AID base URL can point to the edge (`http://192.168.155.2x:1880`), removing the central node from the critical command path while keeping it as a purely aggregation layer.
+- Standardise edge stack configuration using an Ansible playbook or a shared Docker Compose template to prevent configuration drift.
+- Deploy Grafana + Prometheus (or a lightweight alternative such as Netdata) at the central node to provide a unified health dashboard for all edge nodes.
+- Add a circuit-breaker pattern to the Node-RED function node: if the MQTT publish times out or fails, return an explicit error JSON so SMIA can propagate an `INFORM status=error` back to the operator rather than silently timing out.
+
+---
+
+#### 14.7.3 Summary Comparison
+
+| Decision | Core problem addressed | Chosen approach | Primary strength | Primary limitation |
+|---|---|---|---|---|
+| SMIA stack deployment | Shared XMPP infrastructure for multi-agent communication | Docker Compose (3 services, shared Docker network) | One-command reproducible deployment | Single host = single point of failure; file-level patch is fragile |
+| Data processing topology | Per-machine vs. shared data pipelines | Edge per machine + shared central DIDA node | Fault isolation and separation of concerns | Central node in critical path for Case 0 commands; operational complexity of multi-node setup |
+
 ---
 
 ## 15. Results and Validation

@@ -32,8 +32,9 @@ Physical asset: **fischertechnik Training Factory Industry 4.0 24V**
 6. CSS ontology: how SMIA reads capabilities
 7. Communication layer: XMPP → HTTP → MQTT → crane
 8. Docker deployment: configuration and wiring
-9. Live demo / results
-10. Problems we hit and how we solved them
+9. **Why these architecture choices?** (decision justification + alternatives)
+10. Live demo / results
+11. Problems we hit and how we solved them
 
 ---
 
@@ -893,7 +894,201 @@ Operator clicks "Submit Capability_PickPiece"
 
 ---
 
-## Slide 29 — Live Demo
+## Slide 29 — Why Docker Compose? (Decision 1 Justification)
+
+### The problem we had to solve
+
+Without containers, running SMIA + SMIA-Operator + ejabberd on the same machine looks like this:
+
+```
+┌─── Linux dev machine (bare metal) ──────────────────────────────────┐
+│                                                                      │
+│  Process A: python smia.py                                          │
+│    → connects to localhost:5222                                     │
+│    → BUT how does it know the hostname "ejabberd" ?                 │
+│    → /etc/hosts hack? environment variable? hardcoded IP?           │
+│                                                                      │
+│  Process B: python smia_operator.py                                 │
+│    → same problem, plus: same Python env? version conflicts?        │
+│                                                                      │
+│  ejabberd (XMPP server)                                             │
+│    → manual apt install or source build                             │
+│    → accounts created manually with ejabberdctl                     │
+│    → startup order: who starts first?                               │
+│                                                                      │
+│  Result: works on YOUR machine. Not on a colleague's. Not tomorrow. │
+└──────────────────────────────────────────────────────────────────────┘
+```
+
+### The solution: shared Docker network
+
+```
+┌─── docker-compose.yml ─────────────────────────────────────────────┐
+│                                                                      │
+│  Docker bridge network: "smia_default"                              │
+│                                                                      │
+│  ┌──────────────────┐    hostname: ejabberd                        │
+│  │  xmpp-server     │◄────────────────────────────────┐            │
+│  │  (ejabberd)      │                                 │            │
+│  │                  │  healthcheck: port 5222 open?   │            │
+│  │  CTL_ON_CREATE:  │  if NO → smia waits             │            │
+│  │  register        │  if YES → smia starts           │            │
+│  │  SMIA_agent asd  │                                 │            │
+│  │  operator001 ... │                                 │            │
+│  └──────────────────┘                                 │            │
+│                                                        │            │
+│  ┌────────────────┐      depends_on (healthy) ────────┘            │
+│  │  smia          │      resolves "ejabberd" via Docker DNS         │
+│  │  (agent)       │◄── volume: ./aas → /smia_archive/config/aas    │
+│  │                │◄── volume: smia_agent.py (patched override)     │
+│  └────────────────┘                                                 │
+│                                                                      │
+│  ┌────────────────┐      depends_on (healthy)                      │
+│  │  smia-operator │      resolves "ejabberd" via Docker DNS         │
+│  │  (GUI :10000)  │◄── volume: ./aas (shared with smia)            │
+│  └────────────────┘                                                 │
+└──────────────────────────────────────────────────────────────────────┘
+```
+
+**Key insight:** Docker's internal DNS automatically makes `ejabberd` resolve to the `xmpp-server` container's IP. No `/etc/hosts`, no manual config — it just works for every container in the Compose network.
+
+### Strengths vs. weaknesses
+
+| ✅ Strength | ⚠️ Weakness |
+|---|---|
+| `docker compose up -d` — zero manual steps | All 3 services on 1 machine → 1 host failure = full outage |
+| Same result on any machine with Docker | `smia_agent.py` patch is a volume mount → breaks if image updates |
+| `depends_on: service_healthy` → race-free startup | Port 5222 exposed on host (acceptable in lab, not in production) |
+| `CTL_ON_CREATE` auto-registers XMPP accounts | Shared `aas/` folder: one bad file → GUI 500 error |
+| Entire config (yml, ejabberd.yml, AASX) in git | Scaling to many assets = bloated single Compose file |
+
+### Why not Kubernetes / bare-metal?
+
+| Alternative | Why rejected |
+|---|---|
+| **Bare-metal** | Non-reproducible, dependency hell, manual ejabberd, no restart policy |
+| **Kubernetes** | Overkill for 3 services on 1 lab machine (PVCs, manifests, cluster overhead) |
+| **Docker Swarm** | Multi-host benefits don't apply here; adds config complexity for zero gain |
+| **VMs** | Heavier than containers, slower to start, harder to network |
+
+> **Speaker note:** The `smia_agent.py` volume mount is the one known technical debt. The correct fix is a PR upstream. For now, it works reliably because we control when we pull new images.
+
+---
+
+## Slide 30 — Why Edge + Central? (Decision 2 Justification)
+
+### The two extremes — and why neither works
+
+```
+EXTREME A — Fully Centralised                EXTREME B — Fully Isolated
+─────────────────────────────                ───────────────────────────
+┌─── DIDA Central ──────────┐               ┌─── fischertechnik ────┐
+│  ALL machines route here  │               │  Its own everything   │
+│  One broker for all       │               └───────────────────────┘
+│  One Node-RED for all     │               ┌─── KUKA ──────────────┐
+└─────────────────────────── ┘               │  Its own everything   │
+                                             └───────────────────────┘
+  PROBLEM: single point of failure            PROBLEM: no shared data,
+  fischertechnik down? KUKA down?             no cross-machine analytics,
+  Central failure = ALL machines stop         duplicated config everywhere
+```
+
+### The chosen middle ground: Edge + Central
+
+```
+┌───────────────────────────────────────────────────────────────────┐
+│                    DIDA Central (192.168.155.10)                  │
+│                                                                    │
+│  ┌────────────────┐    ┌──────────────────┐    ┌──────────────┐  │
+│  │  Node-RED      │    │  Mosquitto       │    │  PostgreSQL  │  │
+│  │  (HTTP→MQTT    │    │  central broker  │    │  (aggregated │  │
+│  │  bridge)       │    │                  │    │   data)      │  │
+│  │  POST :1880    │    │  ← SMIA talks    │    │              │  │
+│  └────────────────┘    │    here via      │    └──────────────┘  │
+│                        │    MQTT bridge   │                       │
+│                        └──────┬──────┬───┘                       │
+└───────────────────────────────│──────│───────────────────────────┘
+                                │      │  MQTT bridges (pre-configured)
+               ┌────────────────┘      └──────────────────────┐
+               ▼                                               ▼
+┌──── fischertechnik edge ───────┐       ┌──── KUKA edge ─────────────┐
+│  Mosquitto (local)             │       │  Mosquitto (local)         │
+│  Node-RED (local flows)        │       │  Node-RED (local flows)    │
+│  PostgreSQL (local raw data)   │       │  PostgreSQL (local data)   │
+│  Control software              │       │  KUKA controller           │
+│  Warehouse crane               │       │  Robot arm                 │
+└────────────────────────────────┘       └────────────────────────────┘
+```
+
+### Case 0 specific data path — and the honest trade-off
+
+```
+SMIA container
+    │
+    │  HTTP POST  ← AID defines base = 192.168.155.10:1880
+    │
+    ▼
+DIDA Central — Node-RED     ← ⚠️ CENTRAL IS IN THE CRITICAL PATH
+    │                            if central Node-RED is down:
+    │  MQTT publish               command never reaches fischertechnik
+    ▼                            even if fischertechnik edge is healthy
+DIDA Central — Mosquitto
+    │
+    │  MQTT bridge (stable, pre-configured)
+    ▼
+fischertechnik — Mosquitto local
+    │
+    ▼
+Control software → Warehouse crane macro
+```
+
+**Why central instead of pointing SMIA directly to a fischertechnik edge?**
+1. The fischertechnik machine is Windows — it doesn't run a custom HTTP server
+2. DIDA central already had Node-RED + the bridge pre-configured in the lab
+3. This was the path of least resistance and it works reliably
+
+This is a **pragmatic trade-off**, not an architectural purity claim.
+
+### Strengths vs. weaknesses
+
+| ✅ Strength | ⚠️ Weakness |
+|---|---|
+| Fault isolation: fischertechnik edge survives central failure (for local ops) | Central IS in the critical path for SMIA commands in Case 0 |
+| Add a new machine = deploy new edge stack, nothing else changes | More nodes = more things to monitor/maintain |
+| Machine-specific data stays at the edge (latency, bandwidth, privacy) | Config duplication across edge nodes (risk of drift) |
+| Edge processing: validation, fallback defaults near the hardware | MQTT bridge must be stable; silent failure if bridge drops |
+| KUKA and fischertechnik flows fully independent | No unified monitoring dashboard out of the box |
+
+### How to fix the central-in-critical-path problem (future improvement)
+
+```
+CURRENT (Case 0):                    IMPROVED (future):
+─────────────────────                ────────────────────────────────
+SMIA                                 SMIA
+  │ HTTP POST → DIDA Central           │ HTTP POST → fischertechnik edge
+  │ (central in critical path)         │ (central NOT in critical path)
+  ▼                                    ▼
+  DIDA central Node-RED              fischertechnik Linux edge node
+  DIDA central Mosquitto               (Raspberry Pi or equivalent)
+  MQTT bridge → fischertechnik          Local Node-RED + Mosquitto
+                                      ↓
+                                     Selectively forward to DIDA central
+                                     for aggregation only
+```
+
+> **Speaker note:** This improvement requires adding a Linux edge node per machine, which changes the AID `base` URL in the AASX to point to the edge. No SMIA code changes — just an AAS model update. That's the power of the AID approach.
+
+### Alternatives rejected
+
+| Alternative | Why |
+|---|---|
+| **Single central broker** | Single point of failure for ALL machines simultaneously |
+| **Direct SMIA → MQTT** | AID standard only defines HTTP interfaces; SMIA has no native MQTT output |
+| **Direct SMIA → fischertechnik** | Windows machine, not reachable as HTTP server; violates SMIA's asset-agnostic design |
+
+---
+
+## Slide 31 — Live Demo
 
 ### What to show
 
@@ -920,7 +1115,7 @@ Operator clicks "Submit Capability_PickPiece"
 
 ---
 
-## Slide 30 — What's Next
+## Slide 32 — What's Next
 
 ### Case 0 is the baseline. Future cases will:
 
@@ -940,7 +1135,7 @@ Operator clicks "Submit Capability_PickPiece"
 
 ---
 
-## Slide 31 — Resources and Repo Structure
+## Slide 33 — Resources and Repo Structure
 
 ### Where everything is
 
