@@ -15,6 +15,7 @@
 ### AAS · CSS Ontology · SMIA · Node-RED · MQTT
 
 **Andrés Felipe Fierro Fonseca**
+Universidad de Deusto · Vicomtech — Data Intelligence for Industry
 Tutors: Ander García Gangoiti / Xabier Oregui Biain
 TFG — Degree in Data Science
 
@@ -200,12 +201,14 @@ This is what makes AAS interoperable: two systems that don't know each other can
 
 ```
 Capability_PickPiece          ← WHAT (abstract, implementation-independent)
+    │  [css-smia:AssetCapability — physical machine capability]
+    │  [hasLifecycle = OFFER — this asset is advertising it]
     │
     │  isRealizedBy
     ▼
 Skill_PickPiece               ← HOW (concrete implementation reference)
     │
-    │  accessibleThroughAssetService
+    │  accessibleThroughAssetService  ← physical execution path
     ▼
 AID/InterfaceHTTP/            ← WHERE (the actual HTTP call)
     InteractionMetadata/
@@ -219,7 +222,16 @@ POST http://192.168.155.10:1880/smia/lego/pick
 **SMIA reads this chain from the AAS model at startup.**
 No code changes needed when the asset changes — just update the AAS.
 
-> **Speaker note:** The CSS ontology is the heart of the flexibility. Without it, someone would need to write: "if capability is PickPiece, call this URL". With CSS, SMIA generically follows the chain: find the skill that realizes the capability, find the interface accessible through that skill, call it. It works for any capability, any skill, any interface — as long as they are correctly described in the AAS.
+### Two types of Capability (paper Fig. 4)
+
+| Type | What it represents | Case 0? |
+|---|---|---|
+| `css-smia:AssetCapability` | Physical capability of the **machine** (PickPiece, PlacePiece) | ✓ **yes** |
+| `css-smia:AgentCapability` | Capability of the **DT agent itself** (Negotiate, Coordinate) | ✗ future |
+
+Case 0 only uses `AssetCapability` because we are modelling the warehouse crane's physical actions. `AgentCapability` will be relevant when SMIA agents need to negotiate with each other (multi-agent scenarios, Case 1+).
+
+> **Speaker note (paper §3.2):** The CSS ontology is an extension of the CaSkade-Automation CSS-ontology v1.0.1. SMIA adds two subclasses of `css:Capability`: `AssetCapability` for physical machine functions and `AgentCapability` for the DT's own coordination functions. The chain — Capability → isRealizedBy → Skill → accessibleThroughAssetService → SkillInterface → AID action — is the complete path SMIA follows when it receives a REQUEST message. Without the CSS model, someone would hard-code "if capability is PickPiece, call this URL". With CSS, SMIA follows the chain generically: it works for any capability as long as it is correctly described in the AAS.
 
 ---
 
@@ -470,7 +482,7 @@ Set second → Add ModelReference → navigate: LEGO_factory > CapabilitiesAndSk
 ### File: `CSS-ontology-smia.owl` (embedded in AASX, also in `my_models/ontology/`)
 
 - OWL 2 ontology, RDF/XML format, 36 KB
-- Extends the HSU-HAW CSS base ontology (`http://www.w3id.org/hsu-aut/css`)
+- Base: **CaSkade-Automation CSS-ontology v1.0.1** (`https://github.com/CaSkade-Automation/CSS`, IRI: `http://www.w3id.org/hsu-aut/css`)
 - SMIA-specific extensions: `AssetCapability`, `AgentCapability`, `accessibleThroughAssetService`
 
 ### What SMIA does with it at startup
@@ -638,16 +650,41 @@ Operator agent: operator001@ejabberd
 
 Both agents connect to `ejabberd:5222`. The domain `ejabberd` is the Docker container hostname.
 
-### FIPA-ACL Flow for a Capability Request
+### FIPA-ACL Message Structure (paper Fig. 16)
 
 ```
-Operator → REQUEST  {capability: Capability_PickPiece} → SMIA
-SMIA executes skill (HTTP POST)
-SMIA → INFORM   {status: ok, payload: bandera_custom:0} → Operator
-Operator → shows result in GUI
+Field         │ REQUEST (operator → SMIA)
+──────────────┼────────────────────────────────────────────────
+to            │ SMIA_agent@ejabberd
+sender        │ operator001@ejabberd
+performative  │ Request
+ontology      │ CSSRequest       ← tells SMIA this is a CSS capability request
+body          │ {"skill": "Skill_PickPiece",
+              │  "constraints": [],
+              │  "params": {"position": 0}}
+
+Field         │ INFORM (SMIA → operator)
+──────────────┼────────────────────────────────────────────────
+performative  │ Inform
+ontology      │ CSSRequest
+body          │ {"status": "ok", "payload": "bandera_custom:0", ...}
 ```
 
-> **Speaker note:** FIPA-ACL (Foundation for Intelligent Physical Agents — Agent Communication Language) is the standard for structured agent communication. It's like HTTP status codes but for agent conversations: REQUEST means "do this", INFORM means "here's the result", REFUSE means "I can't do this", PROPOSE is used in negotiations. The actual transport is XMPP — the FIPA-ACL content is just the message body. ejabberd certificate warnings in the logs (`No certificate found matching`) are non-blocking for our local test setup.
+**The `ontology` field is critical:** SMIA's `ACLHandlingBehaviour` checks this field to route the message:
+- `CSSRequest` → spawns `HandleCapabilityBehaviour`
+- `SvcRequest` → routes to Functional View services
+- `Negotiation` → routes to negotiation behaviours (future multi-agent scenarios)
+
+### FIPA-ACL Flow for Case 0
+
+```
+Operator → REQUEST (ontology=CSSRequest) → SMIA
+SMIA: capability → skill → HTTP POST → Node-RED → MQTT → crane
+SMIA → INFORM (ontology=CSSRequest) → Operator
+Operator shows result in GUI
+```
+
+> **Speaker note (paper §3.3 + Fig. 16):** FIPA-ACL (Foundation for Intelligent Physical Agents — Agent Communication Language) is the standard for multi-agent communication in I4.0. The `ontology` field is what lets SMIA distinguish a capability request from a negotiation from a service call — all using the same transport. Without it, SMIA could not route the message correctly. The actual transport is XMPP — the FIPA-ACL content is the structured body. ejabberd certificate warnings in the logs are non-blocking for our local test setup.
 
 ---
 

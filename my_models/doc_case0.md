@@ -233,11 +233,20 @@ These IRIs are used as `semanticId` values on the AID submodel elements.
 
 The **Capability–Skill–Service (CSS)** ontology is an OWL 2 ontology that provides a standard vocabulary for describing industrial automation capabilities and how they are implemented.
 
+**Source:** The base ontology is the **CaSkade-Automation CSS-ontology v1.0.1** (October 2024), maintained at `https://github.com/CaSkade-Automation/CSS`. SMIA extends this with two subclasses of `css:Capability`:
+- SMIA extension IRI: `http://www.w3id.org/upv-ehu/gcis/css-smia`
+- W3ID permanent identifier: `https://w3id.org/upv-ehu/gcis/css-smia/`
+
 In SMIA's extension (`CSS-ontology-smia.owl`), the key concepts are:
 
-- **Capability**: An abstract ability of an asset or agent (e.g., "pick a piece"). Not tied to any specific implementation.
-- **Skill**: A concrete implementation of a capability (e.g., "call the Node-RED HTTP endpoint to pick"). Linked to a capability via `isRealizedBy`.
-- **SkillInterface**: Describes how a skill is accessed (e.g., an HTTP action in the AID submodel). Linked to a skill via `accessibleThroughAssetService` (for physical assets) or `accessibleThroughAgentService` (for agent services).
+- **Capability**: An abstract ability of an asset or agent (e.g., "pick a piece"). Not tied to any specific implementation. SMIA distinguishes two subtypes:
+  - **`css-smia:AssetCapability`** — a physical capability inherent to the **machine** (e.g., PickPiece, PlacePiece). Used in Case 0 because the crane's physical actions are the capabilities being modelled.
+  - **`css-smia:AgentCapability`** — a capability of the **DT agent itself** (e.g., Negotiate, Coordinate). Not used in Case 0; relevant in multi-agent scenarios where agents offer coordination functions to each other.
+- **CapabilityConstraint**: A restriction on when a capability can be used (`css:Capability --isRestrictedBy--> css:CapabilityConstraint`). Not used in Case 0 but available for future capability matching.
+- **Skill**: A concrete implementation of a capability. Linked to a capability via `isRealizedBy`.
+- **SkillInterface**: Describes how a skill is accessed. Linked to a skill via one of two paths:
+  - `accessibleThroughAssetService` — physical execution via HTTP (`AssetConnection`). **Case 0 uses this.**
+  - `accessibleThroughAgentService` — internal execution via Python method (for `AgentCapability`, future cases).
 
 ### 6.2 Relationship Chain
 
@@ -265,16 +274,34 @@ The properties file contains `ontology.inside-aasx=true`. This tells SMIA to fin
 
 ### 6.4 Key Class Hierarchy (in SMIA's CSS ontology)
 
+Based on the SMIA paper Fig. 4 (UML class diagram):
+
 ```
-owl:Thing
-└── Capability
-    ├── AgentCapability
-    └── AssetCapability     ← used in Case 0
-└── Skill                   ← used in Case 0
-└── SkillInterface
-└── SkillParameter
-└── StateMachine
+css:Capability  ──isRestrictedBy──►  css:CapabilityConstraint
+    │                                    (+hasCondition: constraintCondition)
+    │
+    ├──► css-smia:AssetCapability   ← PHYSICAL capabilities (Case 0)
+    │    e.g. PickPiece, PlacePiece — functions inherent to the machine
+    │    (+hasLifecycle: OFFER | ASSURANCE | REQUIREMENT)
+    │
+    └──► css-smia:AgentCapability   ← AGENT capabilities (future cases)
+         e.g. Negotiate, Coordinate — functions of the DT agent
+
+css:Capability ──isRealizedBy──► css:Skill
+                                     │ (+hasImplementationType: OPERATION | ...)
+                                     │ (+hasParameter ──► css:SkillParameter)
+                                     │
+                                     ├──accessibleThroughAssetService──► css:SkillInterface
+                                     │  ← HTTP via AssetConnection (Case 0 uses this)
+                                     │
+                                     └──accessibleThroughAgentService──► css:SkillInterface
+                                        ← Python method (future AgentCapability cases)
 ```
+
+**Capability lifecycle qualifier values (hasLifecycle):**
+- `OFFER` — this capability is being offered/available by this asset ← used in Case 0
+- `ASSURANCE` — capability offered with a quality guarantee
+- `REQUIREMENT` — capability required/needed from another agent (used in requesting agents)
 
 ---
 
@@ -369,6 +396,8 @@ CapabilitiesAndSkills
     └── Qualifier: type=hasImplementationType, value=OPERATION
 ```
 
+> **Lifecycle values:** `hasLifecycle = OFFER` means this asset is advertising/providing this capability. Other valid values: `ASSURANCE` (offered with quality guarantee) and `REQUIREMENT` (capability needed from another agent — used on the requesting side, e.g., in the operator AAS).
+
 > **Critical:** `Skill_PickPiece` and `Skill_PlacePiece` are defined as `<property>` AAS elements (not `<submodelElementCollection>`). Using a `SubmodelElementCollection` for skills causes an unresolvable Python method resolution order (MRO) conflict in SMIA's internal class extension system, which prevents `InitAASModelBehaviour` from completing. The system silently fails to register skills, and the operator GUI shows 0 capabilities. Skills must be `<property>` elements to avoid this.
 
 #### 7.2.4 SemanticRelationships
@@ -389,6 +418,16 @@ SMIA reads these four relationships during startup (`InitAASModelBehaviour`) to 
 ## 8. AASX Package Explorer — From-Scratch Tutorial
 
 This section explains how to create `LEGO_factory_case0.aasx` from scratch using AASX Package Explorer (AASX PE). This AASX models the **fischertechnik Training Factory Industry 4.0 24V warehouse crane**. If you already have the file, use this as a verification guide.
+
+**Process reference (paper Fig. 6):** The SMIA paper defines the canonical CSS-enriched AAS development workflow as:
+1. Open AASX Package Explorer
+2. For each SubmodelElement that represents a CSS concept: get the CSS class IRI from the ontology (e.g., using Protégé) → add it to the `semanticId` field
+3. For each relationship between CSS elements: get the CSS ObjectProperty IRI → add it to a `RelationshipElement`'s `semanticId`
+4. Add the `AssetInterfacesDescription` submodel with `EndpointMetadata` + `InteractionMetadata`
+5. Save the CSS ontology OWL file inside the AASX (as a supplementary file)
+6. Save the AASX
+
+Note: SMIA also extends the AID submodel with two optional attributes (paper §4.1.1): `data-Query` (JSONPath/XPath/regex for extracting specific data from asset responses) and `htv_params` (HTTP request parameters). These are available for advanced use but not required and not used in Case 0.
 
 ### 8.1 Install AASX Package Explorer
 

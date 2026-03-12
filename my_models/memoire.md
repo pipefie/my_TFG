@@ -1,8 +1,10 @@
 # Flexible Manufacturing Based on Digital Twins Using AAS and CSS Model
 
 **Bachelor's Thesis (Trabajo de Fin de Grado)**
+**University:** Universidad de Deusto
 **Degree in Data Science**
 **Author:** Andrés Felipe Fierro Fonseca
+**Institution:** Vicomtech — Data Intelligence for Industry (DII)
 **Tutor:** Ander García Gangoiti / Xabier Oregui Biain
 **Date:** 2026
 
@@ -17,7 +19,7 @@
 
 ## Abstract
 
-This work investigates and implements a flexible manufacturing scenario based on digital twin technologies and standard multi-agent systems. The project combines the Asset Administration Shell (AAS) standard — the reference framework for Industrial Digital Twins (IDT) within Industry 4.0 — with the Capability-Skill-Service (CSS) ontological model to build an intelligent, self-configuring software agent (SMIA) that represents a physical manufacturing asset. The system enables a human operator to discover available manufacturing capabilities and trigger their execution through a standardized digital interface, with the physical action carried out autonomously by the underlying equipment. A concrete industrial use case is implemented using a **fischertechnik Training Factory Industry 4.0 24V** as the physical asset — specifically its warehouse crane (Hochregallager) for pick and place operations — demonstrating the complete pipeline from operator request to physical actuation via semantic reasoning, XMPP communication, HTTP, and MQTT protocols. The work contributes to the open-source SMIA (Self-configurable Manufacturing Industrial Agents) research framework developed at the University of the Basque Country (UPV/EHU).
+This work investigates and implements a flexible manufacturing scenario based on digital twin technologies and standard multi-agent systems. The project combines the Asset Administration Shell (AAS) standard — the reference framework for Industrial Digital Twins (IDT) within Industry 4.0 — with the Capability-Skill-Service (CSS) ontological model to build an intelligent, self-configuring software agent (SMIA) that represents a physical manufacturing asset. The system enables a human operator to discover available manufacturing capabilities and trigger their execution through a standardized digital interface, with the physical action carried out autonomously by the underlying equipment. A concrete industrial use case is implemented using a **fischertechnik Training Factory Industry 4.0 24V** as the physical asset — specifically its warehouse crane (Hochregallager) for pick and place operations — demonstrating the complete pipeline from operator request to physical actuation via semantic reasoning, XMPP communication, HTTP, and MQTT protocols. The work is conducted at Vicomtech's Data Intelligence for Industry (DII) department and submitted to the Universidad de Deusto. It is built upon the open-source SMIA (Self-configurable Manufacturing Industrial Agents) research framework developed at the University of the Basque Country (UPV/EHU).
 
 ---
 
@@ -70,7 +72,7 @@ This TFG focuses on:
 - Connecting the digital twin to a real communication chain (HTTP → MQTT) that triggers physical actuation.
 - Validating the complete pipeline through a working end-to-end demonstration.
 
-The work is part of a broader ongoing research project at the GCIS (Group of Control and Systems Integration) at UPV/EHU, specifically within the line of research on intelligent agents for flexible manufacturing.
+This TFG is developed at **Vicomtech** (Data Intelligence for Industry department) and submitted to **Universidad de Deusto**. It applies the SMIA framework developed at the GCIS (Group of Control and Systems Integration) at UPV/EHU, within their research line on intelligent agents for flexible manufacturing.
 
 ### 1.3 Document Structure
 
@@ -373,7 +375,7 @@ The AID standard decouples what an asset *can do* (an HTTP action) from the spec
 
 The **Capability-Skill-Service (CSS)** model is a conceptual framework originally developed by Plattform Industrie 4.0 that separates the description of manufacturing functions into three distinct abstraction levels. It was designed specifically to enable flexible manufacturing by breaking the tight coupling between production requests and specific machine implementations.
 
-The model was formalized as an **OWL ontology** (see Section 8) to enable machine-readable, semantically rich descriptions of these concepts. The University of Hamburg (HSU-HAW) contributed an open-source OWL implementation at `https://w3id.org/hsu-aut/css`, which is the base ontology used by SMIA.
+The model was formalized as an **OWL ontology** (see Section 8) to enable machine-readable, semantically rich descriptions of these concepts. The **CaSkade-Automation** project provides an open-source OWL implementation (CSS-ontology v1.0.1, October 2024) at `https://github.com/CaSkade-Automation/CSS` with the base IRI `https://w3id.org/hsu-aut/css`. This is the base ontology extended by SMIA (paper §3.2, §4.1.2).
 
 ### 7.2 The Three Abstraction Levels
 
@@ -385,7 +387,8 @@ Key properties:
 - Capabilities are **abstract**: they do not specify how the function is implemented.
 - Capabilities can have **constraints**: pre-conditions, post-conditions, and invariants that define the operating envelope.
 - Capabilities can have **parameters**: inputs that the requester must provide.
-- Capabilities belong to a **lifecycle** (e.g., `OFFER`, `REQUIRED`, `NOT_AVAILABLE`).
+- Capabilities belong to a **lifecycle**: `OFFER` (the capability is available/offered by this asset), `ASSURANCE` (offered with a quality guarantee), or `REQUIREMENT` (this capability is required from another agent) (paper §4.1.2).
+- Capabilities can be **restricted** by `CapabilityConstraint` objects via the `isRestrictedBy` property — pre/post-conditions defining operating bounds (paper Fig. 4).
 
 Example: `Capability_PickPiece` — the ability to pick a piece from a warehouse slot. This is independent of whether the pick is performed by a robotic arm, a conveyor, or a specific crane mechanism. In Case 0, this capability is offered by the **warehouse crane (Hochregallager)** of the fischertechnik Training Factory Industry 4.0 24V. Note: this capability does *not* apply to the central crane with vacuum suction cup (ventose), which is a separate component of the same factory model.
 
@@ -413,15 +416,17 @@ In the CSS ontology, the object property `accessibleThroughAssetService` links a
 
 ### 7.3 Relationships Between CSS Concepts
 
-The CSS model defines three key object properties:
+The CSS model defines five key object properties (paper Fig. 4):
 
 | Object Property | Direction | Meaning |
 |---|---|---|
 | `isRealizedBy` | Capability → Skill | This capability is implemented by this skill |
-| `isRestrictedBy` | Capability → CapabilityConstraint | This capability is constrained by this condition |
-| `accessibleThroughAssetService` | Skill → AID Action | This skill is executed via this asset HTTP interface |
-| `accessibleThroughAgentService` | Skill → Agent Service | This skill is executed via an agent-level service |
-| `hasParameter` | Skill/Capability → SkillParameter | This element has this parameter |
+| `isRestrictedBy` | Capability → CapabilityConstraint | This capability is bounded by this constraint |
+| `accessibleThroughAssetService` | Skill → SkillInterface | Skill executes via a **physical asset** service (HTTP) ← Case 0 |
+| `accessibleThroughAgentService` | Skill → SkillInterface | Skill executes via an **agent-internal** service (Python method) |
+| `hasParameter` | Skill → SkillParameter | This skill has this input/output parameter |
+
+The distinction between the two access paths is critical: `accessibleThroughAssetService` is used when the skill triggers a physical action (e.g., moving the warehouse crane via HTTP); `accessibleThroughAgentService` is used when the skill triggers an internal agent behaviour (e.g., negotiating with other agents). Case 0 exclusively uses the former.
 
 ### 7.4 Why CSS Enables Flexibility
 
@@ -444,10 +449,12 @@ This chain is entirely driven by the information in the AAS model — no hard-co
 
 ### 7.5 CSS Ontology in SMIA
 
-SMIA uses a customized CSS OWL ontology (`CSS-ontology-smia.owl`) that:
-- Extends the base HSU-HAW CSS ontology (`http://www.w3id.org/hsu-aut/css`).
-- Adds SMIA-specific concepts: `AgentCapability`, `AssetCapability`, `accessibleThroughAssetService`, `accessibleThroughAgentService`.
-- Is embedded directly in the AASX package so that each asset carries its own semantic definitions.
+SMIA uses a customized CSS OWL ontology (`CSS-ontology-smia.owl`) that (paper §4.1.2):
+- Extends the **CaSkade-Automation CSS-ontology v1.0.1** base (`http://www.w3id.org/hsu-aut/css`).
+- Adds SMIA-specific classes: `css-smia:AssetCapability` (physical machine capabilities) and `css-smia:AgentCapability` (agent software capabilities).
+- Adds SMIA-specific object properties: `accessibleThroughAssetService` (HTTP execution) and `accessibleThroughAgentService` (agent-internal execution).
+- Is embedded directly in the AASX package (`aasx/CSS-ontology-smia.owl`) so that each asset's digital twin is entirely self-contained.
+- Extended ontology IRI: `http://www.w3id.org/upv-ehu/gcis/css-smia`, W3ID: `https://w3id.org/upv-ehu/gcis/css-smia/`
 
 The key class hierarchy in the SMIA CSS ontology:
 
@@ -671,24 +678,35 @@ In this project, Node-RED runs on the DIDA central machine and serves as the **p
 
 ### 11.1 Overview
 
-**SMIA** (Self-configurable Manufacturing Industrial Agents) is an open-source framework developed at the Control and Systems Integration research group (GCIS) of the University of the Basque Country (UPV/EHU) by Ekaitz Hurtado as part of doctoral research. SMIA is an implementation of the **I4.0 Component** concept from RAMI 4.0 as a fully standards-compliant, AAS-based agent.
+**SMIA** (Self-configurable Manufacturing Industrial Agents) is an open-source framework developed at the Control and Systems Integration research group (GCIS) of the University of the Basque Country (UPV/EHU) by Ekaitz Hurtado, Arantzazu Burgos, Aintzane Armentia, and Oskar Casquero. It is published in the *Journal of Industrial Information Integration* (DOI: 10.1016/j.jii.2025.100915) and *Software Impacts* (DOI: 10.1016/j.simpa.2025.100807).
+
+**Dual-layer architecture (paper §3):** SMIA is simultaneously a methodology and a technology:
+1. **Methodology layer**: a process for characterizing proactive AAS (Type 3) by enriching AAS element descriptions with CSS ontology IRIs via the standard `semanticId` field.
+2. **Technology layer**: a software toolchain that automatically generates executable Digital Twins as FIPA-compliant industrial agents using SPADE, directly from those CSS-enriched AAS descriptions.
+
+The fundamental conceptual separation: *"The AAS is treated as a static, administrative model, while the DT represents its dynamic, operational counterpart"* (paper §3). SMIA agents are not simple wrappers — they are functional DTs that actively interpret standardized descriptions, expose capabilities, communicate with peers, and execute asset services.
 
 SMIA is published as:
 - Python package on PyPI: `pip install smia`
 - Docker image on DockerHub: `ekhurtado/smia:latest-alpine`
 - Open-source code on GitHub: `https://github.com/ekhurtado/SMIA`
-- Scientific papers (Journal of Industrial Information Integration, 2025; Software Impacts, 2025/2026)
 
-### 11.2 Core Design Principles
+### 11.2 Design Requirements (paper Table 1)
 
-SMIA is built on the following principles:
+SMIA was designed to satisfy eight functional and design requirements derived from the convergence of industrial domain needs, distributed software engineering principles, and standardization recommendations from organizations such as Plattform Industrie 4.0, IDTA, W3C, and IEEE:
 
-1. **AAS-compliant**: All configuration and capability information is stored in the AAS model. SMIA reads its own AAS at startup and configures itself accordingly.
-2. **Self-configuring**: SMIA requires no external configuration database. The AASX package is the single source of truth.
-3. **Ontology-based**: The CSS OWL ontology is used to give semantic meaning to AAS elements. SMIA identifies capabilities, skills, and interfaces by their semantic IDs, not by their names.
-4. **Multi-agent**: Multiple SMIA instances can run simultaneously and communicate with each other via XMPP/FIPA-ACL.
-5. **Containerized**: SMIA is distributed as a Docker image, making deployment simple and portable.
-6. **Extensible**: SMIA can be extended by subclassing the agent and adding custom behaviours.
+| # | Requirement | Justification |
+|---|---|---|
+| R1 | Compliance with industry integration models | Integrate heterogeneous assets using AAS (IEC 63278) and CSS standards |
+| R2 | Automated self-configuration of Digital Twins | Reduce human intervention; align with AAS Type 3 specifications |
+| R3 | Integration of physical assets via standard interfaces | Interpret physical and logical asset interfaces via the AID submodel |
+| R4 | Adaptability to flexible and reconfigurable architectures | Support runtime reconfiguration using the CSS model |
+| R5 | Inclusion in distributed and decentralized systems | Resilience, scalability, and decentralization per Industry 4.0 |
+| R6 | P2P communication with I4.0-compliant language | Autonomous cooperation, negotiation, and coordination via FIPA-ACL |
+| R7 | Separation between physical asset and Digital Twin | Functional layer remains independent of the asset's hardware specification |
+| R8 | Modular and extensible software design | Maintainability and scalability across industrial contexts |
+
+These requirements are satisfied jointly by the combined use of AAS, CSS, FIPA-ACL, SPADE, BaSyx SDK, and OWLready2 — none of the requirements can be satisfied by any one technology alone.
 
 ### 11.3 SMIA Components
 
@@ -720,38 +738,71 @@ This extension is implemented using Python's dynamic class creation (`types.new_
 
 Provides the `get_asset_connection_by_model_reference()` method that maps a reference to an AID action element to the actual `AssetConnection` object (the HTTP caller).
 
-### 11.4 SMIA Startup Sequence
+### 11.4 FSM States and Runtime Lifecycle (paper Fig. 5)
 
-When the SMIA Docker container starts, the following sequence occurs:
+SMIA agents operate according to a four-state Finite State Machine (FSM) implemented as a SPADE `FSMBehaviour`. The states were defined in prior IAMS (Industrial Agent Management System) work and extended by SMIA (shown in green in paper Fig. 5):
 
-```
-1. Docker entrypoint reads env vars: AAS_MODEL_NAME, AAS_ID, AGENT_ID, AGENT_PASSWD
-2. smia_docker_starter.py: reads env vars → configures properties
-3. SMIAAgent.__init__(): initializes SPADE agent with XMPP credentials
-4. SMIAAgent.setup(): creates and adds AASFSMBehaviour (FSM)
-5. AASFSMBehaviour enters StateBooting
-6. StateBooting:
-   a. Scans AASX folder → finds LEGO_factory_case0.aasx
-   b. Parses AASX → extracts AAS model XML → finds AAS with id=AAS_ID
-   c. Loads CSS ontology from aasx/CSS-ontology-smia.owl
-   d. Runs InitAASModelBehaviour:
-      i.  Scans all submodel elements
-      ii. For each element with semanticId matching CSS IRI → creates Extended class
-      iii. Processes SemanticRelationships → builds capability→skill→interface map
-      iv. Processes AID submodel → creates AssetConnection objects (HTTP callers)
-   e. Logs: "AAS model initialized."
-7. AASFSMBehaviour transitions to StateRunning
-8. StateRunning: listens for FIPA-ACL messages on XMPP
-9. On REQUEST message → HandleCapabilityBehaviour:
-   a. Parse requested capability IRI from message
-   b. Find skill that realizes the capability (via isRealizedBy)
-   c. Find interface for the skill (via accessibleThroughAssetService)
-   d. Get AssetConnection for the interface
-   e. Execute HTTP call (base + href, method, body)
-   f. Send FIPA-ACL INFORM reply with result
-```
+| State | Behaviours | SMIA additions |
+|---|---|---|
+| **Booting** | Boot behavior (SPADE init) | **AAS model init behavior** (self-configuration) |
+| **Running** | Service management (CyclicBehaviour) | **Capability management** (HandleCapabilityBehaviour) |
+| **Idle** | Idle behavior (asset-derived tasks) | — |
+| **Stopping** | Finalization / end behavior | — |
 
-### 11.5 SMIA Operator Agent
+Transitions: Booting →(booted)→ Running →(non-operational asset)→ Idle →(operational)→ Running; any state →(stopping request)→ Stopping →(stopped)→ off.
+
+### 11.5 Self-Configuration Process (paper Fig. 8)
+
+The self-configuration — executed entirely during **Booting** by `AASInitializationBehaviour` — follows three parallel tracks (paper §4.2):
+
+**Track 1 — Asset interface extraction:**
+SMIA reads the `AssetInterfacesDescription` submodel via BaSyx SDK, extracts all `Interface` SubmodelElements, and creates an `AssetConnection` instance for each. These objects later serve as the actual HTTP callers.
+
+**Track 2 — CSS-enriched element instantiation:**
+For each CSS class IRI defined in the OWL ontology, SMIA retrieves all AAS `SubmodelElements` whose `semanticId` matches that IRI (via BaSyx SDK). If the element passes semantic validation (OWLready2), SMIA creates a corresponding OWL class instance (Python object) from the ontology — binding the AAS element to its CSS semantic interpretation.
+
+**Track 3 — CSS relationship linking:**
+For each CSS `ObjectProperty` IRI (e.g., `isRealizedBy`, `accessibleThroughAssetService`), SMIA retrieves all `RelationshipElements` in the AAS with matching `semanticId`. It validates them and uses OWLready2 to link the previously created OWL instances together, building the execution graph: Capability → Skill → SkillInterface → AssetConnection.
+
+The result is an in-memory semantic execution network fully derived from the AAS + OWL model, with zero hard-coded asset knowledge.
+
+### 11.6 Capability Request Execution (paper Fig. 9)
+
+When a FIPA-ACL `REQUEST` message arrives with `ontology = CSSRequest`:
+
+1. `ACLHandlingBehaviour` (CyclicBehaviour) receives it and dispatches to `HandleCapabilityBehaviour` (OneShotBehaviour).
+2. The requested capability name and any constraints are validated against the OWL ontology.
+3. If no specific skill is specified → SMIA infers the matching skill via `isRealizedBy`.
+4. If no interface is specified → SMIA retrieves it via `accessibleThroughAssetService` (or `accessibleThroughAgentService` for agent-side skills).
+5. Constraints (if any) are verified before execution.
+6. The appropriate executor is invoked: **AssetConnection** for physical HTTP calls; internal Python method for agent services.
+7. A FIPA-ACL `INFORM` response is sent with the result, execution status, and an execution timeline for traceability.
+
+### 11.7 FIPA-ACL Message Structure for CSS Requests (paper Fig. 16)
+
+SMIA uses SPADE's `metadata` field to carry FIPA-ACL semantics. A CSS capability request has the following structure:
+
+| Field | Value |
+|---|---|
+| `to` | Recipient SMIA JID (e.g., `SMIA_agent@ejabberd`) |
+| `sender` | Sender JID (e.g., `operator001@ejabberd`) |
+| `body` | JSON: `{"skill": "Skill_PickPiece", "constraints": [], "params": {"position": 0}}` |
+| `performative` | `Request` |
+| `ontology` | `CSSRequest` ← tells SMIA to route to HandleCapabilityBehaviour |
+
+Other ontology values: `SvcRequest` (Functional View service tasks), `Negotiation` (multi-agent coordination).
+
+### 11.8 Extensibility (paper §4.4 + Fig. 10)
+
+SMIA exposes three extension points via the `ExtensibleSMIAAgent` class:
+
+- `add_new_asset_connection(interface_aas_ref, handler)` — add support for new physical protocols (e.g., OPC UA, raw MQTT, serial)
+- `add_new_agent_capability(handler)` — add new `AgentCapability` implementations (e.g., learning, planning, negotiation logic)
+- `add_new_agent_service(service_id, executable_method)` — add new internal agent services
+
+This extensibility is what enables the future cases (negotiation in Case 1, constraint matching in Case 2) without modifying the SMIA core.
+
+### 11.9 SMIA Operator Agent
 
 The **SMIA Operator** (`ekhurtado/smia-use-cases:latest-operator`) is a specialized SMIA extension that provides a web-based graphical interface for human operators.
 
@@ -795,15 +846,15 @@ The physical system involves three machines connected in a network:
 | Machine | Hardware | Software | Location |
 |---|---|---|---|
 | **Linux dev machine** | Standard Linux PC | Docker Compose, SMIA | Development lab |
-| **DIDA Central** | Industrial PC/server | Node-RED, Mosquitto broker | DIDA lab central network |
-| **fischertechnik/PLC Windows machine** | Windows PC | fischertechnik control software, Mosquitto subscriber | DIDA lab |
+| **DIDA Central** | Industrial PC/server | Node-RED, Mosquitto broker | Vicomtech DII lab central network |
+| **fischertechnik/PLC Windows machine** | Windows PC | fischertechnik control software, Mosquitto subscriber | Vicomtech DII lab |
 
 The **fischertechnik Training Factory Industry 4.0 24V** is a professional industrial simulation model. Its relevant components for Case 0:
 - **Warehouse crane (Hochregallager crane)**: An electrically motorized crane that moves along three axes (X, Y, Z) to store and retrieve workpieces from the high-bay warehouse slots. This is the physical actuator for `Capability_PickPiece` and `Capability_PlacePiece`.
 - **Control software** on the Windows machine that subscribes to the MQTT topic and triggers the warehouse crane macros when specific command messages are received. Each macro code (`bandera_custom:0`, `bandera_custom:1`, ...) corresponds to a specific warehouse slot position.
 - **Note**: The central vacuum suction crane (ventose) is a separate component not involved in Case 0.
 
-The **DIDA Central machine** is a shared infrastructure machine in the DIDA (Distributed and Industrial Data Applications) laboratory that:
+The **DIDA Central machine** is a shared infrastructure machine in the **Data Intelligence for Industry (DII)** department at Vicomtech that:
 - Runs Node-RED with an HTTP endpoint that receives commands from SMIA.
 - Runs a Mosquitto MQTT broker that forwards messages to the fischertechnik machine.
 - Is reachable from the dev machine via IP `192.168.155.10`.
@@ -985,15 +1036,19 @@ docker-compose.yml
 
 ### 14.1 AAS Model Creation (AASX Package Explorer)
 
-The `LEGO_factory_case0.aasx` model (representing the fischertechnik Training Factory warehouse crane) was created using **AASX Package Explorer**, an open-source Windows tool distributed by IDTA. The model creation involved:
+The `LEGO_factory_case0.aasx` model (representing the fischertechnik Training Factory warehouse crane) was created using **AASX Package Explorer**, an open-source Windows tool distributed by IDTA. The creation process follows the **CSS-enriched AAS development workflow** defined in the SMIA paper (Fig. 6):
+
+> For each SubmodelElement: if CSS-related → query Protégé for the IRI → add to `semanticId` field. For each relationship: get the CSS `ObjectProperty` IRI → add to `RelationshipElement` `semanticId`. Then add the AID submodel, embed the OWL file, and save the AASX.
+
+In practice, the model creation involved:
 
 1. Creating two AAS shells (`LEGO_factory` and `SMIA_agent`) in the same package. The `LEGO_factory` shell is the digital twin of the fischertechnik factory's warehouse crane (historical naming).
-2. Embedding the CSS ontology file (`CSS-ontology-smia.owl`) as a supplementary file at path `aasx/CSS-ontology-smia.owl`.
-3. Building the `AssetInterfacesDescription` submodel according to the IDTA 02017 standard, defining the HTTP endpoint for the Node-RED server.
-4. Building the `CapabilitiesAndSkills` submodel with capabilities defined as `SubmodelElementCollection` and skills defined as **`Property`** (not SMC — see design decisions in §12.5).
-5. Building the `SemanticRelationships` submodel with four `RelationshipElement` entries linking capabilities to skills (via `isRealizedBy`) and skills to AID actions (via `accessibleThroughAssetService`).
+2. Embedding the CSS ontology file (`CSS-ontology-smia.owl`) as a supplementary file at path `aasx/CSS-ontology-smia.owl` — making the AASX self-contained (one file = AAS model + semantic definitions).
+3. Building the `AssetInterfacesDescription` submodel following IDTA 02017. Note: SMIA extends the standard AID with `data-Query` (JSONPath/XPath expressions to extract values from responses) and `htv_params` (HTTP request parameters); these extensions are not used in Case 0 but are available for more complex scenarios.
+4. Building the `CapabilitiesAndSkills` submodel with `AssetCapability` elements (SMC with semanticId `css-smia#AssetCapability`, `hasLifeCycle=OFFER`) and skills as **`Property`** elements (not SMC — see §14.4 for the reason).
+5. Building the `SemanticRelationships` submodel with four `RelationshipElement` entries wiring capabilities to skills (`isRealizedBy`) and skills to AID actions (`accessibleThroughAssetService`).
 
-The complete step-by-step tutorial for recreating this model from scratch is documented in `my_models/doc_case0.md` (Section 8: AASX Package Explorer — From-Scratch Tutorial).
+The complete step-by-step tutorial for recreating this model from scratch is documented in `my_models/doc_case0.md` (Section 8).
 
 ### 14.2 smia-initialization.properties
 
@@ -1220,6 +1275,43 @@ The most significant validation result is the confirmation that **SMIA configure
 - The MQTT topic or payload format.
 
 All of this information is read from `LEGO_factory_case0.aasx` (the fischertechnik factory AAS) at startup. If a new machine with a different endpoint were added by creating a new AASX model, SMIA would handle it without any code modification.
+
+### 15.4 Quantitative Performance Metrics (paper §5.2.3)
+
+The SMIA paper reports benchmarks from a robotic logistics validation scenario (three SMIA agents: two robotic arms + one operator). These figures provide reference baselines for Case 0 performance evaluation.
+
+| Metric | Value | Source context |
+|---|---|---|
+| Self-configuration time — robotic agent (21 CSS elements) | **6.73 s** average | Time from startup to `StateRunning` |
+| Self-configuration time — operator agent (7 CSS elements) | **3.39 s** | Time from startup to `StateRunning` |
+| Messages per direct task execution | **2** (REQUEST + INFORM) | Single-agent, no negotiation |
+| Messages per distributed negotiation | **5** (2n+1, n=2 agents) | Multi-agent propose/accept cycle |
+| Total response time (operator request → action complete) | **0.034–0.098 s** | End-to-end including XMPP + HTTP |
+
+Self-configuration time scales with the number of CSS elements in the AAS model (more CSS elements = more OWL instances to load and link). Case 0 defines only 4 CSS elements per capability chain (2 capabilities + 2 skills), significantly fewer than the paper's 21-element scenario — the expected self-configuration time for Case 0 is well under the reported 6.73 s average.
+
+The 2-message pattern (REQUEST + INFORM) observed in Case 0 is confirmed by the paper as the minimum interaction cost for direct execution. Multi-agent negotiation (planned for future cases) follows the 2n+1 formula: n PROPOSE messages + n ACCEPT/REJECT messages + 1 final CONFIRM, totalling 5 for 2 agents.
+
+The 0.034–0.098 s end-to-end response time validates that SMIA's XMPP-based FIPA-ACL communication introduces negligible latency relative to typical manufacturing operations (which occur on the scale of seconds to minutes). This supports requirement **R6** (P2P communication with I4.0-compliant language) without compromising responsiveness.
+
+### 15.5 Positioning Relative to Similar Approaches (paper Table 2)
+
+The SMIA paper includes a comparative evaluation against three alternative frameworks for deploying manufacturing agents as digital twins:
+
+| Criterion | **SMIA** | MAS4AI | NOVAAS | FA3ST |
+|---|---|---|---|---|
+| **Standard: AAS** | ✓ | ✗ | ✓ | ✓ |
+| **Standard: CSS** | ✓ | ✗ | ✗ | ✗ |
+| **Standard: FIPA-ACL** | ✓ | ✓ | ✗ | ✗ |
+| **Self-configuration from AAS** | ✓ | ✗ | ✗ | ✗ |
+| **P2P multi-agent communication** | ✓ | ✓ | ✗ | ✗ |
+| **Physical asset integration (AID)** | ✓ | ✗ | ✓ | ✓ |
+| **Extensible software architecture** | ✓ | ✗ | ✓ | ✓ |
+| **Open source** | ✓ | ✗ | ✓ | ✓ |
+
+Key differentiator: SMIA is the **only framework** that combines (a) full AAS compliance, (b) CSS semantic capability modelling, (c) FIPA-ACL multi-agent communication, and (d) automated self-configuration from the AAS model. Competing frameworks implement subsets of these properties but none integrates all four.
+
+For Case 0 specifically, the self-configuration criterion is the primary validation target: the agent **requires no asset-specific code** because all asset knowledge is encoded in the AASX model and read at runtime. This distinguishes SMIA from framework approaches (FA3ST, NOVAAS) that provide AAS APIs but do not generate autonomous agents from those descriptions.
 
 ---
 
