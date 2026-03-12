@@ -569,11 +569,11 @@ In this project, **ejabberd** is used as the XMPP server. ejabberd is a mature, 
 - Message templates for filtering incoming messages.
 - Presence management and discovery.
 
-SMIA is built on top of SPADE. Every SMIA agent is a SPADE agent that uses behaviours to implement the AAS lifecycle (booting, running, stopping) and to handle capability requests.
+SMIA is built on top of SPADE. Every SMIA agent is a SPADE agent that uses behaviours to implement the AAS lifecycle (booting, running, idle, stopping) and to handle capability requests.
 
 ### 9.5 Agent Lifecycle in SMIA
 
-SMIA implements a Finite State Machine (FSM) with three states:
+SMIA implements a Finite State Machine (FSM) with four states:
 
 ```
 [StateBooting]
@@ -581,8 +581,12 @@ SMIA implements a Finite State Machine (FSM) with three states:
     | Successful initialization
     v
 [StateRunning]  ←── Handles ongoing messages and capability requests
+    |                                         ↑
+    | Non-operational asset                   | Asset operational again
+    v                                         |
+[StateIdle]  ────────────────────────────────┘
     |
-    | Shutdown signal
+    | Shutdown signal (from any state)
     v
 [StateStopping]
 ```
@@ -736,7 +740,7 @@ This extension is implemented using Python's dynamic class creation (`types.new_
 
 #### Agent Services (`smia.logic.agent_services`)
 
-Provides the `get_asset_connection_by_model_reference()` method that maps a reference to an AID action element to the actual `AssetConnection` object (the HTTP caller).
+Provides the `get_asset_connection_class_by_ref()` method that maps a reference to an AID action element to the actual `AssetConnection` object (the HTTP caller).
 
 ### 11.4 FSM States and Runtime Lifecycle (paper Fig. 5)
 
@@ -753,7 +757,7 @@ Transitions: Booting →(booted)→ Running →(non-operational asset)→ Idle �
 
 ### 11.5 Self-Configuration Process (paper Fig. 8)
 
-The self-configuration — executed entirely during **Booting** by `AASInitializationBehaviour` — follows three parallel tracks (paper §4.2):
+The self-configuration — executed entirely during **Booting** by `InitAASModelBehaviour` — follows three parallel tracks (paper §4.2):
 
 **Track 1 — Asset interface extraction:**
 SMIA reads the `AssetInterfacesDescription` submodel via BaSyx SDK, extracts all `Interface` SubmodelElements, and creates an `AssetConnection` instance for each. These objects later serve as the actual HTTP callers.
@@ -965,7 +969,7 @@ The software system is composed of five functional layers:
 | Layer | Components | Technology |
 |---|---|---|
 | **Human Interface** | Browser, SMIA Operator GUI | HTML/CSS/JS, Python web server |
-| **Agent Communication** | FIPA-ACL messages | XMPP over TLS (ejabberd) |
+| **Agent Communication** | FIPA-ACL messages | XMPP (ejabberd, no TLS in current deployment) |
 | **Agent Intelligence** | SMIA agent (AAS parsing, CSS reasoning, skill execution) | Python, SPADE, basyx, owlready2 |
 | **Protocol Bridge** | Node-RED flow | Node.js, MQTT, HTTP |
 | **Physical Interface** | MQTT messages → warehouse crane macro | Mosquitto, fischertechnik control software |
@@ -1082,7 +1086,7 @@ The Docker Compose file orchestrates three services:
 
 ### 14.4 smia_agent.py Patch
 
-During testing, it was found that SMIA's internal method `get_asset_connection_by_model_reference()` failed to match the AID interface reference with the stored `AssetConnection` object because it used Python object identity (`is` / `==`) for comparison. Since the AID reference object obtained during skill resolution was a different Python object from the one stored during initialization (even though they referred to the same logical AAS element), the lookup returned `None`.
+During testing, it was found that SMIA's internal method `get_asset_connection_class_by_ref()` failed to match the AID interface reference with the stored `AssetConnection` object because it used Python object identity (`is` / `==`) for comparison. Since the AID reference object obtained during skill resolution was a different Python object from the one stored during initialization (even though they referred to the same logical AAS element), the lookup returned `None`.
 
 The fix adds two additional comparison strategies:
 1. String comparison: `str(conn_ref) == str(asset_connection_ref)`.
@@ -1262,7 +1266,7 @@ The following non-trivial issues were identified and resolved during implementat
 |---|---|---|
 | Docker Compose crash (`ContainerConfig`) | Legacy `docker-compose` v1 incompatibility | Switched to `docker compose` v2 |
 | SMIA InitAASModelBehaviour MRO crash | Skills defined as `SubmodelElementCollection` | Changed Skills to `Property` type in AASX |
-| Capability request hanging (line 291) | Asset connection lookup using object identity | Patched `smia_agent.py` with string/key comparison |
+| Capability request hanging in `get_asset_connection_class_by_ref()` | Asset connection lookup using object identity | Patched `smia_agent.py` with string/key comparison |
 | Operator GUI HTTP 500 on Load | Backup file (`.bak2`) in AAS folder scanned as invalid | Removed non-`.aasx` files from `aas/` folder |
 | Node-RED returning HTTP 400 | Missing `position` parameter in SMIA's request | Added `DEFAULT_POSITION = 0` fallback in Node-RED function |
 
