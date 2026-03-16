@@ -1152,3 +1152,591 @@ Use this checklist to replicate Case 0 from scratch.
 ---
 
 *This document was generated from verified runtime behavior and source files in `my_models/` as of 2026-03-04. All semantic IDs, values, and configuration snippets are taken directly from the implemented files.*
+
+---
+
+## 19. Case 1 — Multi-Agent Orchestration: Technical Reference
+
+This section documents everything added for Case 1: the four custom Python files, the docker-compose changes, the AASX Package Explorer tutorial for the new AAS models, and the Node-RED modifications. Read §16 of `memoire.md` for the academic-level explanation of *why* the architecture is designed this way.
+
+---
+
+### 19.1 New Python Files
+
+Case 1 requires four Python files, all under `additional_tools/extended_agents/`. None of these files are asset-specific code inside SMIA — they are extension-layer files that use the official SMIA extension hooks (`ExtensibleSMIAAgent`).
+
+---
+
+#### 19.1.1 `smia_machine_starter.py`
+
+**Full path:** `additional_tools/extended_agents/smia_machine_agent/smia_machine_starter.py`
+
+**Volume mount target (inside container):**
+```
+/usr/local/lib/python3.12/site-packages/smia/launchers/smia_docker_starter.py
+```
+
+**What it does.** The SMIA Docker image executes `python3 -m smia.launchers.smia_docker_starter` at startup. The default file at that path creates a plain `SMIAAgent`. By volume-mounting our file over it, Docker executes our code instead. Our file creates an `ExtensibleSMIAAgent` and calls `add_new_agent_service('machineAvailValue', get_machine_availability)` before starting the agent.
+
+**Key design decision — why `sys.path.insert`:**
+```python
+sys.path.insert(0, os.path.dirname(__file__))
+import smia_machine_agent_services as machine_svc
+```
+When Python runs this file as `smia.launchers.smia_docker_starter`, the module's directory (`/usr/local/lib/python3.12/site-packages/smia/launchers/`) is not automatically on `sys.path`. The explicit insert ensures `import smia_machine_agent_services` resolves to the companion file mounted in the same directory.
+
+**Step-by-step walkthrough:**
+1. `smia.initial_self_configuration()` — loads `smia-initialization.properties` from AASX or config folder, sets up logging, reads XMPP server address
+2. `DockerUtils.get_aas_model_from_env_var()` — reads `AAS_MODEL_NAME` env var, prepends the AAS folder path → returns absolute path to the `.aasx` file inside the container
+3. `smia.load_aas_model(aas_model_path)` — parses the AASX with the BaSyx Python SDK; stores the AAS object store in memory for subsequent self-configuration
+4. Read `AGENT_ID` and `AGENT_PASSWD` from environment — each machine has its own XMPP credentials
+5. `ExtensibleSMIAAgent(jid, passwd)` — creates the agent with extension hooks enabled
+6. `add_new_agent_service('machineAvailValue', get_machine_availability)` — registers the Python function under the ID `'machineAvailValue'`, which must exactly match the `id_short` of the `SkillInterface` AAS element that references it via `accessibleThroughAgentService`
+7. `smia.run(smia_agent)` — starts the SPADE event loop; SMIA runs its three-track self-configuration (AID, CSS, relationships), then enters `StateRunning`
+
+**Shared across all machines.** machine0, machine1, and machine2 all use this same file. The only difference between them is in the AASX model and environment variables.
+
+---
+
+#### 19.1.2 `smia_machine_agent_services.py`
+
+**Full path:** `additional_tools/extended_agents/smia_machine_agent/smia_machine_agent_services.py`
+
+**Volume mount target (inside container):**
+```
+/usr/local/lib/python3.12/site-packages/smia/launchers/smia_machine_agent_services.py
+```
+
+**What it does.** Provides the `get_machine_availability()` function — the agent service that SMIA calls to compute the machine's negotiation score (`negValue`) during FIPA-CNP.
+
+**How SMIA calls it.** When the orchestrator sends a CFP with `negCriterion = "http://www.w3id.org/upv-ehu/gcis/css-smia#Skill_NegAvailability"`, `HandleNegotiationBehaviour` looks up the OWL individual with that IRI, finds its associated `SkillInterface` (`machineAvailValue`), checks that its parent submodel is NOT the AID (which would make it an asset service), and calls:
+```python
+await agent_services.execute_agent_service_by_id('machineAvailValue')
+```
+which eventually calls `await get_machine_availability()`.
+
+**Key design decision — no `self` parameter:**
+```python
+async def get_machine_availability():
+    ...
+```
+SMIA stores external functions via `types.MethodType` binding, but when called, invokes them as `await get_machine_availability(**adapted_params)` with no positional arguments. Writing it as a plain `async def` (no `self`) is correct. Adding `self` would cause a `TypeError` at call time.
+
+**Why `aiohttp` and not `requests`:**
+```python
+async with aiohttp.ClientSession() as session:
+    async with session.get(url, timeout=aiohttp.ClientTimeout(total=5)) as resp:
+```
+SMIA runs in an `asyncio` event loop. A synchronous `requests.get()` call would block the entire event loop for up to 5 seconds, preventing all other SMIA behaviours (`ACLHandlingBehaviour`, etc.) from running during that time. `aiohttp` is the correct async HTTP client for this context.
+
+**Return value semantics:**
+- `1.0` — machine is free and ready
+- `0.0` — machine is executing a task (busy) or Node-RED is unreachable
+- Any error (connection, parse, unexpected) returns `0.0` — safe-fail default
+
+**SMIA normalization note.** SMIA's `services_utils.py` divides `negValue` by 100 if it is greater than 1.0. Values in `[0.0, 1.0]` are used as-is. Returning `1.0` is always interpreted as "fully available."
+
+---
+
+#### 19.1.3 `smia_orchestrator_starter.py`
+
+**Full path:** `additional_tools/extended_agents/smia_orchestrator_agent/smia_orchestrator_starter.py`
+
+**Volume mount target (inside container):**
+```
+/usr/local/lib/python3.12/site-packages/smia/launchers/smia_docker_starter.py
+```
+
+**What it does.** Identical pattern to `smia_machine_starter.py` but for the orchestrator. The key difference is using `add_new_agent_capability()` instead of `add_new_agent_service()`:
+
+```python
+orch_behaviour = OrchestratorDispatchBehaviour()
+smia_agent.add_new_agent_capability(orch_behaviour)
+```
+
+`add_new_agent_capability()` accepts a **SPADE behaviour instance** (not a class). The instance is stored internally and started alongside all base SMIA behaviours when `smia.run()` launches the agent. This means `OrchestratorDispatchBehaviour.on_start()` is called once at startup and `OrchestratorDispatchBehaviour.run()` is called repeatedly in the event loop thereafter.
+
+---
+
+#### 19.1.4 `orchestrator_dispatch_behaviour.py`
+
+**Full path:** `additional_tools/extended_agents/smia_orchestrator_agent/orchestrator_dispatch_behaviour.py`
+
+**Volume mount target (inside container):**
+```
+/usr/local/lib/python3.12/site-packages/smia/launchers/orchestrator_dispatch_behaviour.py
+```
+
+**What it does.** Implements the complete FIPA-CNP initiator logic. This is the primary software contribution of Case 1.
+
+**Class structure:**
+```
+OrchestratorDispatchBehaviour (spade.behaviour.CyclicBehaviour)
+    │
+    ├── on_start()                       initialise pending_orchestrations dict
+    ├── run()                            message router (4 routes)
+    │
+    ├── _start_negotiation(msg)          Phase A: discover + send CFP
+    ├── _send_execution_request(thread, winner_jid)  Phase B: dispatch to winner
+    ├── _forward_result_to_operator(thread, body)    Phase C: return result
+    ├── _send_failure_to_operator(thread, reason)
+    ├── _send_failure_to_operator_direct(sender, thread, reason)
+    │
+    ├── _discover_machines_for_request(cap_id_short, exclude_jid, color_filter)
+    ├── _find_capability_color(object_store, cap_id_short)
+    ├── _extract_jid_from_store(object_store)
+    ├── _has_semantic_id(element, expected_iri)
+    └── _find_property_by_semantic_id(element, semantic_id_iri)
+```
+
+**Key constants:**
+```python
+CSS_SMIA_IRI     = "http://www.w3id.org/upv-ehu/gcis/css-smia#"
+NEG_CRITERION_IRI = CSS_SMIA_IRI + "Skill_NegAvailability"
+AAS_FOLDER       = "/smia_archive/config/aas"
+SEMANTICID_SOFTWARE_NAMEPLATE = "https://admin-shell.io/idta/SoftwareNameplate/1/0"
+SEMANTICID_INSTANCE_NAME = (
+    "https://admin-shell.io/idta/SoftwareNameplate/1/0/"
+    "SoftwareNameplate/SoftwareNameplateInstance/InstanceName"
+)
+COLOR_POSITION_MAP = {"red": "0", "blue": "1", "white": "2"}
+```
+
+**`run()` — the message router:**
+```python
+async def run(self):
+    msg = await self.receive(timeout=5)
+    if msg is None:
+        return
+    # Route 1: new operator CSSRequest
+    if (performative == REQUEST and ontology == css-service
+            and thread not in reserved_threads
+            and thread not in pending_orchestrations):
+        await self._start_negotiation(msg)
+    # Route 2: winner INFORM from negotiation
+    elif (performative == INFORM
+          and thread in pending_orchestrations
+          and phase == 'negotiation'):
+        if body.winner: await self._send_execution_request(thread, sender)
+        else: await self._send_failure_to_operator(thread, "No machine available")
+    # Route 3: execution INFORM from winner machine
+    elif (performative == INFORM
+          and thread in pending_orchestrations
+          and phase == 'awaiting_result'):
+        await self._forward_result_to_operator(thread, msg.body)
+    # Route 4: FAILURE
+    elif (performative == FAILURE
+          and thread in pending_orchestrations):
+        await self._send_failure_to_operator(thread, "Negotiation failed")
+```
+
+**`_start_negotiation()` — Phase A detail:**
+1. Parse `capabilityIRI` and `skillParams` from operator message body
+2. Extract `color` from `skillParams`; look up `resolved_position` in `COLOR_POSITION_MAP`
+3. Derive `cap_id_short` from `capabilityIRI` (split on `#`)
+4. Call `_discover_machines_for_request(cap_id_short, own_jid, color_filter=color)`
+5. If no machines found → send FAILURE to operator immediately
+6. Generate `neg_thread = str(uuid.uuid4())`; reserve it
+7. Store in `pending_orchestrations[neg_thread]`: phase, op_thread, op_sender, skill_params, capability_iri, resolved_position
+8. Build CFP body: `{capabilityIRI, negCriterion, negTargets, negRequester=own_jid, skillParams}`
+9. Send CFP to each machine JID
+
+**`_discover_machines_for_request()` — AAS folder scan:**
+```
+for each .aasx in AAS_FOLDER:
+    open with AASXReader → DictObjectStore
+    extract JID from SoftwareNameplate/InstanceName
+    if JID == own_jid → skip
+    find Capability SMC by cap_id_short → read color child property
+    if color_filter and color != filter → skip
+    append {jid, color} to results
+```
+
+**`_send_execution_request()` — Phase B detail:**
+1. Read `resolved_position` from the negotiation state (stored in Phase A)
+2. Generate `exec_thread = str(uuid.uuid4())`; reserve it
+3. Store in `pending_orchestrations[exec_thread]`: phase=awaiting_result, neg_thread, op_thread, op_sender
+4. Set negotiation state phase → 'done'
+5. Build execution body: `{capabilityIRI, skillParams: {position: resolved_position}}`
+6. Send REQUEST to winner JID on exec_thread
+
+**`_forward_result_to_operator()` — Phase C detail:**
+1. Build INFORM message to op_sender on op_thread
+2. Copy result body from machine's execution INFORM
+3. Send INFORM
+4. Clean up: remove exec_thread and neg_thread entries from pending_orchestrations
+
+---
+
+### 19.2 docker-compose.yml Changes
+
+**Summary of changes from Case 0:**
+
+| Change | Detail |
+|---|---|
+| Renamed `smia` → `smia-machine0` | Explicit naming for clarity |
+| Added `smia-machine1` | `LEGO_machine1_case0.aasx`, `smia_machine1@ejabberd:machine1pass` |
+| Added `smia-machine2` | `LEGO_machine2_case0.aasx`, `smia_machine2@ejabberd:machine2pass` |
+| Added `smia-orchestrator` | `Orchestrator_case0.aasx`, `smia_orch@ejabberd:password` |
+| Updated `CTL_ON_CREATE` | Registers all 5 agent accounts in ejabberd |
+| Added volume mounts for starters | 2 mounts per machine service + 2 mounts for orchestrator |
+
+**Volume mount pattern — why two mounts per machine:**
+
+```yaml
+volumes:
+  # Mount 1: replaces the Docker entrypoint module
+  - ../additional_tools/extended_agents/smia_machine_agent/smia_machine_starter.py:
+    /usr/local/lib/python3.12/site-packages/smia/launchers/smia_docker_starter.py
+
+  # Mount 2: the companion services module — must be in the same directory
+  # so that `import smia_machine_agent_services` resolves from the starter
+  - ../additional_tools/extended_agents/smia_machine_agent/smia_machine_agent_services.py:
+    /usr/local/lib/python3.12/site-packages/smia/launchers/smia_machine_agent_services.py
+```
+
+Mount 1 replaces the entrypoint. Mount 2 places the imported module in the same directory as the entrypoint so Python's module search finds it.
+
+**Orchestrator dependency chain:**
+```yaml
+smia-orchestrator:
+  depends_on:
+    xmpp-server:
+      condition: service_healthy
+    smia-machine0:
+      condition: service_started
+    smia-machine1:
+      condition: service_started
+    smia-machine2:
+      condition: service_started
+```
+The orchestrator waits for all machines to be started (not necessarily healthy) to ensure their XMPP accounts are registered and their agents are booting before the orchestrator tries to send CFPs.
+
+**Phase 1 startup command (machines only, no orchestrator):**
+```bash
+cd my_models
+docker compose up xmpp-server smia-machine0 smia-machine1 smia-machine2 smia-operator
+```
+
+**Phase 2 startup command (full system):**
+```bash
+cd my_models
+docker compose up
+```
+
+**Full reset (including ejabberd user database):**
+```bash
+docker compose down -v
+```
+Note: `-v` removes the `ejabberd_data` volume. Accounts registered via `CTL_ON_CREATE` are re-created on next `docker compose up`. Omit `-v` to preserve the volume between restarts.
+
+---
+
+### 19.3 AASX Package Explorer — Case 1 Tutorial
+
+The following four tasks must be completed manually in AASX Package Explorer before starting the Docker Compose deployment.
+
+---
+
+#### 19.3.A Modify `LEGO_factory_case0.aasx` (machine0 — red pieces)
+
+Open `my_models/aas/LEGO_factory_case0.aasx` in AASX Package Explorer.
+
+**Step 1 — Add `color` property inside `Capability_PickPiece`:**
+- Navigate to: `LEGO_factory` shell → `CapabilitiesAndSkills` submodel → `Capability_PickPiece` SMC
+- Right-click → Add Element → **Property**
+- `idShort`: `color`
+- `valueType`: `xs:string`
+- `value`: `red`
+- No semanticId needed (plain constraint property)
+
+**Step 2 — Add `color` property inside `Capability_PlacePiece`:**
+- Repeat Step 1 inside `Capability_PlacePiece`
+- Same values: idShort=`color`, valueType=`xs:string`, value=`red`
+
+**Step 3 — Add `Skill_NegAvailability` at submodel level:**
+- Navigate to: `CapabilitiesAndSkills` submodel (not inside a SMC — at the top level)
+- Right-click → Add Element → **Property**
+- `idShort`: `Skill_NegAvailability`
+- `valueType`: `xs:string`
+- `value`: (leave empty)
+- **SemanticId**: `http://www.w3id.org/hsu-aut/css#Skill` (ExternalReference, ModelReference=false)
+- **Qualifier**: Add Qualifier
+  - `type`: `hasImplementationType`
+  - `value`: `OPERATION`
+  - `valueType`: `xs:string`
+
+**Step 4 — Add `machineAvailValue` at submodel level:**
+- Navigate to: `CapabilitiesAndSkills` submodel (same level as Step 3)
+- Right-click → Add Element → **Property**
+- `idShort`: `machineAvailValue`
+- `valueType`: `xs:string`
+- `value`: (leave empty)
+- **SemanticId**: `http://www.w3id.org/hsu-aut/css#SkillInterface` (ExternalReference)
+
+**Step 5 — Add relationship in `SemanticRelationships` submodel:**
+- Navigate to: `LEGO_factory` shell → `SemanticRelationships` submodel
+- Right-click → Add Element → **RelationshipElement**
+- `idShort`: `rel_SkillNegAvail_accessibleThroughAgentService`
+- **SemanticId**: `http://www.w3id.org/upv-ehu/gcis/css-smia#accessibleThroughAgentService`
+- **First reference** (the skill): navigate to `CapabilitiesAndSkills / Skill_NegAvailability`
+- **Second reference** (the interface): navigate to `CapabilitiesAndSkills / machineAvailValue`
+
+**Save the file.** File → Save.
+
+---
+
+#### 19.3.B Create `LEGO_machine1_case0.aasx` (blue pieces)
+
+1. **Clone** `LEGO_factory_case0.aasx`:
+   - File → Save As → `LEGO_machine1_case0.aasx` (save to same `my_models/aas/` folder)
+
+   > From this point, all edits are on the clone.
+
+2. **Update the factory shell identity:**
+   - Click on the `LEGO_factory` AAS shell
+   - Change `idShort`: `LEGO_machine1`
+   - Change `id`: `urn:uuid:6475_0111_2062_0001`
+
+3. **Update the SMIA agent shell identity:**
+   - Click on the `SMIA_agent` AAS shell
+   - Change `id`: `urn:uuid:6475_1111_2062_0001` (new UUID)
+   - Navigate to: `SMIA_agent` shell → `SoftwareNameplate` submodel → find the SMC that contains `InstanceName`
+   - Change `InstanceName` value: `smia_machine1@ejabberd`
+
+4. **Update colour constraints:**
+   - Navigate to: `LEGO_machine1` shell → `CapabilitiesAndSkills` → `Capability_PickPiece` → `color` property
+   - Change value: `blue`
+   - Navigate to: `Capability_PlacePiece` → `color` property
+   - Change value: `blue`
+
+5. **Save the file.** File → Save.
+
+---
+
+#### 19.3.C Create `LEGO_machine2_case0.aasx` (white pieces)
+
+Repeat the same steps as 19.3.B with these values:
+
+| Field | Value |
+|---|---|
+| Output filename | `LEGO_machine2_case0.aasx` |
+| Factory shell idShort | `LEGO_machine2` |
+| Factory shell id | `urn:uuid:6475_0111_2062_0002` |
+| Agent shell id | `urn:uuid:6475_1111_2062_0002` |
+| InstanceName | `smia_machine2@ejabberd` |
+| Capability_PickPiece/color | `white` |
+| Capability_PlacePiece/color | `white` |
+
+---
+
+#### 19.3.D Create `Orchestrator_case0.aasx` (from scratch)
+
+File → New → Create empty AASX package. Then:
+
+**Step 1 — Create the orchestrator AAS shell:**
+- Add AAS shell
+- `idShort`: `SMIA_orchestrator`
+- `id`: `urn:uuid:8888_0001_2026_0001`
+
+**Step 2 — Create `SoftwareNameplate` submodel:**
+- Add Submodel
+- `idShort`: `SoftwareNameplate`
+- `id`: `urn:uuid:sw_nameplate_orch_001`
+- **SemanticId**: `https://admin-shell.io/idta/SoftwareNameplate/1/0` (ExternalReference)
+- Inside this submodel, add a **SubmodelElementCollection**:
+  - `idShort`: `SoftwareNameplateInstance_smia_orch`
+  - Inside the SMC, add a **Property**:
+    - `idShort`: `InstanceName`
+    - `valueType`: `xs:string`
+    - `value`: `smia_orch@ejabberd`
+    - **SemanticId**: `https://admin-shell.io/idta/SoftwareNameplate/1/0/SoftwareNameplate/SoftwareNameplateInstance/InstanceName`
+- Link this submodel to the orchestrator AAS shell
+
+**Step 3 — Create `CapabilitiesAndSkills` submodel:**
+- Add Submodel with `idShort`: `CapabilitiesAndSkills`
+- Add **SubmodelElementCollection** `Capability_PickPiece`:
+  - **SemanticId**: `http://www.w3id.org/upv-ehu/gcis/css-smia#AgentCapability`
+  - **Qualifier**: `hasLifecycle = OFFER`
+  - Child **Property** `position` (xs:int) — declares that the capability accepts a position parameter
+- Add **SubmodelElementCollection** `Capability_PlacePiece` (same pattern)
+- Add **Property** `Skill_Orchestrate_PickPiece`:
+  - `valueType`: `xs:string`
+  - **SemanticId**: `http://www.w3id.org/hsu-aut/css#Skill`
+  - **Qualifier**: `hasImplementationType = OPERATION`
+- Add **Property** `Skill_Orchestrate_PlacePiece` (same pattern)
+- Link this submodel to the orchestrator AAS shell
+
+**Why `AgentCapability` (not `AssetCapability`)?** The orchestrator does not directly control a physical machine. Its capability is an *agent-level* function — coordination and delegation. `AgentCapability` is the correct CSS class for functions performed by the digital twin agent itself rather than by a physical asset.
+
+**Step 4 — Create `SemanticRelationships` submodel:**
+- Add Submodel with `idShort`: `SemanticRelationships`
+- Add **RelationshipElement** `rel_CapPick_isRealizedBy_SkillOrchPick`:
+  - **SemanticId**: `http://www.w3id.org/hsu-aut/css#isRealizedBySkill`
+  - First: `CapabilitiesAndSkills / Capability_PickPiece`
+  - Second: `CapabilitiesAndSkills / Skill_Orchestrate_PickPiece`
+- Add **RelationshipElement** `rel_CapPlace_isRealizedBy_SkillOrchPlace` (same pattern for place)
+- **Do NOT add** `accessibleThroughAssetService` or `accessibleThroughAgentService` relationships — the orchestrator's capabilities are handled entirely by `OrchestratorDispatchBehaviour`, not by a registered skill interface
+- Link this submodel to the orchestrator AAS shell
+
+**Step 5 — Embed required files:**
+- In AASX Package Explorer: Extras → AASX File Repository → Add supplemental files
+- Add `aasx/CSS-ontology-smia.owl` (copy from `LEGO_factory_case0.aasx`)
+- Add `aasx/smia-initialization.properties` (copy from `LEGO_factory_case0.aasx`)
+- The properties file can be the same content — runtime values come from Docker env vars
+
+**Step 6 — Save:** File → Save → `Orchestrator_case0.aasx` in `my_models/aas/`
+
+---
+
+### 19.4 Node-RED Changes (DIDA Central — 192.168.155.10:1880)
+
+Three changes are needed in the Node-RED instance on the DIDA central machine.
+
+---
+
+#### 19.4.1 Add busy flag to the pick flow
+
+Open the existing `POST /smia/lego/pick` flow.
+
+**Add a Function node immediately after the HTTP In node** (before the JSON parse):
+- Node name: `Set busy`
+- Code:
+```javascript
+global.set("machine_busy", true);
+return msg;
+```
+
+**Add a Function node immediately before the HTTP Response node** (after the MQTT Out node):
+- Node name: `Set free`
+- Code:
+```javascript
+global.set("machine_busy", false);
+return msg;
+```
+
+---
+
+#### 19.4.2 Add busy flag to the place flow
+
+Repeat 19.4.1 for the `POST /smia/lego/place` flow. The same global variable `machine_busy` is used.
+
+---
+
+#### 19.4.3 Add the `GET /smia/lego/availability` endpoint
+
+Create a new flow:
+
+**Node 1 — HTTP In:**
+- Method: `GET`
+- URL: `/smia/lego/availability`
+
+**Node 2 — Function:**
+- Name: `Read busy flag`
+- Code:
+```javascript
+var busy = global.get("machine_busy") || false;
+msg.payload = busy ? "0.0" : "1.0";
+msg.statusCode = 200;
+msg.headers = { "Content-Type": "text/plain" };
+return msg;
+```
+
+**Node 3 — HTTP Response**
+- Connect: HTTP In → Function → HTTP Response
+
+**Why plain text response (not JSON)?** The `get_machine_availability()` Python function parses the response as `float(text.strip())`. A JSON response like `{"availability": 1.0}` would cause `float('{"availability": 1.0}')` to raise a `ValueError`, which is caught and causes the function to return `0.0` (machine appears busy). Plain text `"1.0"` or `"0.0"` parses directly.
+
+**Deploy all flows** after making these changes. Test the endpoint:
+```bash
+curl http://192.168.155.10:1880/smia/lego/availability
+# Expected: 1.0
+```
+
+---
+
+### 19.5 Phase 1 Testing Procedure (Machines Only)
+
+This validates the extension mechanism (custom Docker entrypoint, `ExtensibleSMIAAgent`, `machineAvailValue` service) without the orchestrator.
+
+```bash
+cd my_models
+docker compose up xmpp-server smia-machine0 smia-machine1 smia-machine2 smia-operator
+```
+
+**Expected startup logs for each machine:**
+```
+Machine SMIA: initial self-configuration complete.
+Machine SMIA: loading AAS model from /smia_archive/config/aas/LEGO_factory_case0.aasx
+Machine SMIA: registered 'machineAvailValue' agent service.
+AAS model initialized.
+Analyzed capabilities: ['Capability_PickPiece', 'Capability_PlacePiece']
+[StateRunning]
+```
+
+**Validation checklist:**
+
+- [ ] `docker logs smia-machine0` shows `Analyzed capabilities` and `StateRunning`
+- [ ] `docker logs smia-machine1` shows the same for `LEGO_machine1_case0.aasx`
+- [ ] `docker logs smia-machine2` shows the same for `LEGO_machine2_case0.aasx`
+- [ ] Operator GUI at `http://localhost:10000/smia_operator` → Load → shows all 3 machine JIDs
+- [ ] Send `Capability_PickPiece` with `skillParams: {position: 0}` directly to `SMIA_agent@ejabberd` → crane moves
+- [ ] `curl http://192.168.155.10:1880/smia/lego/availability` returns `1.0` at rest
+- [ ] Trigger pick → immediately query availability → should return `0.0` (busy)
+
+---
+
+### 19.6 Phase 2 Testing Procedure (Full Orchestration)
+
+```bash
+cd my_models
+docker compose up
+```
+
+**Expected orchestrator startup logs:**
+```
+Orchestrator SMIA: initial self-configuration complete.
+Orchestrator SMIA: registered OrchestratorDispatchBehaviour.
+OrchestratorDispatchBehaviour started.
+[StateRunning]
+```
+
+**Validation — full orchestration flow:**
+
+1. Open `http://localhost:10000/smia_operator`
+2. Click Load → `smia_orch@ejabberd` appears alongside the 3 machines
+3. Select `smia_orch@ejabberd` and `Capability_PickPiece`
+4. Set `skillParams: {color: "red"}`
+5. Submit
+
+**Expected orchestrator log sequence:**
+```
+new CSSRequest from operator (thread=<op_T>)
+Eligible machine: SMIA_agent@ejabberd (color=red) from LEGO_factory_case0.aasx
+CFP sent to SMIA_agent@ejabberd (neg_thread=<neg_T>)
+received winner INFORM (thread=<neg_T>) from SMIA_agent@ejabberd
+execution REQUEST sent to SMIA_agent@ejabberd (exec_thread=<exec_T>)
+result forwarded to operator (exec_thread=<exec_T>)
+```
+
+**Colour routing test:**
+- Send `{color: "blue"}` to orchestrator → watch `smia-machine1` logs, NOT machine0 or machine2
+- Send `{color: "white"}` → watch `smia-machine2` logs only
+
+**Failure test:**
+- Send `{color: "green"}` → orchestrator returns `FAILURE` immediately (no machine with color=green)
+- Operator GUI displays failure response
+
+**Troubleshooting Case 1:**
+
+| Symptom | Most likely cause | Fix |
+|---|---|---|
+| Orchestrator logs show `no machines found` | AASX not in `aas/` folder, or color not in capability | Verify `.aasx` files exist in `my_models/aas/`; check `Capability_PickPiece/color` value |
+| Machine never reaches StateRunning | `Skill_NegAvailability` or `machineAvailValue` incorrectly defined | Check semanticId matches exactly; Skills must be Property not SMC |
+| `INFORM(winner)` never arrives at orchestrator | `negRequester` field missing or wrong | Check `negRequester` is set to orchestrator JID in CFP body |
+| Operator GUI crashes on Load (500 error) | Non-AASX file in `aas/` folder | Remove any backup, XML, or JSON files from `my_models/aas/` |
+| `aiohttp` import error in machine logs | `aiohttp` not installed in image | aiohttp is a smia dependency — verify image version |
+
+---
+
+*Case 1 implementation completed 2026-03-16. All Python files are in `additional_tools/extended_agents/`. AAS models must be created manually in AASX Package Explorer following §19.3 above.*

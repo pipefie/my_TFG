@@ -1,27 +1,18 @@
 services:
 
-  smia:
-    image: ekhurtado/smia:latest-alpine
-    container_name: smia
-    environment:
-      - AAS_MODEL_NAME=LEGO_factory_case0.aasx
-      - AAS_ID=urn:uuid:6475_0111_2062_9689
-      - AGENT_ID=SMIA_agent@ejabberd
-      - AGENT_PASSWD=asd
-    depends_on:
-      xmpp-server:
-        condition: service_healthy
-    volumes:
-      - ../src/smia/agents/smia_agent.py:/usr/local/lib/python3.12/site-packages/smia/agents/smia_agent.py
-      - ./aas:/smia_archive/config/aas
-
+  # ──────────────────────────────────────────────────────────────────
+  # ejabberd XMPP server — message broker for all SMIA agents
+  # ──────────────────────────────────────────────────────────────────
   xmpp-server:
     image: ghcr.io/processone/ejabberd
     container_name: ejabberd
     environment:
       - ERLANG_NODE_ARG=admin@ejabberd
       - ERLANG_COOKIE=dummycookie123
-      - CTL_ON_CREATE=! register SMIA_agent ejabberd asd ; register operator001 ejabberd gcis1234
+      # CTL_ON_CREATE registers all agent accounts on first container creation.
+      # Format: register <user> <host> <password>
+      # Accounts: machine0 (original), operator, machine1, machine2, orchestrator
+      - CTL_ON_CREATE=! register SMIA_agent ejabberd asd ; register operator001 ejabberd gcis1234 ; register smia_machine1 ejabberd machine1pass ; register smia_machine2 ejabberd machine2pass ; register smia_orch ejabberd password
     ports:
       - "5222:5222"
       - "5269:5269"
@@ -37,6 +28,104 @@ services:
       timeout: 5s
       retries: 10
 
+  # ──────────────────────────────────────────────────────────────────
+  # Machine 0 — original fischertechnik SMIA (red pieces, position 0)
+  # ──────────────────────────────────────────────────────────────────
+  smia-machine0:
+    image: ekhurtado/smia:latest-alpine
+    container_name: smia-machine0
+    environment:
+      - AAS_MODEL_NAME=LEGO_factory_case0.aasx
+      - AAS_ID=urn:uuid:6475_0111_2062_9689
+      - AGENT_ID=SMIA_agent@ejabberd
+      - AGENT_PASSWD=asd
+    depends_on:
+      xmpp-server:
+        condition: service_healthy
+    volumes:
+      # Patch: fixes object identity comparison bug in asset connection resolution
+      - ../src/smia/agents/smia_agent.py:/usr/local/lib/python3.12/site-packages/smia/agents/smia_agent.py
+      # Override the default docker starter to use ExtensibleSMIAAgent + register machineAvailValue service
+      - ../additional_tools/extended_agents/smia_machine_agent/smia_machine_starter.py:/usr/local/lib/python3.12/site-packages/smia/launchers/smia_docker_starter.py
+      # Make the services module importable at the same level as the starter
+      - ../additional_tools/extended_agents/smia_machine_agent/smia_machine_agent_services.py:/usr/local/lib/python3.12/site-packages/smia/launchers/smia_machine_agent_services.py
+      - ./aas:/smia_archive/config/aas
+
+  # ──────────────────────────────────────────────────────────────────
+  # Machine 1 — clone with blue color constraint (position 1)
+  # AAS_ID: update to the shell id you assign in AASX Package Explorer
+  # ──────────────────────────────────────────────────────────────────
+  smia-machine1:
+    image: ekhurtado/smia:latest-alpine
+    container_name: smia-machine1
+    environment:
+      - AAS_MODEL_NAME=LEGO_machine1_case0.aasx
+      - AAS_ID=urn:uuid:6475_0111_2062_0001
+      - AGENT_ID=smia_machine1@ejabberd
+      - AGENT_PASSWD=machine1pass
+    depends_on:
+      xmpp-server:
+        condition: service_healthy
+    volumes:
+      - ../src/smia/agents/smia_agent.py:/usr/local/lib/python3.12/site-packages/smia/agents/smia_agent.py
+      - ../additional_tools/extended_agents/smia_machine_agent/smia_machine_starter.py:/usr/local/lib/python3.12/site-packages/smia/launchers/smia_docker_starter.py
+      - ../additional_tools/extended_agents/smia_machine_agent/smia_machine_agent_services.py:/usr/local/lib/python3.12/site-packages/smia/launchers/smia_machine_agent_services.py
+      - ./aas:/smia_archive/config/aas
+
+  # ──────────────────────────────────────────────────────────────────
+  # Machine 2 — clone with white color constraint (position 2)
+  # AAS_ID: update to the shell id you assign in AASX Package Explorer
+  # ──────────────────────────────────────────────────────────────────
+  smia-machine2:
+    image: ekhurtado/smia:latest-alpine
+    container_name: smia-machine2
+    environment:
+      - AAS_MODEL_NAME=LEGO_machine2_case0.aasx
+      - AAS_ID=urn:uuid:6475_0111_2062_0002
+      - AGENT_ID=smia_machine2@ejabberd
+      - AGENT_PASSWD=machine2pass
+    depends_on:
+      xmpp-server:
+        condition: service_healthy
+    volumes:
+      - ../src/smia/agents/smia_agent.py:/usr/local/lib/python3.12/site-packages/smia/agents/smia_agent.py
+      - ../additional_tools/extended_agents/smia_machine_agent/smia_machine_starter.py:/usr/local/lib/python3.12/site-packages/smia/launchers/smia_docker_starter.py
+      - ../additional_tools/extended_agents/smia_machine_agent/smia_machine_agent_services.py:/usr/local/lib/python3.12/site-packages/smia/launchers/smia_machine_agent_services.py
+      - ./aas:/smia_archive/config/aas
+
+  # ──────────────────────────────────────────────────────────────────
+  # Orchestrator SMIA — receives from operator, routes to machines via FIPA-CNP
+  # AAS_ID: update to the shell id you assign in AASX Package Explorer
+  # ──────────────────────────────────────────────────────────────────
+  smia-orchestrator:
+    image: ekhurtado/smia:latest-alpine
+    container_name: smia-orchestrator
+    environment:
+      - AAS_MODEL_NAME=Orchestrator_case0.aasx
+      - AAS_ID=urn:uuid:8888_0001_2026_0001
+      - AGENT_ID=smia_orch@ejabberd
+      - AGENT_PASSWD=password
+    depends_on:
+      xmpp-server:
+        condition: service_healthy
+      smia-machine0:
+        condition: service_started
+      smia-machine1:
+        condition: service_started
+      smia-machine2:
+        condition: service_started
+    volumes:
+      - ../src/smia/agents/smia_agent.py:/usr/local/lib/python3.12/site-packages/smia/agents/smia_agent.py
+      # Override starter to use ExtensibleSMIAAgent + register OrchestratorDispatchBehaviour
+      - ../additional_tools/extended_agents/smia_orchestrator_agent/smia_orchestrator_starter.py:/usr/local/lib/python3.12/site-packages/smia/launchers/smia_docker_starter.py
+      # Make the behaviour module importable at the same level as the starter
+      - ../additional_tools/extended_agents/smia_orchestrator_agent/orchestrator_dispatch_behaviour.py:/usr/local/lib/python3.12/site-packages/smia/launchers/orchestrator_dispatch_behaviour.py
+      - ./aas:/smia_archive/config/aas
+
+  # ──────────────────────────────────────────────────────────────────
+  # Operator GUI — sends requests, shows results
+  # GUI: http://localhost:10000/smia_operator
+  # ──────────────────────────────────────────────────────────────────
   smia-operator:
     image: ekhurtado/smia-use-cases:latest-operator
     container_name: smia-operator

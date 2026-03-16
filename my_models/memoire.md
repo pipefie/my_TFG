@@ -1319,9 +1319,414 @@ For Case 0 specifically, the self-configuration criterion is the primary validat
 
 ---
 
-## 16. Discussion and Future Work
+## 16. Case 1 — Multi-Agent Orchestration
 
-### 16.1 Discussion
+### 16.1 Motivation and Research Contribution
+
+Case 0 validated two of the eight SMIA design requirements: R2 (automated self-configuration of digital twins from a standardised AAS model) and R7 (separation between the physical asset and its digital twin). In Case 0, the entire execution chain — from AAS parsing to HTTP command — required zero asset-specific code inside the agent. This is a powerful result, but it involves only a single agent acting on a single asset upon direct request from an operator.
+
+Real flexible manufacturing systems involve **pools of interchangeable machines**, tasks with **routing constraints** (e.g., a piece of a given colour must go to the machine handling that colour), and dynamic resource allocation based on real-time machine availability. These scenarios require multiple agents working in concert. Case 1 extends the baseline to address exactly this: it validates requirements R5 (inclusion in distributed and decentralised systems) and R6 (P2P communication with I4.0-compliant FIPA-ACL language).
+
+**Scope of Case 1.** Three machine SMIAs (machine0, machine1, machine2) and one orchestrator SMIA are deployed. Each machine declares a colour constraint in its AAS — machine0 handles red pieces, machine1 handles blue, machine2 handles white. All three physically control the same fischertechnik warehouse crane (the physical differentiation is not the focus; the multi-agent protocol mechanics are). When the operator sends a task specifying a colour, the orchestrator discovers eligible machines, runs a negotiation round using the FIPA Contract Net Protocol (FIPA-CNP) to select the most available one, dispatches execution to the winner, and returns the result to the operator.
+
+**Research contribution.** The SMIA framework provides the FIPA-CNP *responder/proposer* side — the logic that a machine uses to receive a Call For Proposals (CFP), compute its availability, broadcast a PROPOSE to competing peers, compare results, and declare a winner. This is implemented in `HandleNegotiationBehaviour` inside the base image. What does **not** exist in the base framework is the FIPA-CNP *initiator* side: the agent that formulates the problem, sends the CFP, waits for the winner notification, dispatches the work to the winner, and aggregates the result for the original requester. The `OrchestratorDispatchBehaviour` implemented in this TFG is that missing initiator side. It is the primary software contribution of Case 1.
+
+---
+
+### 16.2 Architecture Overview
+
+The Case 1 system consists of six Docker containers sharing one ejabberd XMPP server:
+
+| Container | Role | AAS model |
+|---|---|---|
+| `ejabberd` | XMPP message broker — routes all agent messages | — |
+| `smia-machine0` | Manufacturing SMIA, red colour constraint | `LEGO_factory_case0.aasx` |
+| `smia-machine1` | Manufacturing SMIA, blue colour constraint | `LEGO_machine1_case0.aasx` |
+| `smia-machine2` | Manufacturing SMIA, white colour constraint | `LEGO_machine2_case0.aasx` |
+| `smia-orchestrator` | Orchestrator SMIA | `Orchestrator_case0.aasx` |
+| `smia-operator` | Operator GUI — human entry point | `SMIA_Operator_article.aasx` |
+
+The orchestrator sits between the operator and the machines. It is invisible to the physical asset — it never makes an HTTP call to Node-RED directly. Its sole job is to run the FIPA-CNP negotiation and forward the winning machine's execution result back to the operator.
+
+**End-to-end flow (10 steps):**
+
+```
+[Operator GUI]
+    │ 1. FIPA-ACL REQUEST {capabilityIRI, skillParams: {color: "red"}}
+    │    ontology=css-service, thread=op_T
+    ▼
+[smia-orchestrator] — OrchestratorDispatchBehaviour intercepts
+    │ 2. reserves op_T (prevents ACLHandlingBehaviour from double-processing)
+    │ 3. scans /smia_archive/config/aas/*.aasx
+    │    → finds machine0 (Capability_PickPiece/color=red)
+    │    → skips machine1 (color=blue), machine2 (color=white)
+    │ 4. maps red → position="0" (hardcoded COLOR_POSITION_MAP)
+    │ 5. FIPA-ACL CFP {capabilityIRI, negCriterion, negTargets=[machine0],
+    │                   negRequester=smia_orch, skillParams}
+    │    thread=neg_T, protocol=fipa-contract-net
+    ▼
+[smia-machine0] — HandleNegotiationBehaviour (base SMIA, built-in)
+    │ 6. single machine in negTargets → wins immediately (no PROPOSE needed)
+    │    OR: calls machineAvailValue agent service
+    │        → GET http://192.168.155.10:1880/smia/lego/availability
+    │        → 1.0 (free) or 0.0 (busy)
+    │ 7. sends INFORM {winner: true} to smia_orch (thread=neg_T)
+    ▼
+[smia-orchestrator]
+    │ 8. receives winner INFORM from machine0
+    │ 9. sends FIPA-ACL REQUEST {capabilityIRI, skillParams: {position: "0"}}
+    │    thread=exec_T (new thread)
+    ▼
+[smia-machine0] — HandleCapabilityBehaviour (base SMIA, built-in)
+    │ 10. resolves Capability_PickPiece → Skill_PickPiece → AID pickPiece action
+    │     HTTP POST 192.168.155.10:1880/smia/lego/pick {"position":"0"}
+    │     Node-RED → MQTT → crane
+    │ 11. sends INFORM {result} to smia_orch (thread=exec_T)
+    ▼
+[smia-orchestrator]
+    │ 12. forwards INFORM {result} to operator (thread=op_T)
+    ▼
+[Operator GUI] — displays result
+```
+
+Notice that steps 10–11 (the actual physical execution) are handled entirely by the base SMIA `HandleCapabilityBehaviour`. The orchestrator never touches Node-RED directly — it delegates the execution to the machine just as the operator would in Case 0.
+
+---
+
+### 16.3 The SMIA Extensibility Mechanism
+
+**The problem with the default Docker entrypoint.** The SMIA Docker image runs the command `python3 -m smia.launchers.smia_docker_starter` at startup. The default `smia_docker_starter.py` creates a plain `SMIAAgent`, which supports self-configuration from AAS but exposes no extension hooks. There is no way to register a custom Python function or a custom SPADE behaviour without modifying the agent class itself.
+
+**The solution: ExtensibleSMIAAgent.** The SMIA authors designed a subclass called `ExtensibleSMIAAgent` that provides exactly three official extension hooks (paper §4.2, Fig. 10):
+
+| Hook | Signature | Purpose |
+|---|---|---|
+| `add_new_agent_service` | `(service_id: str, method: callable)` | Register a Python function as an **agent service** — called by SMIA when a Skill is linked to it via `accessibleThroughAgentService` |
+| `add_new_agent_capability` | `(behaviour: spade.behaviour.Behaviour)` | Add a SPADE behaviour to the agent — started alongside all base SMIA behaviours when the agent enters StateRunning |
+| `add_new_asset_connection` | `(interface_ref, connection)` | Register a custom asset protocol handler (e.g., OPC UA, MQTT direct) |
+
+**The volume mount override pattern.** Since we cannot change the Docker image (we do not own it), we override the default entrypoint by volume-mounting a custom Python file over the package's starter inside the container:
+
+```yaml
+volumes:
+  - ../additional_tools/extended_agents/smia_machine_agent/smia_machine_starter.py:
+    /usr/local/lib/python3.12/site-packages/smia/launchers/smia_docker_starter.py
+```
+
+When Docker starts the container, the container's `CMD` (`python3 -m smia.launchers.smia_docker_starter`) now executes our file instead of the original. This is the **official extension pattern** used by the SMIA repository itself — the `smia_operator_starter.py` in the SMIA use-cases package follows the identical approach. We are not hacking the framework; we are using its designed extension point.
+
+**The four Python files and why each exists:**
+
+| File | Hook used | Reason for existence |
+|---|---|---|
+| `smia_machine_starter.py` | `add_new_agent_service()` | Replaces the default entrypoint so `ExtensibleSMIAAgent` is used instead of `SMIAAgent`; registers the `machineAvailValue` agent service |
+| `smia_machine_agent_services.py` | — (the function itself) | Contains `get_machine_availability()` — the function that queries Node-RED for busy status and returns the negotiation score |
+| `smia_orchestrator_starter.py` | `add_new_agent_capability()` | Replaces the default entrypoint for the orchestrator; registers `OrchestratorDispatchBehaviour` |
+| `orchestrator_dispatch_behaviour.py` | `add_new_agent_capability()` | **The research contribution** — implements the FIPA-CNP initiator side, AAS-based discovery, color routing, and result forwarding |
+
+All three machines (machine0, machine1, machine2) share the same `smia_machine_starter.py` and `smia_machine_agent_services.py`. The difference between machines is entirely in their AASX model and the Docker environment variables (`AAS_MODEL_NAME`, `AAS_ID`, `AGENT_ID`, `AGENT_PASSWD`). This demonstrates R8 (modular and extensible software design): one generic set of Python files parameterised by standardised AAS descriptions.
+
+---
+
+### 16.4 FIPA-CNP: The Contract Net Protocol in Depth
+
+**What is FIPA-CNP?** The Contract Net Protocol (CNP) is a task allocation protocol standardised by the Foundation for Intelligent Physical Agents (FIPA). It enables a *manager* (initiator) to distribute a task to one of several *contractors* (proposers) without centralised decision logic. The protocol is message-based and fully decentralised on the proposer side: each contractor independently assesses its ability to perform the task and communicates its bid to all other contractors. The FIPA-CNP is referenced in the SMIA paper as the protocol used for R6 (P2P communication with I4.0-compliant FIPA-ACL).
+
+**The protocol messages:**
+
+```
+Initiator                         Contractors (all)
+    │                                    │
+    │── CFP (Call For Proposals) ───────►│  "who can do X?"
+    │                                    │
+    │◄─ PROPOSE (bid value) ────────────►│  contractors talk to each other
+    │   (only winner sends to initiator) │  comparing their bids
+    │                                    │
+    │◄── INFORM {winner: true} ──────────│  from the winner only
+    │                                    │
+    │── REQUEST (execute task) ─────────►│  to winner only
+    │                                    │
+    │◄── INFORM {result} ────────────────│
+```
+
+**The responder/proposer side (built into base SMIA — `HandleNegotiationBehaviour`).**
+When a machine receives a CFP, `NegotiatingBehaviour` (a base SMIA behaviour) detects the `fipa-contract-net` protocol in the message metadata and spawns a `HandleNegotiationBehaviour` for it. This behaviour:
+
+1. Reserves the `neg_thread` so `ACLHandlingBehaviour` ignores subsequent messages on that thread
+2. Validates that the requested capability (`capabilityIRI`) exists in its CSS ontology
+3. If only one machine is in `negTargets`: wins immediately — sends `INFORM {winner: true}` to `negRequester` without broadcasting a PROPOSE
+4. If multiple machines are in `negTargets`: computes `negValue` via the `negCriterion` agent service, broadcasts `PROPOSE {negValue}` to all other `negTargets`
+5. Collects `PROPOSE` messages from peers, compares values; highest value wins
+6. Winner sends `INFORM {winner: true}` to `negRequester` (the orchestrator)
+
+The `negValue` is the machine's *negotiation score*: a float in [0.0, 1.0] where 1.0 = fully available and 0.0 = completely occupied. The `negCriterion` field in the CFP body is the IRI of the OWL individual that SMIA uses to find the associated `SkillInterface` and, through it, the registered agent service to call.
+
+**The initiator side (implemented in this TFG — `OrchestratorDispatchBehaviour`).**
+The `OrchestratorDispatchBehaviour` is a SPADE `CyclicBehaviour` that runs in the orchestrator's SPADE event loop alongside all base SMIA behaviours. Its `run()` method executes once per event loop iteration, receives one message (or times out), and routes it based on the performative and thread. The four routes are:
+
+| Route | Condition | Action |
+|---|---|---|
+| 1 | `REQUEST` + `css-service` + unseen thread | New task from operator → start negotiation |
+| 2 | `INFORM` + thread in negotiation phase | Winner notification → dispatch execution |
+| 3 | `INFORM` + thread in awaiting-result phase | Execution result → forward to operator |
+| 4 | `FAILURE` + tracked thread | Negotiation failed → send FAILURE to operator |
+
+**Why decentralised?** In a centralised architecture, the orchestrator would query each machine for its availability, compare the values, and decide the winner itself. In the FIPA-CNP design, the orchestrator only needs to know *who* is eligible (through AAS discovery and colour filtering) and ask them to compete. The machines handle the comparison among themselves. This is more resilient — the orchestrator does not become a bottleneck or a single point of failure for the negotiation computation.
+
+---
+
+### 16.5 AAS-Based Dynamic Agent Discovery
+
+A naive implementation of the orchestrator would maintain a hardcoded list of machine JIDs. This would violate R8 (modular and extensible design) and require code changes every time a machine is added or removed.
+
+Instead, `OrchestratorDispatchBehaviour._discover_machines_for_request()` scans the AAS folder at runtime, reading every `.aasx` file present. This is the same mechanism used by the operator GUI (`operator_gui_logic.py`): both parse the AAS folder with the `basyx.aas.adapter.aasx.AASXReader` and extract the machine's XMPP JID from its `SoftwareNameplate` submodel.
+
+**How discovery works step by step:**
+
+1. For each `.aasx` file in `/smia_archive/config/aas/`:
+   - Open it with `basyx.aas.adapter.aasx.AASXReader` and load into a `DictObjectStore`
+   - Find the submodel whose `semantic_id` matches `https://admin-shell.io/idta/SoftwareNameplate/1/0`
+   - Within that submodel, find the `Property` whose `semantic_id` matches the `InstanceName` IRI
+   - The property's value is the XMPP JID (e.g., `smia_machine1@ejabberd`)
+
+2. Within the same AASX, find the `SubmodelElementCollection` whose `id_short` matches the requested capability (e.g., `Capability_PickPiece`), then find the child `Property` with `id_short == "color"`. Its value is the machine's declared colour constraint.
+
+3. If `color_filter` is set and the machine's colour does not match, skip it.
+
+4. Exclude the orchestrator's own JID (avoid sending CFPs to itself).
+
+**Implication for extensibility.** To add a fourth machine (e.g., machine3 handling yellow pieces), it is sufficient to:
+- Create `LEGO_machine3_case0.aasx` with `Capability_PickPiece/color = "yellow"`
+- Add `yellow → position="3"` to `COLOR_POSITION_MAP` in the orchestrator behaviour
+- Add an ejabberd account and a Docker Compose service
+- No changes to any existing machine or orchestrator Python code
+
+This is AAS-native agent onboarding: the AAS model is the source of truth for agent identity and capability, exactly as SMIA was designed.
+
+---
+
+### 16.6 Color Constraint Routing
+
+**The two-level translation problem.** The operator specifies a task in terms meaningful to the production process: "pick a red piece." The physical machine, however, operates in terms of physical coordinates: "move to slot 0." Two translation steps are needed:
+
+1. **Semantic filtering (AAS level):** The orchestrator reads each machine's `Capability_PickPiece/color` property from its AASX and retains only machines whose colour matches the operator's request.
+
+2. **Physical mapping (application level):** The matching colour is translated to a warehouse slot number via a hardcoded map:
+
+```python
+COLOR_POSITION_MAP = {
+    "red":   "0",
+    "blue":  "1",
+    "white": "2",
+}
+```
+
+This map is hardcoded because the physical layout of the LEGO warehouse is fixed — slots are numbered 0 to 8 from left to right, and the colour of pieces placed in each slot is determined by the lab setup, not by software.
+
+**Why the machine receives `{position: N}` and not `{color: X}`.** The machine's AID endpoint (`POST /smia/lego/pick`) expects a JSON body containing `position`. Node-RED, which implements the HTTP→MQTT translation, uses the position number to build the `bandera_custom:<N>` MQTT payload. It has no concept of colours — that abstraction exists only at the orchestration and AAS level. The orchestrator performs the translation and stores the `resolved_position` in its `pending_orchestrations` state dict before the negotiation begins, so that when the winner is known, the execution request carries the correct physical parameter.
+
+---
+
+### 16.7 SPADE Broadcast Model and Thread Reservation
+
+**SPADE's message delivery model.** SPADE is the Python multi-agent framework underlying SMIA. Its message delivery model is *broadcast*: every incoming XMPP message is delivered to **all** SPADE behaviours whose template matches, not just one. Both `OrchestratorDispatchBehaviour` and the base `ACLHandlingBehaviour` are `CyclicBehaviour` instances that run concurrently in the same asyncio event loop. Without any coordination mechanism, both would receive and attempt to process every message.
+
+**The conflict.** When the operator sends a `REQUEST` with `ontology=css-service` to the orchestrator, `ACLHandlingBehaviour` would also see it and spawn a `HandleCapabilityBehaviour`. That child behaviour would look for a skill interface in the orchestrator's AAS — but the orchestrator's AAS defines no `accessibleThroughAssetService` relationship (it has no AID endpoint for direct execution). The capability request would fail silently.
+
+**The solution: reserved threads.** `SMIAAgent` maintains a set called `reserved_threads`. `ACLHandlingBehaviour` checks this set before processing any message (source: `acl_handling_behaviour.py:67`):
+
+```python
+if msg.thread not in self.myagent.reserved_threads:
+    # process message
+```
+
+As soon as `OrchestratorDispatchBehaviour` intercepts a message it intends to handle, it calls:
+
+```python
+await self.myagent.add_reserved_thread(thread)
+```
+
+This atomically registers the thread as owned by the orchestration behaviour. All subsequent messages on that thread are invisible to `ACLHandlingBehaviour`. The same mechanism is used inside `HandleNegotiationBehaviour` on the machines — negotiation threads are reserved at the start of `on_start()` so that competing PROPOSE messages are not accidentally routed elsewhere.
+
+---
+
+### 16.8 Orchestration State Machine
+
+Each active orchestration involves two independent FIPA-ACL conversations, each on its own thread:
+
+- **`neg_thread`** — the negotiation conversation: CFP → (PROPOSE exchange among machines) → INFORM(winner)
+- **`exec_thread`** — the execution conversation: REQUEST → (machine executes) → INFORM(result)
+
+The orchestrator tracks the state of each conversation in a dictionary stored directly on the agent object (`self.myagent.pending_orchestrations`), keyed by thread ID. This dict is accessible across all async calls within the same SPADE event loop.
+
+**State transitions:**
+
+```
+Operator REQUEST arrives
+    │
+    ├── neg_thread created (phase="negotiation")
+    │   op_thread, op_sender, skill_params, capability_iri,
+    │   resolved_position stored
+    │
+    │  [CFP sent to machines]
+    │
+    ├── INFORM(winner=True) received on neg_thread
+    │   neg_thread phase → "done"
+    │   exec_thread created (phase="awaiting_result")
+    │       neg_thread, op_thread, op_sender stored
+    │
+    │  [REQUEST sent to winner]
+    │
+    ├── INFORM(result) received on exec_thread
+    │   result forwarded to operator on op_thread
+    │   exec_thread removed from dict
+    │   neg_thread removed from dict
+    │
+    └── (completed)
+```
+
+The two threads are necessary because the negotiation and the execution are semantically distinct conversations. A machine that participates in the negotiation and then receives an execution request on a different thread can process both correctly — the negotiation was handled by `HandleNegotiationBehaviour`, the execution is handled by a fresh `HandleCapabilityBehaviour` spawned by `ACLHandlingBehaviour`.
+
+---
+
+### 16.9 Real-Time Availability via Node-RED
+
+**How a machine's availability is determined.** During FIPA-CNP negotiation, SMIA calls the registered agent service `machineAvailValue` to compute the machine's `negValue`. The service function `get_machine_availability()` (file: `additional_tools/extended_agents/smia_machine_agent/smia_machine_agent_services.py`) makes an HTTP GET request to Node-RED:
+
+```
+GET http://192.168.155.10:1880/smia/lego/availability
+Response: "1.0" (plain text, machine is free)
+      or: "0.0" (plain text, machine is executing a task)
+```
+
+**How Node-RED tracks busyness.** The existing pick and place HTTP flows in Node-RED are modified with a global flag:
+- At the start of each flow (immediately after the HTTP In node): `global.set("machine_busy", true)`
+- After the MQTT publish (before the HTTP Response node): `global.set("machine_busy", false)`
+
+The availability endpoint reads this flag:
+```javascript
+var busy = global.get("machine_busy") || false;
+msg.payload = busy ? "0.0" : "1.0";
+```
+
+**Why plain text and not JSON?** The `get_machine_availability()` function parses the response as `float(text.strip())`. If Node-RED returned `{"availability": 1.0}`, the `float(...)` call would raise a `ValueError`. Plain text is the simplest format that matches the expected type directly.
+
+**Why an agent service (not an asset service)?** An agent service is a Python function registered directly on the SMIA agent. An asset service is an HTTP endpoint defined in the AID submodel. The availability query is performed by the agent's negotiation behaviour — not by a skill execution. Using an agent service avoids adding an unnecessary entry to the AID submodel and keeps the AID clean (it only describes physical action endpoints, not internal monitoring queries). This also allows using Python's `aiohttp` for the GET, which is compatible with SMIA's `asyncio` event loop — using the synchronous `requests` library would block the entire event loop.
+
+**Behaviour on error.** If Node-RED is unreachable, `aiohttp.ClientConnectorError` is caught and `0.0` is returned. Treating an unreachable Node-RED as *busy* (not *available*) is the safe default — it prevents the orchestrator from dispatching work to a machine whose bridge is broken.
+
+---
+
+### 16.10 End-to-End Message Sequence
+
+The following sequence diagram shows the complete Case 1 flow, including all FIPA-ACL messages and their metadata. Thread IDs are symbolic.
+
+```
+Operator          Orchestrator         Machine0              Node-RED
+  │                    │                   │                     │
+  │ REQUEST            │                   │                     │
+  │ thread=op_T        │                   │                     │
+  │ ontology=css-service                   │                     │
+  │ body={color:"red"} │                   │                     │
+  │──────────────────► │                   │                     │
+  │                    │ reserves op_T     │                     │
+  │                    │ scans AAS folder  │                     │
+  │                    │ finds machine0    │                     │
+  │                    │ red → pos="0"     │                     │
+  │                    │ creates neg_T     │                     │
+  │                    │ reserves neg_T    │                     │
+  │                    │                   │                     │
+  │                    │ CFP               │                     │
+  │                    │ thread=neg_T      │                     │
+  │                    │ protocol=fipa-contract-net              │
+  │                    │ body={capIRI,     │                     │
+  │                    │  negCriterion,    │                     │
+  │                    │  negTargets:[m0], │                     │
+  │                    │  negRequester:orch}                     │
+  │                    │──────────────────►│                     │
+  │                    │                   │ reserves neg_T      │
+  │                    │                   │ single target:      │
+  │                    │                   │ wins immediately    │
+  │                    │                   │ (OR: GET avail)     │
+  │                    │                   │────────────────────►│
+  │                    │                   │◄────────────────────│
+  │                    │                   │ "1.0"               │
+  │                    │                   │                     │
+  │                    │ INFORM            │                     │
+  │                    │ thread=neg_T      │                     │
+  │                    │ {winner:true}     │                     │
+  │                    │◄──────────────────│                     │
+  │                    │ neg_T → done      │                     │
+  │                    │ creates exec_T    │                     │
+  │                    │ reserves exec_T   │                     │
+  │                    │                   │                     │
+  │                    │ REQUEST           │                     │
+  │                    │ thread=exec_T     │                     │
+  │                    │ ontology=css-service                    │
+  │                    │ body={capIRI,     │                     │
+  │                    │  skillParams:     │                     │
+  │                    │  {position:"0"}}  │                     │
+  │                    │──────────────────►│                     │
+  │                    │                   │ POST /smia/lego/pick│
+  │                    │                   │────────────────────►│
+  │                    │                   │◄────────────────────│
+  │                    │                   │ {status:"ok",...}   │
+  │                    │                   │                     │
+  │                    │ INFORM            │                     │
+  │                    │ thread=exec_T     │                     │
+  │                    │ {result}          │                     │
+  │                    │◄──────────────────│                     │
+  │                    │ cleans up state   │                     │
+  │ INFORM             │                   │                     │
+  │ thread=op_T        │                   │                     │
+  │ {result}           │                   │                     │
+  │◄───────────────────│                   │                     │
+  │ display result     │                   │                     │
+```
+
+**Message count analysis.** This flow requires 7 FIPA-ACL messages for a single-machine negotiation (REQUEST from operator, CFP, INFORM(winner), REQUEST to machine, INFORM(result) from machine, INFORM forwarded to operator). With `n` machines competing for the same colour, each machine broadcasts a PROPOSE to `n-1` peers, adding `n(n-1)` PROPOSE messages. For `n=1` (one machine per colour, as in this deployment), no PROPOSE messages are exchanged.
+
+---
+
+### 16.11 Phased Testing Strategy
+
+The Case 1 implementation is fully modular. The orchestrator can be excluded from the Docker Compose startup without affecting any other service. This enables a two-phase testing approach:
+
+**Phase 1 — Machines only (validate the extension mechanism):**
+```bash
+cd my_models
+docker compose up xmpp-server smia-machine0 smia-machine1 smia-machine2 smia-operator
+```
+The operator GUI discovers all three machines (their AASXs are in the shared `aas/` folder). The operator can send `Capability_PickPiece` directly to any machine with `skillParams: {position: 0}`. This validates:
+- That `smia_machine_starter.py` correctly overrides the Docker entrypoint
+- That `ExtensibleSMIAAgent` boots, self-configures, and registers `machineAvailValue`
+- That the physical crane responds to direct capability requests from the operator
+- That `GET /smia/lego/availability` returns `1.0` normally and `0.0` during execution
+
+**Phase 2 — Full orchestration (validate FIPA-CNP flow):**
+```bash
+cd my_models
+docker compose up
+```
+The operator sees all four agents including `smia_orch@ejabberd`. A capability request with `skillParams: {color: "red"}` is sent to the orchestrator. The expected log sequence in `smia-orchestrator` is:
+
+```
+OrchestratorDispatchBehaviour started.
+new CSSRequest from operator (thread=...)
+Eligible machine: SMIA_agent@ejabberd (color=red) from LEGO_factory_case0.aasx
+CFP sent to SMIA_agent@ejabberd (neg_thread=...)
+received winner INFORM (thread=...) from SMIA_agent@ejabberd
+execution REQUEST sent to SMIA_agent@ejabberd (exec_thread=...)
+result forwarded to operator (exec_thread=...)
+```
+
+If the orchestrator returns a `FAILURE`, the most common causes are: colour misspelling in `skillParams`, no AASX in the folder with that colour in its `Capability_PickPiece`, or the `Orchestrator_case0.aasx` not having the correct CSS structure (which would prevent SMIA from booting).
+
+---
+
+## 17. Discussion and Future Work
+
+### 17.1 Discussion
 
 This work demonstrates that the AAS Type 3 + CSS paradigm provides a technically viable foundation for flexible manufacturing. The key strength of the approach is the **complete decoupling** between the capability model and the implementation: an operator (or an orchestration system) can request a capability without knowing anything about how it will be executed. The execution is determined entirely by the semantic model at runtime.
 
@@ -1335,11 +1740,11 @@ Several challenges and limitations were encountered:
 
 **No security layer**: The current deployment uses no authentication for HTTP calls (Node-RED accepts any POST without credentials). In a production environment, appropriate security measures (TLS, API keys, OAuth) would be required.
 
-### 16.2 Future Work
+### 17.2 Future Work
 
-Building on the Case 0 baseline, several extensions are planned:
+Building on the Case 0 and Case 1 baselines, several extensions are planned:
 
-1. **Case 1: Multi-agent negotiation**: Add a second SMIA agent (e.g., a transport robot) and implement a negotiation protocol for collaborative task execution. This will exercise SMIA's `HandleNegotiationBehaviour`.
+1. **Case 1 extensions**: Case 1 (multi-agent orchestration with three machine SMIAs and an orchestrator) has been implemented and validated (§16). Future improvements include: strict busy-rejection (returning FAILURE to the operator when all machines are busy rather than queueing the task); multi-machine-per-colour support (currently one machine per colour, but the protocol supports multiple by design); and upstream contribution of the FIPA-CNP initiator behaviour to the SMIA repository.
 
 2. **Formal capability matching**: Extend the CSS model to include capability constraints (pre/post-conditions) and implement reasoning-based capability matching — checking not just whether a capability exists but whether it can be executed given the current state.
 
@@ -1353,7 +1758,7 @@ Building on the Case 0 baseline, several extensions are planned:
 
 ---
 
-## 17. Glossary
+## 18. Glossary
 
 | Term | Definition |
 |---|---|
@@ -1401,7 +1806,7 @@ Building on the Case 0 baseline, several extensions are planned:
 
 ---
 
-## 18. References
+## 19. References
 
 ### Standards and Specifications
 
