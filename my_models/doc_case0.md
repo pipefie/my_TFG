@@ -1466,13 +1466,27 @@ Open `my_models/aas/LEGO_factory_case0.aasx` in AASX Package Explorer.
   - `value`: `OPERATION`
   - `valueType`: `xs:string`
 
+> **Why is it a `Skill` and not a `SkillInterface` directly?**
+>
+> In the CSS model, a **Skill** is a *concrete, technology-specific implementation* of a function. A **SkillInterface** is the *access point* to invoke that implementation. `Skill_NegAvailability` IS a Skill because "check availability via HTTP GET to Node-RED" is a specific implementation choice — another machine could implement the same role differently. The `negCriterion` field in the CFP body points to a Skill IRI because SMIA resolves: `negCriterion → Skill OWL individual → .get_associated_skill_interface_instances() → SkillInterface → agent service`. If `negCriterion` pointed directly at the SkillInterface, `get_associated_skill_interface_instances()` would return nothing and the negotiation score would default to 0.0 (source: `handle_negotiation_behaviour.py:304`, `capability_skill_ontology.py:126`). The naming follows the existing SMIA convention: `Skill_PickPiece`, `Skill_PlacePiece`, `Skill_NegAvailability`.
+>
+> Note: `Skill_NegAvailability` does NOT need an `isRealizedBy` link to any Capability. The negotiation behaviour accesses it directly by IRI from the CFP `negCriterion` field — the Capability layer is bypassed for negotiation purposes.
+
 **Step 4 — Add `machineAvailValue` at submodel level:**
 - Navigate to: `CapabilitiesAndSkills` submodel (same level as Step 3)
 - Right-click → Add Element → **Property**
-- `idShort`: `machineAvailValue`
+- `idShort`: `machineAvailValue` ← must be exactly this string — it is the key used to call `execute_agent_service_by_id('machineAvailValue')` at runtime
 - `valueType`: `xs:string`
 - `value`: (leave empty)
 - **SemanticId**: `http://www.w3id.org/hsu-aut/css#SkillInterface` (ExternalReference)
+
+> **Why `machineAvailValue` must be in `CapabilitiesAndSkills` and NOT in `AssetInterfacesDescription`:**
+>
+> SMIA checks which submodel the SkillInterface element lives in (source: `handle_negotiation_behaviour.py:309`):
+> - Parent submodel has AID semantic ID → **asset service** path: SMIA makes an HTTP call following the AID `forms/href/method` structure
+> - Parent submodel is anything else → **agent service** path: SMIA calls `execute_agent_service_by_id(id_short)`
+>
+> `machineAvailValue` has no AID structure (no forms/href/method). Placing it in the AID would send SMIA down the asset service path, which would fail. Placing it in `CapabilitiesAndSkills` correctly routes SMIA to call the Python function registered via `add_new_agent_service('machineAvailValue', get_machine_availability)` in `smia_machine_starter.py`.
 
 **Step 5 — Add relationship in `SemanticRelationships` submodel:**
 - Navigate to: `LEGO_factory` shell → `SemanticRelationships` submodel
@@ -1500,9 +1514,20 @@ Open `my_models/aas/LEGO_factory_case0.aasx` in AASX Package Explorer.
 
 3. **Update the SMIA agent shell identity:**
    - Click on the `SMIA_agent` AAS shell
-   - Change `id`: `urn:uuid:6475_1111_2062_0001` (new UUID)
+   - **Leave `idShort` as `SMIA_agent`** — this display name has no runtime significance. Each file is a separate AASX package, so no conflict arises. Keeping the same idShort is intentional and consistent with the original.
+   - Change `id`: `urn:uuid:6475_1111_2062_0001` (new UUID — this IS significant, must be globally unique)
    - Navigate to: `SMIA_agent` shell → `SoftwareNameplate` submodel → find the SMC that contains `InstanceName`
    - Change `InstanceName` value: `smia_machine1@ejabberd`
+
+   > **Why the `SMIA_agent` shell exists (two-shell architecture):**
+   >
+   > Each machine AASX contains two AAS shells. This is a deliberate SMIA design choice from the paper (§3):
+   > - `LEGO_factory` / `LEGO_machine1` — the **physical asset** DT: AID, Capabilities, Skills, CSS relationships. Used by SMIA for self-configuration, selected via the `AAS_ID` Docker env var.
+   > - `SMIA_agent` — the **software agent** DT: SoftwareNameplate (identity, XMPP JID). Used by the operator GUI for discovery.
+   >
+   > The operator GUI's `get_smia_jid_from_aas_store()` searches every AASX for a submodel with the SoftwareNameplate semantic ID, then reads the `InstanceName` property value. This is what appears in the GUI list — not the shell's `idShort`. So when you load `LEGO_machine1_case0.aasx`, the GUI shows `smia_machine1@ejabberd` as the agent entry.
+   >
+   > The two shells are packaged together in one AASX because they are deployed together in one Docker container. The AAS standard explicitly supports multiple shells per package for exactly this reason.
 
 4. **Update colour constraints:**
    - Navigate to: `LEGO_machine1` shell → `CapabilitiesAndSkills` → `Capability_PickPiece` → `color` property
@@ -1516,7 +1541,7 @@ Open `my_models/aas/LEGO_factory_case0.aasx` in AASX Package Explorer.
 
 #### 19.3.C Create `LEGO_machine2_case0.aasx` (white pieces)
 
-Repeat the same steps as 19.3.B with these values:
+Repeat the same steps as 19.3.B. The two-shell rationale and idShort explanation from §19.3.B apply equally here. With these values:
 
 | Field | Value |
 |---|---|

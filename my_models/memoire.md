@@ -1348,6 +1348,20 @@ The Case 1 system consists of six Docker containers sharing one ejabberd XMPP se
 
 The orchestrator sits between the operator and the machines. It is invisible to the physical asset — it never makes an HTTP call to Node-RED directly. Its sole job is to run the FIPA-CNP negotiation and forward the winning machine's execution result back to the operator.
 
+**The two-shell architecture per machine AASX.** Each machine's AASX package contains two AAS shells, not one. This is a deliberate SMIA design decision that reflects a fundamental distinction in the digital twin concept:
+
+| Shell | Represents | Content | Used by |
+|---|---|---|---|
+| `LEGO_factory` (or `LEGO_machine1`, etc.) | The **physical asset** DT | AID (HTTP interface), Capabilities, Skills, CSS relationships, ontology | SMIA agent during self-configuration — filtered by `AAS_ID` env var |
+| `SMIA_agent` | The **software agent** DT | `SoftwareNameplate` submodel: agent identity, XMPP JID (`InstanceName`), software version | Operator GUI and other SMIAs for agent discovery |
+
+The AAS standard allows multiple shells in one AASX package. In the SMIA philosophy (paper §3), the physical machine and the software agent that controls it are distinct digital entities — the crane has its own DT as a machine, and the SMIA agent has its own DT as a software product. They are packaged together because they are deployed together in one container.
+
+**In practice:**
+- The `AAS_ID` Docker environment variable (e.g., `urn:uuid:6475_0111_2062_9689`) tells SMIA which shell to use for self-configuration. SMIA reads the AID and CSS submodels from the `LEGO_factory` shell only.
+- The operator GUI's `get_smia_jid_from_aas_store()` searches the entire AASX for a submodel with the `SoftwareNameplate` semantic ID, reads the `InstanceName` property, and displays that JID in the GUI list. The GUI shows `SMIA_agent@ejabberd` — not the shell's `idShort` attribute.
+- The `idShort` of the `SMIA_agent` shell is a display label in AASX Package Explorer only. It has no runtime significance. All three machines use `SMIA_agent` as the idShort in their respective AASX files — this is not a conflict because `idShort` uniqueness is only required within a single AASX package.
+
 **End-to-end flow (10 steps):**
 
 ```
@@ -1460,6 +1474,21 @@ When a machine receives a CFP, `NegotiatingBehaviour` (a base SMIA behaviour) de
 6. Winner sends `INFORM {winner: true}` to `negRequester` (the orchestrator)
 
 The `negValue` is the machine's *negotiation score*: a float in [0.0, 1.0] where 1.0 = fully available and 0.0 = completely occupied. The `negCriterion` field in the CFP body is the IRI of the OWL individual that SMIA uses to find the associated `SkillInterface` and, through it, the registered agent service to call.
+
+**Why `negCriterion` points to a Skill (not directly to a SkillInterface).** In the CSS model, a Skill is a *concrete, technology-specific implementation of a function*. A SkillInterface is only the *access point* to invoke that implementation. The distinction matters here:
+
+- `Skill_NegAvailability` IS a Skill in the CSS sense: it implements the specific function "compute my availability by making an async HTTP GET request to a Node-RED endpoint and parsing the plain-text float response." Different machines could implement the same role (availability reporting) with different technologies — one via HTTP, another via OPC-UA, another via a lookup table — each as a distinct Skill. The IRI uniquely identifies *this particular implementation*.
+- `machineAvailValue` is the SkillInterface that describes *how to invoke* that Skill — in this case, via the registered Python agent service.
+
+SMIA's resolution chain for the `negCriterion` IRI is (source: `capability_skill_ontology.py:126`):
+```python
+for instance_class in self.ontology.individuals():
+    if instance_class.iri == instance_iri:   # full IRI comparison
+        return instance_class
+```
+Then: `neg_skill_instance.get_associated_skill_interface_instances()` traverses the `accessibleThroughAgentService` relationship to reach `machineAvailValue`. If `negCriterion` pointed directly at the SkillInterface, `get_associated_skill_interface_instances()` would return an empty set and the negotiation score would default to 0.0 — the machine would never win.
+
+The naming `Skill_NegAvailability` follows the established SMIA convention (cf. `Skill_PickPiece`, `Skill_PlacePiece`) and is unambiguous for a tribunal reviewer: it is a Skill whose purpose is to report negotiation availability. It does NOT need to be linked to a Capability via `isRealizedBy` — the FIPA-CNP behaviour accesses it directly by IRI, bypassing the Capability layer.
 
 **The initiator side (implemented in this TFG — `OrchestratorDispatchBehaviour`).**
 The `OrchestratorDispatchBehaviour` is a SPADE `CyclicBehaviour` that runs in the orchestrator's SPADE event loop alongside all base SMIA behaviours. Its `run()` method executes once per event loop iteration, receives one message (or times out), and routes it based on the performative and thread. The four routes are:
