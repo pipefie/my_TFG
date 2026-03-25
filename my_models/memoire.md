@@ -392,7 +392,12 @@ Key properties:
 
 Example: `Capability_PickPiece` — the ability to pick a piece from a warehouse slot. This is independent of whether the pick is performed by a robotic arm, a conveyor, or a specific crane mechanism. In Case 0, this capability is offered by the **warehouse crane (Hochregallager)** of the fischertechnik Training Factory Industry 4.0 24V. Note: this capability does *not* apply to the central crane with vacuum suction cup (ventose), which is a separate component of the same factory model.
 
-In an AAS model, a Capability is represented as a `SubmodelElementCollection` with `semanticId: http://www.w3id.org/upv-ehu/gcis/css-smia#AssetCapability`.
+In an AAS model, a Capability is represented as a `SubmodelElementCollection` whose `semanticId` identifies which CSS capability subclass it belongs to. SMIA defines two subclasses (css_ontology_utils.py:201-202):
+
+- `http://www.w3id.org/upv-ehu/gcis/css-smia#AssetCapability` — a capability **of a physical machine** (e.g., a warehouse crane's ability to pick a piece). Execution is delegated to a physical asset through an AID-described HTTP/MQTT/OPC-UA interface. Used in Case 0 for `Capability_PickPiece` and `Capability_PlacePiece` on the fischertechnik factory machines.
+- `http://www.w3id.org/upv-ehu/gcis/css-smia#AgentCapability` — a capability **of the software agent itself** (e.g., an orchestrator's ability to coordinate multiple machines). Execution is handled by a SPADE behaviour registered on the agent; no AID interface is required. Used in Case 1 for the orchestrator's `Capability_PickPiece`.
+
+The distinction is not optional: SMIA's `state_running.py` explicitly queries only `AgentCapability` instances when looking for negotiation and agent-level behaviours. Placing an orchestration capability under `AssetCapability` is semantically incorrect and will mislead SMIA's capability classification logic.
 
 #### 7.2.2 Skill
 
@@ -461,8 +466,8 @@ The key class hierarchy in the SMIA CSS ontology:
 ```
 owl:Thing
 ├── Capability
-│   ├── AgentCapability    (capability offered by a software agent)
-│   └── AssetCapability    (capability offered by a physical asset) ← used in Case 0
+│   ├── AgentCapability    (capability offered by a software agent) ← used in Case 1 orchestrator
+│   └── AssetCapability    (capability offered by a physical asset) ← used in Case 0 machines
 ├── Skill                  (concrete implementation of a capability)
 ├── SkillInterface         (how a skill is accessed)
 ├── SkillParameter         (input/output of a capability or skill)
@@ -507,7 +512,7 @@ These IRIs are used as `semanticId` values in AAS elements to link them to the o
 
 SMIA uses **owlready2**, a Python library for loading, navigating, and reasoning with OWL ontologies. Through owlready2, SMIA can:
 - Load the embedded CSS ontology from the AASX package.
-- Parse AAS elements and classify them as ontology individuals (e.g., recognize `Capability_PickPiece` as an `AssetCapability` individual).
+- Parse AAS elements and classify them as ontology individuals (e.g., recognize `Capability_PickPiece` of a machine as an `AssetCapability` individual, or `Capability_PickPiece` of the orchestrator as an `AgentCapability` individual).
 - Navigate object properties to find the skill that realizes a capability, and the interface through which that skill is accessible.
 
 ### 8.5 Semantic Interoperability
@@ -901,7 +906,7 @@ Both capabilities have:
 - Scope: **warehouse crane only**. The central vacuum suction crane (ventose) is out of scope for Case 0.
 
 Both skills have:
-- Implementation type qualifier: `hasImplementationType = OPERATION`.
+- Implementation type qualifier: `SkillImplementationType = OPERATION` (no semanticId — confirmed from `SMIA-css-qualifier-presets.json`).
 
 ### 12.5 Design Decisions
 

@@ -288,7 +288,7 @@ css:Capability  ──isRestrictedBy──►  css:CapabilityConstraint
          e.g. Negotiate, Coordinate — functions of the DT agent
 
 css:Capability ──isRealizedBy──► css:Skill
-                                     │ (+hasImplementationType: OPERATION | ...)
+                                     │ (+SkillImplementationType: OPERATION | ...)
                                      │ (+hasParameter ──► css:SkillParameter)
                                      │
                                      ├──accessibleThroughAssetService──► css:SkillInterface
@@ -391,9 +391,9 @@ CapabilitiesAndSkills
 │   ├── Qualifier: type=hasLifecycle, value=OFFER
 │   └── position  [Property, xs:int]
 ├── Skill_PickPiece  [Property, xs:string, semanticId: css#Skill]
-│   └── Qualifier: type=hasImplementationType, value=OPERATION
+│   └── Qualifier: type=SkillImplementationType, value=OPERATION
 └── Skill_PlacePiece  [Property, xs:string, semanticId: css#Skill]
-    └── Qualifier: type=hasImplementationType, value=OPERATION
+    └── Qualifier: type=SkillImplementationType, value=OPERATION
 ```
 
 > **Lifecycle values:** `hasLifecycle = OFFER` means this asset is advertising/providing this capability. Other valid values: `ASSURANCE` (offered with quality guarantee) and `REQUIREMENT` (capability needed from another agent — used on the requesting side, e.g., in the operator AAS).
@@ -434,6 +434,17 @@ Note: SMIA also extends the AID submodel with two optional attributes (paper §4
 1. Go to: `https://github.com/admin-shell-io/aasx-package-explorer/releases`
 2. Download the latest release ZIP (Windows only, .NET 6+).
 3. Extract the ZIP. Run `AasxPackageExplorer.exe` directly — no installation required.
+
+**Import SMIA qualifier presets (recommended):** The SMIA repository ships an official preset file for AASX PE that defines all CSS qualifiers with the correct types and semanticIds:
+
+```
+additional_resources/aasx_package_explorer_resources/SMIA-css-qualifier-presets.json
+```
+
+To import it in AASX PE: **Edit → Edit Options… → Qualifier Presets → Load…** → select the JSON file. After importing, you can apply qualifiers via **Add Qualifier → (preset dropdown)** instead of typing IRIs manually. The presets are authoritative — they define exactly:
+- `hasLifecycle` qualifier for Capabilities (semanticId: `css-smia#hasLifecycle`, values: `OFFER/ASSURANCE/REQUIREMENT`)
+- `SkillImplementationType` qualifier for Skills (no semanticId, values: `OPERATION/STATE/TRIGGER/FUNCTIONBLOCK`)
+- `hasCondition` qualifier for CapabilityConstraints (semanticId: `css-smia#hasCondition`, values: `PRECONDITION/POSTCONDITION/INVARIANT`)
 
 ### 8.2 Create a New AASX Package
 
@@ -579,8 +590,9 @@ This is the most detailed submodel. Follow the AID standard (IDTA 02017).
    - `valueType`: `xs:string`
    - `semanticId`: `http://www.w3id.org/hsu-aut/css#Skill`
 2. Add Qualifier on the Property:
-   - Type: `hasImplementationType`
+   - Type: `SkillImplementationType`
    - Value: `OPERATION`
+   - SemanticId: (leave empty — this qualifier has no semanticId)
 
 **Add `Skill_PlacePiece` (Property):**
 1. Same structure as `Skill_PickPiece`.
@@ -1118,7 +1130,7 @@ Use this checklist to replicate Case 0 from scratch.
 - [ ] `EndpointMetadata/base` = `http://192.168.155.10:1880`
 - [ ] `pickPiece/forms/href` = `/smia/lego/pick`; `placePiece/forms/href` = `/smia/lego/place`
 - [ ] `CapabilitiesAndSkills`: `Capability_PickPiece` and `Capability_PlacePiece` as SMC with qualifier `hasLifecycle=OFFER`
-- [ ] `Skill_PickPiece` and `Skill_PlacePiece` as **Property** (not SMC) with qualifier `hasImplementationType=OPERATION`
+- [ ] `Skill_PickPiece` and `Skill_PlacePiece` as **Property** (not SMC) with qualifier `SkillImplementationType=OPERATION`
 - [ ] `SemanticRelationships`: 4 RelationshipElements with correct semanticIds and references
 
 ### File Placement
@@ -1462,9 +1474,10 @@ Open `my_models/aas/LEGO_factory_case0.aasx` in AASX Package Explorer.
 - `value`: (leave empty)
 - **SemanticId**: `http://www.w3id.org/hsu-aut/css#Skill` (ExternalReference, ModelReference=false)
 - **Qualifier**: Add Qualifier
-  - `type`: `hasImplementationType`
+  - `type`: `SkillImplementationType`
   - `value`: `OPERATION`
   - `valueType`: `xs:string`
+  - `semanticId`: (leave empty — `SkillImplementationType` has no semanticId)
 
 > **Why is it a `Skill` and not a `SkillInterface` directly?**
 >
@@ -1588,7 +1601,7 @@ File → New → Create empty AASX package. Then:
 - Add **Property** `Skill_Orchestrate_PickPiece`:
   - `valueType`: `xs:string`
   - **SemanticId**: `http://www.w3id.org/hsu-aut/css#Skill`
-  - **Qualifier**: `hasImplementationType = OPERATION`
+  - **Qualifier**: `SkillImplementationType = OPERATION` (no semanticId)
 - Add **Property** `Skill_Orchestrate_PlacePiece` (same pattern)
 - Link this submodel to the orchestrator AAS shell
 
