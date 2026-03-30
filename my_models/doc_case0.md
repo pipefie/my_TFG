@@ -413,6 +413,8 @@ Contains four `RelationshipElement` entries that encode the CSS ontology graph i
 
 SMIA reads these four relationships during startup (`InitAASModelBehaviour`) to build the complete capability→skill→interface map.
 
+> **Critical — `#isRealizedBy` NOT `#isRealizedBySkill`:** The CSS OWL ontology (`CSS-ontology-smia.owl`) defines `#isRealizedBySkill` as a valid sub-property of `#isRealizedBy` (with domain=`Capability`, range=`Skill`). However, SMIA resolves AAS `RelationshipElement` semanticIds using **exact string comparison** against the constants in `CSS_ONTOLOGY_OBJECT_PROPERTIES_IRIS` (`css_ontology_utils.py:230`). Only `http://www.w3id.org/hsu-aut/css#isRealizedBy` is in that list — `#isRealizedBySkill` is not. Any relationship tagged with `#isRealizedBySkill` is silently skipped during Track 3 of self-configuration. The operator GUI uses the same constant list to count capabilities and skills: using `#isRealizedBySkill` causes the GUI to display **0 capabilities and 0 skills** for every loaded SMIA. The AASX PE preset file (`SMIA-css-semantic-ids-sm.add-options.json`) correctly defines only `#isRealizedBy` — there is no `#isRealizedBySkill` entry.
+
 ---
 
 ## 8. AASX Package Explorer — From-Scratch Tutorial
@@ -757,86 +759,52 @@ docker compose -f my_models/docker-compose.yml up -d
 
 ### 11.1 Services Overview
 
-```yaml
-services:
+The compose file defines 7 services across two categories. All services share the `smia-net`
+Docker bridge network — Docker DNS resolves container names (`ejabberd`, `nodered`,
+`mosquitto-central`) automatically without any `/etc/hosts` changes. Credentials come from
+`my_models/.env` (gitignored); copy `.env.example` to `.env` and fill in passwords before
+the first `docker compose up`.
 
-  smia:                                       # SMIA industrial agent
-    image: ekhurtado/smia:latest-alpine
-    container_name: smia
-    environment:
-      - AAS_MODEL_NAME=LEGO_factory_case0.aasx    # Which AASX to load from aas/ folder
-      - AAS_ID=urn:uuid:6475_0111_2062_9689        # Filter to load this specific AAS shell
-      - AGENT_ID=SMIA_agent@ejabberd               # XMPP JID
-      - AGENT_PASSWD=asd                            # XMPP password
-    depends_on:
-      xmpp-server:
-        condition: service_healthy
-    volumes:
-      - ../src/smia/agents/smia_agent.py:/usr/local/lib/python3.12/site-packages/smia/agents/smia_agent.py
-      #   ↑ Patched file that fixes asset-connection lookup (see §13)
-      - ./aas:/smia_archive/config/aas
-      #   ↑ Mounts my_models/aas/ as the AASX file folder inside the container
+**Pre-built public images — no Dockerfile, no build step:**
 
-  xmpp-server:                                # XMPP server (ejabberd)
-    image: ghcr.io/processone/ejabberd
-    container_name: ejabberd
-    environment:
-      - ERLANG_NODE_ARG=admin@ejabberd
-      - ERLANG_COOKIE=dummycookie123
-      - CTL_ON_CREATE=! register SMIA_agent ejabberd asd ; register operator001 ejabberd gcis1234
-      #   ↑ Registers both agent accounts on first startup
-    ports:
-      - "5222:5222"     # XMPP C2S
-      - "5269:5269"     # XMPP S2S
-      - "5280:5280"     # HTTP admin
-      - "5443:5443"     # HTTPS admin/API
-    volumes:
-      - ./xmpp_server/ejabberd.yml:/opt/ejabberd/conf/ejabberd.yml
-      - ejabberd_data:/opt/ejabberd/database   # Persistent account data
-    healthcheck:
-      test: netstat -nl | grep -q 5222
-      start_period: 5s
-      interval: 5s
-      timeout: 5s
-      retries: 10
+| Service | Image | Role |
+|---|---|---|
+| `xmpp-server` | `ghcr.io/processone/ejabberd` | XMPP message broker; auto-registers all agent accounts on first start via `CTL_ON_CREATE` |
+| `nodered` | `nodered/node-red:latest` | HTTP→MQTT bridge; loads `./nodered/flows.json` on startup |
+| `mosquitto-central` | `eclipse-mosquitto:2` | Central MQTT broker; bridges to the physical machine's MQTT broker via `./mosquitto/conf.d/bridge.conf` |
 
-  smia-operator:                              # Operator GUI agent
-    image: ekhurtado/smia-use-cases:latest-operator
-    container_name: smia-operator
-    environment:
-      - AAS_MODEL_NAME=SMIA_Operator_article.aasx  # Operator's own AAS
-      - AGENT_ID=operator001@ejabberd               # XMPP JID
-      - AGENT_PASSWD=gcis1234                        # XMPP password
-    depends_on:
-      xmpp-server:
-        condition: service_healthy
-    volumes:
-      - ./aas:/smia_archive/config/aas
-      #   ↑ Same aas/ folder — operator scans this to find SMIA targets (skips its own file)
-      - ../additional_tools/extended_agents/smia_operator_agent/operator_gui_behaviours.py:/operator_gui_behaviours.py
-      - ../additional_tools/extended_agents/smia_operator_agent/operator_gui_logic.py:/operator_gui_logic.py
-      - ../additional_tools/extended_agents/smia_operator_agent/htmls:/htmls
-      #   ↑ Override operator GUI files with updated versions from repo
-    ports:
-      - "10000:10000"   # Web GUI exposed to host
+**Custom images — built from Dockerfiles (run `docker compose build` first):**
 
-volumes:
-  ejabberd_data:        # Persistent volume for ejabberd account database
-```
+| Service | Dockerfile | Role |
+|---|---|---|
+| `smia-machine0`, `smia-machine1`, `smia-machine2` | `my_models/docker/smia-machine/Dockerfile` | Machine agents; share one Dockerfile, differ only in AASX and env vars |
+| `smia-orchestrator` | `my_models/docker/smia-orchestrator/Dockerfile` | FIPA-CNP dispatcher; receives capability requests from operator and negotiates with machines |
+| `smia-operator` | `additional_tools/extended_agents/smia_operator_agent/Dockerfile` | Web GUI agent; exposes port 10000; scans `aas/` to discover SMIA targets |
+
+**Key design decisions:**
+- All machine services `depends_on: xmpp-server: condition: service_healthy` and `nodered: condition: service_started` — agents never attempt XMPP connection before the server is ready
+- Volume `./aas:/smia_archive/config/aas` is shared by all agents — one folder holds all AASX files
+- `NODERED_URL=http://nodered:1880` is injected into all machine containers; Docker DNS resolves `nodered` to the Node-RED service
 
 ### 11.2 XMPP Accounts
 
-Two XMPP accounts are registered automatically on first ejabberd startup:
+All XMPP accounts are registered automatically on first ejabberd startup via `CTL_ON_CREATE`:
 
-| Account | Password | Used by |
-|---|---|---|
-| `SMIA_agent@ejabberd` | `asd` | `smia` container |
-| `operator001@ejabberd` | `gcis1234` | `smia-operator` container |
+| Account | Service that uses it |
+|---|---|
+| `SMIA_agent@ejabberd` | `smia-machine0` |
+| `smia_machine1@ejabberd` | `smia-machine1` |
+| `smia_machine2@ejabberd` | `smia-machine2` |
+| `smia_orch@ejabberd` | `smia-orchestrator` |
+| `operator001@ejabberd` | `smia-operator` |
 
-These credentials must match across:
-1. `CTL_ON_CREATE` in docker-compose.yml
-2. `AGENT_PASSWD` env vars in docker-compose.yml
-3. `dt.password` in `smia-initialization.properties` (fallback for smia)
+Credentials are defined in `.env` via `MACHINEx_PASSWD`, `ORCH_PASSWD`, `OPERATOR_PASSWD`.
+These must match the `AGENT_PASSWD` env vars passed to each container. To add a new account
+(e.g., when adding a new machine), append to `CTL_ON_CREATE` in `docker-compose.yml` — or,
+if ejabberd is already running, register manually:
+```bash
+docker exec ejabberd ejabberdctl register smia_machineN ejabberd <password>
+```
 
 ### 11.3 Common Commands
 
@@ -867,9 +835,111 @@ docker compose -f my_models/docker-compose.yml restart smia
 
 The `depends_on: condition: service_healthy` ensures:
 1. `xmpp-server` starts and port 5222 becomes available.
-2. Only then `smia` and `smia-operator` start and attempt XMPP connection.
+2. Only then machine agents, orchestrator, and operator start and attempt XMPP connection.
 
-If `smia` or `smia-operator` start before ejabberd is ready, the XMPP connection fails and the container exits. The `healthcheck` on `xmpp-server` prevents this.
+If any agent starts before ejabberd is ready, the XMPP connection fails and the container exits. The `healthcheck` on `xmpp-server` prevents this.
+
+### 11.5 Docker Image Build Process
+
+#### What `docker compose build` does
+
+`docker compose build` executes the Dockerfile for every service that has a `build:` block.
+Services using a public `image:` (ejabberd, nodered, mosquitto) are skipped — Docker pulls
+those automatically on first `up`. You only need to run `build` once, and again after changing
+a Dockerfile or any `.py` file that is `COPY`d into a custom image.
+
+A Dockerfile is a **recipe**: each instruction adds a layer on top of the previous one.
+The result is an immutable image that can be started as many containers as needed.
+
+#### Why COPY instead of `pip install smia`
+
+`ekhurtado/smia:latest-alpine` already has SMIA installed via `pip install smia` — it is the
+base layer. We do not reinstall the framework; we build our application on top of it.
+
+| Dockerfile layer | Analogy | What it actually is |
+|---|---|---|
+| `FROM ekhurtado/smia:latest-alpine` | Python + framework already installed | Alpine Linux + Python + `pip install smia` already done by the SMIA team |
+| `COPY + RUN` patch block | Patching a bug in the framework | Overwriting the installed `smia_agent.py` with our fixed version |
+| `COPY smia_machine_starter.py /` | Copying your `app.py` | Our custom launcher that creates `ExtensibleSMIAAgent` |
+
+#### Machine Dockerfile walkthrough (`my_models/docker/smia-machine/Dockerfile`)
+
+```dockerfile
+FROM ekhurtado/smia:latest-alpine
+# ↑ Start from the official SMIA image. Python, SMIA, and all dependencies
+#   are already installed. This is our base — we add layers on top.
+
+LABEL maintainer="afierro@vicomtech.org" ...
+# ↑ Metadata only. No filesystem change. Useful for `docker inspect`.
+
+COPY src/smia/agents/smia_agent.py /tmp/smia_agent_patch.py
+# ↑ Stage our patched version of the SMIA framework file in /tmp.
+
+RUN set -e && \
+    SMIA_PKG=$(python3 -c "import smia, os; print(os.path.dirname(smia.__file__))") && \
+    cp /tmp/smia_agent_patch.py "$SMIA_PKG/agents/smia_agent.py" && \
+    rm /tmp/smia_agent_patch.py
+# ↑ Detect where pip installed SMIA (version-independent — works even if the base
+#   image upgrades Python from 3.12 to 3.13). Copy the fix there. Clean up /tmp.
+#   set -e aborts the build if any command fails.
+
+COPY additional_tools/extended_agents/smia_machine_agent/smia_machine_starter.py /smia_machine_starter.py
+COPY additional_tools/extended_agents/smia_machine_agent/smia_machine_agent_services.py /smia_machine_agent_services.py
+# ↑ Copy OUR application code to the container root (/).
+
+WORKDIR /
+# ↑ Set the working directory to /. Python adds WORKDIR to sys.path, so
+#   `import smia_machine_agent_services` resolves correctly at runtime.
+
+CMD ["python3", "-u", "smia_machine_starter.py"]
+# ↑ Replace the default SMIA launcher (`python3 -m smia.launchers.smia_docker_starter`)
+#   with our custom one. -u = unbuffered stdout so logs appear immediately in
+#   `docker compose logs -f`.
+```
+
+#### Which files are ours vs SMIA's
+
+| File | Origin | Classification | Role |
+|---|---|---|---|
+| `smia_machine_starter.py` | Written by us | **Type A — New implementation** | Creates `ExtensibleSMIAAgent`; registers `get_machine_availability` as agent service `machineAvailValue` via `add_new_agent_service()` |
+| `smia_machine_agent_services.py` | Written by us | **Type A — New implementation** | `async get_machine_availability()`: HTTP GET to Node-RED `/smia/lego/availability`; returns 1.0 (free) or 0.0 (busy) as FIPA-CNP negotiation score |
+| `smia_orchestrator_starter.py` | Written by us | **Type A — New implementation** | Creates `ExtensibleSMIAAgent` for orchestrator; registers `OrchestratorDispatchBehaviour` via `add_new_agent_capability()` |
+| `orchestrator_dispatch_behaviour.py` | Written by us | **Type A — New implementation** | FIPA-CNP initiator: AAS-based machine discovery, colour routing, CFP broadcast, winner selection, task delegation |
+| `smia_agent.py` (patched) | SMIA framework file | **Type B — Bug fix** | Asset-connection object-identity lookup bug fixed; all other framework code unchanged; TODO: upstream PR to `ekhurtado/SMIA` |
+
+> **Note on Type A vs framework extension:** All Type A files use the official SMIA extension
+> API (`add_new_agent_service`, `add_new_agent_capability`) — they are extensions of SMIA,
+> not forks. The framework core is untouched except for the Type B bug fix.
+
+#### Recommended incremental test strategy
+
+Build all images once, then start services incrementally to isolate issues:
+
+```bash
+# Step 1 — Build all custom images (one-time; redo only if .py files or Dockerfiles change)
+docker compose -f my_models/docker-compose.yml build
+
+# Step 2 — Start infrastructure + machines only (validate single-machine flow)
+docker compose -f my_models/docker-compose.yml up -d \
+  xmpp-server mosquitto-central nodered \
+  smia-machine0 smia-machine1 smia-machine2 smia-operator
+
+# Verify machines reach StateRunning:
+docker compose -f my_models/docker-compose.yml logs -f smia-machine0 smia-machine1 smia-machine2
+# Expected: "Analyzed capabilities: ['Capability_PickPiece', 'Capability_PlacePiece']"
+
+# Test: Operator GUI → Load → pick smia_machine0 directly → Capability_PickPiece → Submit
+# If crane moves → machine layer is working
+
+# Step 3 — Add orchestrator (validate FIPA-CNP multi-machine flow)
+docker compose -f my_models/docker-compose.yml up -d smia-orchestrator
+docker compose -f my_models/docker-compose.yml logs -f smia-orchestrator
+# Expected: "OrchestratorDispatchBehaviour started."
+
+# Test: Operator GUI → Load → select smia_orch → Capability_PickPiece
+#        skillParams: {color: "red"} → Submit
+# Orchestrator should negotiate with machines and delegate to the winner
+```
 
 ---
 
@@ -1167,6 +1237,181 @@ Use this checklist to replicate Case 0 from scratch.
 
 ---
 
+## 17. Adding a New Machine to the Deployment
+
+This section is the definitive guide for Vicomtech DII colleagues to add a new physical machine to the SMIA system. The architecture is designed so that adding a machine requires **no Python code changes and no new Dockerfiles** — only AAS modelling and configuration.
+
+### Prerequisites
+
+- AASX Package Explorer installed
+- Access to the `my_models/` directory (clone the repo)
+- The new machine has an MQTT-capable controller (or Node-RED can relay commands to it)
+- The machine's physical interface is known: what commands it accepts, what topics it uses
+
+### Step 1 — Create the AAS model in AASX Package Explorer
+
+Use an existing machine AASX (e.g. `LEGO_machine1_case0.aasx`) as a template:
+
+1. **Copy** the file and rename it: `LEGO_machineN_case0.aasx`
+2. **Assign new UUIDs** to both AAS shells (Asset Management shell and SMIA_agent shell):
+   - Select the AAS → edit the `id` field → generate a new UUID
+   - Repeat for the SMIA_agent shell
+3. **Update `SoftwareNameplate` → `InstanceName`** in the SMIA_agent shell:
+   - Set to the **local part of the XMPP JID only** — e.g. `smia_machine3`
+   - Do NOT include `@ejabberd` — the operator GUI appends the domain automatically
+4. **Update the AID base URL** (`AssetInterfacesDescription` → `InterfaceHTTP` → `EndpointMetadata` → `base`):
+   - If using the same containerized Node-RED: keep `http://nodered:1880`
+   - If the machine has its own Node-RED or API: set the correct URL
+5. **Update `CapabilitiesAndSkills`** to match the new machine's actual capabilities
+6. **Update `SemanticRelationships`** to wire Capabilities → Skills → AID actions
+7. **Save** the file to `my_models/aas/`
+
+> **Important:** `InstanceName` must match the XMPP JID local part exactly.
+> If the XMPP JID is `smia_machine3@ejabberd`, InstanceName must be `smia_machine3`.
+> Using the full JID causes a doubled-`@` bug in the operator GUI (NoneType split error).
+
+### Step 2 — Add credentials to `.env`
+
+Add 4 lines to `my_models/.env`:
+
+```env
+MACHINE3_AAS_FILE=LEGO_machineN_case0.aasx
+MACHINE3_AAS_ID=urn:uuid:<new-uuid-of-factory-shell>
+MACHINE3_AGENT_ID=smia_machine3@ejabberd
+MACHINE3_PASSWD=<strong-random-password>
+```
+
+### Step 3 — Register the XMPP account in ejabberd
+
+In `my_models/docker-compose.yml`, append to the `CTL_ON_CREATE` line of `xmpp-server`:
+
+```yaml
+- CTL_ON_CREATE=! ... ; register smia_machine3 ejabberd ${MACHINE3_PASSWD}
+```
+
+> If ejabberd is already running, either restart it (`docker compose restart xmpp-server`)
+> or register the account manually:
+> ```bash
+> docker exec ejabberd ejabberdctl register smia_machine3 ejabberd <password>
+> ```
+
+### Step 4 — Add a service block to `docker-compose.yml`
+
+Copy any existing `smia-machineN` block and update the 4 environment variable names:
+
+```yaml
+  smia-machine3:
+    build:
+      context: ..
+      dockerfile: my_models/docker/smia-machine/Dockerfile
+    container_name: smia-machine3
+    environment:
+      - AAS_MODEL_NAME=${MACHINE3_AAS_FILE}
+      - AAS_ID=${MACHINE3_AAS_ID}
+      - AGENT_ID=${MACHINE3_AGENT_ID}
+      - AGENT_PASSWD=${MACHINE3_PASSWD}
+      - NODERED_URL=${NODERED_URL}
+    depends_on:
+      xmpp-server:
+        condition: service_healthy
+      nodered:
+        condition: service_started
+    volumes:
+      - ./aas:/smia_archive/config/aas
+    restart: unless-stopped
+    networks:
+      - smia-net
+```
+
+No new Dockerfile is needed — all machines share `docker/smia-machine/Dockerfile`.
+
+### Step 5 — (Optional) Add a Node-RED flow for the new machine's commands
+
+If the new machine uses the same MQTT command format as the existing crane (`bandera_custom:<position>`),
+the existing flow in `nodered/flows.json` already handles it — no changes needed.
+
+If the new machine requires a different command format or endpoint:
+1. Open Node-RED at `http://localhost:1880`
+2. Add new HTTP In + handler + MQTT Out nodes for the new machine's endpoints
+3. Export the updated flow: Menu → Export → Download → replace `my_models/nodered/flows.json`
+
+### Step 6 — Start the new machine
+
+```bash
+# Rebuild images if smia_machine_agent_services.py or Dockerfiles changed
+docker compose -f my_models/docker-compose.yml build smia-machine3
+
+# Start only the new machine (others keep running)
+docker compose -f my_models/docker-compose.yml up -d smia-machine3
+```
+
+### Step 7 — Verify
+
+1. Check the container starts: `docker compose logs -f smia-machine3`
+   - Should reach: `Analyzed capabilities: ['Capability_...']`
+2. Open Operator GUI → Load → the new machine should appear with its capabilities
+3. Select the machine → Submit a capability request → verify the machine responds
+
+### Summary checklist
+
+```
+[ ] New AASX created with unique UUIDs
+[ ] InstanceName = local JID part only (no @ejabberd)
+[ ] AID base URL correct (http://nodered:1880 for containerized Node-RED)
+[ ] isRealizedBy (not isRealizedBySkill) used in SemanticRelationships
+[ ] AASX saved to my_models/aas/
+[ ] .env updated with 4 new variables
+[ ] ejabberd CTL_ON_CREATE updated (or account registered manually)
+[ ] docker-compose.yml service block added
+[ ] docker compose up -d smia-machineN
+[ ] Operator GUI Load → machine appears with correct capabilities and skills
+```
+
+---
+
+## 18. Architecture Roadmap
+
+### Current architecture (implemented)
+
+```
+Operator GUI
+    └─► SMIA Agent (FIPA-ACL / XMPP)
+            └─► Node-RED (HTTP POST)
+                    └─► Mosquitto (MQTT)
+                            └─► [bridge] ─► Physical machine broker
+```
+
+This architecture is fully functional and industry-deployable. Node-RED provides visual
+debugging, flow modification without redeployment, and a tested HTTP→MQTT bridge.
+
+### Planned improvement — Direct MQTT (future)
+
+The AID standard (IDTA 02017-1-0) and WoT Thing Description both define MQTT bindings.
+The SMIA framework already has `ArchitectureStyle.PUBSUB` in the `AssetConnection` base
+class (`src/smia/assetconnection/asset_connection.py`, line 20) — the framework was
+designed to support this.
+
+A future `MQTTAssetConnection` class registered via `add_new_asset_connection()` would
+allow SMIA to publish MQTT messages directly to the machine's broker, **eliminating
+Node-RED entirely**:
+
+```
+Operator GUI
+    └─► SMIA Agent (FIPA-ACL / XMPP)
+            └─► Mosquitto (MQTT — direct, no HTTP layer)
+                    └─► [bridge] ─► Physical machine broker
+```
+
+**What this requires:**
+1. Implement `MQTTAssetConnection(AssetConnection)` with the 5 abstract methods
+2. Modify `init_aas_model_behaviour.py` (lines 349-360) to detect MQTT supplementary semantic IDs
+3. Update AID submodel to use MQTT bindings (WoT TD MQTT binding template)
+4. Register the handler in `smia_machine_starter.py` via `add_new_asset_connection()`
+
+This is tracked as a future development item (not in scope for the current TFG delivery).
+
+---
+
 ## 19. Case 1 — Multi-Agent Orchestration: Technical Reference
 
 This section documents everything added for Case 1: the four custom Python files, the docker-compose changes, the AASX Package Explorer tutorial for the new AAS models, and the Node-RED modifications. Read §16 of `memoire.md` for the academic-level explanation of *why* the architecture is designed this way.
@@ -1183,19 +1428,19 @@ Case 1 requires four Python files, all under `additional_tools/extended_agents/`
 
 **Full path:** `additional_tools/extended_agents/smia_machine_agent/smia_machine_starter.py`
 
-**Volume mount target (inside container):**
+**Location inside container (after `docker compose build`):**
 ```
-/usr/local/lib/python3.12/site-packages/smia/launchers/smia_docker_starter.py
+/smia_machine_starter.py      (COPY'd by my_models/docker/smia-machine/Dockerfile)
 ```
 
-**What it does.** The SMIA Docker image executes `python3 -m smia.launchers.smia_docker_starter` at startup. The default file at that path creates a plain `SMIAAgent`. By volume-mounting our file over it, Docker executes our code instead. Our file creates an `ExtensibleSMIAAgent` and calls `add_new_agent_service('machineAvailValue', get_machine_availability)` before starting the agent.
+**What it does.** The SMIA Docker image's default entrypoint (`python3 -m smia.launchers.smia_docker_starter`) creates a plain `SMIAAgent` with no extension hooks. Our Dockerfile replaces the `CMD` with `python3 -u smia_machine_starter.py`, which creates an `ExtensibleSMIAAgent` and calls `add_new_agent_service('machineAvailValue', get_machine_availability)` before starting the agent.
 
-**Key design decision — why `sys.path.insert`:**
+**Key design decision — `sys.path.insert`:**
 ```python
 sys.path.insert(0, os.path.dirname(__file__))
 import smia_machine_agent_services as machine_svc
 ```
-When Python runs this file as `smia.launchers.smia_docker_starter`, the module's directory (`/usr/local/lib/python3.12/site-packages/smia/launchers/`) is not automatically on `sys.path`. The explicit insert ensures `import smia_machine_agent_services` resolves to the companion file mounted in the same directory.
+`WORKDIR /` in the Dockerfile ensures Python's working directory is `/`, so `smia_machine_agent_services.py` (also at `/`) is importable. The explicit `sys.path.insert` is a defensive guard that works correctly regardless of how the file is invoked.
 
 **Step-by-step walkthrough:**
 1. `smia.initial_self_configuration()` — loads `smia-initialization.properties` from AASX or config folder, sets up logging, reads XMPP server address
@@ -1214,9 +1459,9 @@ When Python runs this file as `smia.launchers.smia_docker_starter`, the module's
 
 **Full path:** `additional_tools/extended_agents/smia_machine_agent/smia_machine_agent_services.py`
 
-**Volume mount target (inside container):**
+**Location inside container (after `docker compose build`):**
 ```
-/usr/local/lib/python3.12/site-packages/smia/launchers/smia_machine_agent_services.py
+/smia_machine_agent_services.py      (COPY'd by my_models/docker/smia-machine/Dockerfile)
 ```
 
 **What it does.** Provides the `get_machine_availability()` function — the agent service that SMIA calls to compute the machine's negotiation score (`negValue`) during FIPA-CNP.
@@ -1454,6 +1699,13 @@ The following four tasks must be completed manually in AASX Package Explorer bef
 
 Open `my_models/aas/LEGO_factory_case0.aasx` in AASX Package Explorer.
 
+**Step 0 — Fix the `SMIA_agent` shell InstanceName (CRITICAL):**
+- Navigate to: `SMIA_agent` shell → `SoftwareNameplate` submodel → find the `InstanceName` property (inside `SoftwareNameplateInstance` or `SoftwareNameplateInstance_smia_agent` SMC)
+- The current value is `smia_agent` — this is **wrong** for Case 1
+- Change value to: **`SMIA_agent@ejabberd`** (full XMPP JID including `@ejabberd` domain)
+
+> **Why the full JID is required:** The orchestrator's `_extract_jid_from_store()` reads `InstanceName` and uses that string directly as the XMPP address to send CFP messages to. If InstanceName is just `smia_agent` (no domain), SMIA will try to send to a non-existent XMPP address and machine0 will never participate in any negotiation. The value must be a complete JID: `user@domain`.
+
 **Step 1 — Add `color` property inside `Capability_PickPiece`:**
 - Navigate to: `LEGO_factory` shell → `CapabilitiesAndSkills` submodel → `Capability_PickPiece` SMC
 - Right-click → Add Element → **Property**
@@ -1504,10 +1756,19 @@ Open `my_models/aas/LEGO_factory_case0.aasx` in AASX Package Explorer.
 **Step 5 — Add relationship in `SemanticRelationships` submodel:**
 - Navigate to: `LEGO_factory` shell → `SemanticRelationships` submodel
 - Right-click → Add Element → **RelationshipElement**
-- `idShort`: `rel_SkillNegAvail_accessibleThroughAgentService`
+- `idShort`: `rel_SkillNegAvail_agentSvc`
 - **SemanticId**: `http://www.w3id.org/upv-ehu/gcis/css-smia#accessibleThroughAgentService`
 - **First reference** (the skill): navigate to `CapabilitiesAndSkills / Skill_NegAvailability`
 - **Second reference** (the interface): navigate to `CapabilitiesAndSkills / machineAvailValue`
+
+> **Which `accessibleThrough*` IRI to use?** SMIA defines three IRIs (all listed in `CSS_ONTOLOGY_OBJECT_PROPERTIES_IRIS`, all chained in `get_associated_skill_interface_instances()`):
+> - `http://www.w3id.org/hsu-aut/css#accessibleThrough` — base CSS standard (CaSkade); works for all cases
+> - `http://www.w3id.org/upv-ehu/gcis/css-smia#accessibleThroughAssetService` — SMIA extension; semantically signals physical HTTP execution
+> - `http://www.w3id.org/upv-ehu/gcis/css-smia#accessibleThroughAgentService` — SMIA extension; semantically signals agent-internal Python execution
+>
+> All three work at runtime: routing is determined by whether the SkillInterface element's parent submodel is the AID submodel (`handle_negotiation_behaviour.py:309-310`), NOT by which IRI was used. Use the most specific applicable sub-property: since `machineAvailValue` is an agent service (Python method, not HTTP), **`#accessibleThroughAgentService`** is the semantically precise choice (OWL best practice: use the most specific applicable sub-property).
+>
+> **Note on capitalization:** The AASX PE preset file (`SMIA-css-semantic-ids-sm.add-options.json`) defines the SMIA-specific sub-properties with capital 'A': `#AccessibleThroughAgentService` and `#AccessibleThroughAssetService`. Always verify the exact IRI against the `css_ontology_utils.py` constants in the Docker image version you are using — the preset file and the runtime constants must agree.
 
 **Save the file.** File → Save.
 
@@ -1528,7 +1789,7 @@ Open `my_models/aas/LEGO_factory_case0.aasx` in AASX Package Explorer.
 3. **Update the SMIA agent shell identity:**
    - Click on the `SMIA_agent` AAS shell
    - **Leave `idShort` as `SMIA_agent`** — this display name has no runtime significance. Each file is a separate AASX package, so no conflict arises. Keeping the same idShort is intentional and consistent with the original.
-   - Change `id`: `urn:uuid:6475_1111_2062_0001` (new UUID — this IS significant, must be globally unique)
+   - Change `id`: `urn:uuid:6373_1111_2062_0001` (new UUID — this IS significant, must be globally unique; use the `6373` prefix to follow the SMIA agent shell convention)
    - Navigate to: `SMIA_agent` shell → `SoftwareNameplate` submodel → find the SMC that contains `InstanceName`
    - Change `InstanceName` value: `smia_machine1@ejabberd`
 
@@ -1548,7 +1809,12 @@ Open `my_models/aas/LEGO_factory_case0.aasx` in AASX Package Explorer.
    - Navigate to: `Capability_PlacePiece` → `color` property
    - Change value: `blue`
 
-5. **Save the file.** File → Save.
+5. **Verify the `rel_SkillNegAvail_agentSvc` IRI** (inherited from machine0 clone):
+   - Navigate to: `LEGO_machine1` shell → `SemanticRelationships` → `rel_SkillNegAvail_agentSvc`
+   - Confirm the semanticId value is exactly: `http://www.w3id.org/upv-ehu/gcis/css-smia#accessibleThroughAgentService`
+   - If it says `#AccessibleThroughAgentService` (capital 'A') — fix it to the lowercase form above
+
+6. **Save the file.** File → Save.
 
 ---
 
@@ -1561,10 +1827,12 @@ Repeat the same steps as 19.3.B. The two-shell rationale and idShort explanation
 | Output filename | `LEGO_machine2_case0.aasx` |
 | Factory shell idShort | `LEGO_machine2` |
 | Factory shell id | `urn:uuid:6475_0111_2062_0002` |
-| Agent shell id | `urn:uuid:6475_1111_2062_0002` |
+| Agent shell id | **`urn:uuid:6373_1111_2062_0002`** ← must be unique, different from machine0 (`6896`) and machine1 (`0001`) |
 | InstanceName | `smia_machine2@ejabberd` |
 | Capability_PickPiece/color | `white` |
 | Capability_PlacePiece/color | `white` |
+
+> **CRITICAL — Duplicate UUID:** Each AAS shell must have a globally unique `id` (AAS Part 1, §5.3.1). The SMIA agent shell in machine0 uses `urn:uuid:6373_1111_2062_6896` and machine1 uses `urn:uuid:6373_1111_2062_0001`. Machine2's agent shell MUST use `urn:uuid:6373_1111_2062_0002` (or any other UUID not used by the others). If you clone machine1's file without changing this UUID, both machine1 and machine2 will have the same identifier — BaSyx SDK may silently discard one entry from the object store, making machine2's `SoftwareNameplate` (and thus its XMPP JID) invisible to the orchestrator's AAS scanner.
 
 ---
 
@@ -1596,8 +1864,10 @@ File → New → Create empty AASX package. Then:
 - Add **SubmodelElementCollection** `Capability_PickPiece`:
   - **SemanticId**: `http://www.w3id.org/upv-ehu/gcis/css-smia#AgentCapability`
   - **Qualifier**: `hasLifecycle = OFFER`
-  - Child **Property** `position` (xs:int) — declares that the capability accepts a position parameter
-- Add **SubmodelElementCollection** `Capability_PlacePiece` (same pattern)
+  - Child **Property** `color` (xs:string, no value) — declares that the operator must specify a piece color
+- Add **SubmodelElementCollection** `Capability_PlacePiece` (same pattern — also uses `color` xs:string)
+
+> **Why `color` and NOT `position` here:** The orchestrator's external interface accepts `color` from the operator (e.g., `"red"`, `"blue"`, `"white"`). The crane position is an internal implementation detail — the orchestrator translates `color → position` in code via `COLOR_POSITION_MAP` before dispatching to the winning machine. The AAS must reflect what the *external caller* (operator) sends, not what the *internal implementation* uses. Declaring `position` in the orchestrator's AAS would be semantically wrong — the orchestrator never exposes position to the operator.
 - Add **Property** `Skill_Orchestrate_PickPiece`:
   - `valueType`: `xs:string`
   - **SemanticId**: `http://www.w3id.org/hsu-aut/css#Skill`
@@ -1610,11 +1880,13 @@ File → New → Create empty AASX package. Then:
 **Step 4 — Create `SemanticRelationships` submodel:**
 - Add Submodel with `idShort`: `SemanticRelationships`
 - Add **RelationshipElement** `rel_CapPick_isRealizedBy_SkillOrchPick`:
-  - **SemanticId**: `http://www.w3id.org/hsu-aut/css#isRealizedBySkill`
+  - **SemanticId**: `http://www.w3id.org/hsu-aut/css#isRealizedBy` ← use exactly this IRI
   - First: `CapabilitiesAndSkills / Capability_PickPiece`
   - Second: `CapabilitiesAndSkills / Skill_Orchestrate_PickPiece`
 - Add **RelationshipElement** `rel_CapPlace_isRealizedBy_SkillOrchPlace` (same pattern for place)
 - **Do NOT add** `accessibleThroughAssetService` or `accessibleThroughAgentService` relationships — the orchestrator's capabilities are handled entirely by `OrchestratorDispatchBehaviour`, not by a registered skill interface
+
+> **`isRealizedBy` NOT `isRealizedBySkill`:** The correct CSS ObjectProperty IRI is `http://www.w3id.org/hsu-aut/css#isRealizedBy` (verified from `css_ontology_utils.py:CSS_ONTOLOGY_PROP_ISREALIZEDBY_IRI` and the OWL file). `#isRealizedBySkill` is a valid OWL sub-property of `#isRealizedBy` defined in the CSS ontology, but SMIA uses **exact string matching** — it is not in `CSS_ONTOLOGY_OBJECT_PROPERTIES_IRIS` and is therefore ignored. Using it causes Track 3 to skip those relationships and the operator GUI to show 0 capabilities/skills. The orchestrator still functions at runtime (its dispatch is in `OrchestratorDispatchBehaviour` which bypasses the CSS graph), but the AAS is semantically incorrect.
 - Link this submodel to the orchestrator AAS shell
 
 **Step 5 — Embed required files:**
@@ -1623,7 +1895,9 @@ File → New → Create empty AASX package. Then:
 - Add `aasx/smia-initialization.properties` (copy from `LEGO_factory_case0.aasx`)
 - The properties file can be the same content — runtime values come from Docker env vars
 
-**Step 6 — Save:** File → Save → `Orchestrator_case0.aasx` in `my_models/aas/`
+**Step 6 — Save:** File → Save → `SMIA_orchestrator.aasx` in `my_models/aas/`
+
+> The filename `SMIA_orchestrator.aasx` must match exactly what `docker-compose.yml` declares as `AAS_MODEL_NAME=SMIA_orchestrator.aasx` for the `smia-orchestrator` service.
 
 ---
 
@@ -1769,12 +2043,96 @@ result forwarded to operator (exec_thread=<exec_T>)
 
 | Symptom | Most likely cause | Fix |
 |---|---|---|
+| Operator GUI shows 0 capabilities and 0 skills after Load | All AASXs use `#isRealizedBySkill` instead of `#isRealizedBy` for isRealizedBy relationships | In AASX PE, open each AASX → `SemanticRelationships` submodel → change semanticId of every `rel_Cap*_isRealizedBy*_Skill*` element from `#isRealizedBySkill` to `http://www.w3id.org/hsu-aut/css#isRealizedBy`. (`#isRealizedBySkill` is a valid CSS OWL sub-property but is not in `CSS_ONTOLOGY_OBJECT_PROPERTIES_IRIS` — SMIA skips it silently.) |
 | Orchestrator logs show `no machines found` | AASX not in `aas/` folder, or color not in capability | Verify `.aasx` files exist in `my_models/aas/`; check `Capability_PickPiece/color` value |
 | Machine never reaches StateRunning | `Skill_NegAvailability` or `machineAvailValue` incorrectly defined | Check semanticId matches exactly; Skills must be Property not SMC |
+| Machine always reports score 0.0 in negotiation | `rel_SkillNegAvail_agentSvc` uses a wrong or non-existent IRI | Set semanticId to `http://www.w3id.org/upv-ehu/gcis/css-smia#accessibleThroughAgentService` (lowercase 'a') |
+| Machine0 never participates in CFP | InstanceName in `LEGO_factory_case0.aasx` is not a full JID | Change SMIA_agent shell InstanceName to `SMIA_agent@ejabberd` |
 | `INFORM(winner)` never arrives at orchestrator | `negRequester` field missing or wrong | Check `negRequester` is set to orchestrator JID in CFP body |
+| Orchestrator container never starts | `AAS_MODEL_NAME` doesn't match filename | Verify docker-compose uses `SMIA_orchestrator.aasx` (exact name) |
 | Operator GUI crashes on Load (500 error) | Non-AASX file in `aas/` folder | Remove any backup, XML, or JSON files from `my_models/aas/` |
+| Machine2 JID not discovered | Duplicate SMIA agent shell UUID in machine2 AASX | Set machine2 SMIA_agent shell id = `urn:uuid:6373_1111_2062_0002` (unique) |
 | `aiohttp` import error in machine logs | `aiohttp` not installed in image | aiohttp is a smia dependency — verify image version |
 
 ---
 
-*Case 1 implementation completed 2026-03-16. All Python files are in `additional_tools/extended_agents/`. AAS models must be created manually in AASX Package Explorer following §19.3 above.*
+### 19.7 IRI Reference — Common Mistakes
+
+This table shows the exact correct IRIs for all CSS elements used in Case 1, alongside the most common
+mistakes discovered during AAS authoring. **SMIA uses string equality for IRI comparison** — a single
+wrong character causes silent failure.
+
+| CSS Concept | Correct IRI | Common Wrong Value | Notes |
+|---|---|---|---|
+| `isRealizedBy` | `http://www.w3id.org/hsu-aut/css#isRealizedBy` | `#isRealizedBySkill` | `#isRealizedBySkill` IS a valid OWL sub-property of `#isRealizedBy` in the CSS ontology (domain=Capability, range=Skill), but SMIA uses exact string matching. Only `#isRealizedBy` is in `CSS_ONTOLOGY_OBJECT_PROPERTIES_IRIS`. Using `#isRealizedBySkill` → operator GUI shows 0 capabilities/skills. |
+| `accessibleThroughAgentService` (for `rel_SkillNegAvail_agentSvc`) | `http://www.w3id.org/upv-ehu/gcis/css-smia#accessibleThroughAgentService` | `#AccessibleThroughAgentService` (capital 'A') | SMIA extension sub-property for agent-internal Python execution. The base CSS property `#accessibleThrough` also works at runtime but is less semantically precise. All three variants are processed by SMIA; routing is determined by SkillInterface submodel membership, not the IRI. |
+| Capability qualifier type | `hasLifecycle` (string in type field) | `ExpressionSemantic` | Capability not validated by SMIA |
+| Skill qualifier type | `SkillImplementationType` (no semanticId) | `hasImplementationType` | Skill not validated; source: `SMIA-css-qualifier-presets.json` |
+| `AssetCapability` | `http://www.w3id.org/upv-ehu/gcis/css-smia#AssetCapability` | `#AgentCapability` for machines | Wrong OWL class → wrong runtime behaviour type |
+| `AgentCapability` | `http://www.w3id.org/upv-ehu/gcis/css-smia#AgentCapability` | `#AssetCapability` for orchestrator | Orchestrator tries to use AID asset service path |
+
+**Source for all IRIs:** `src/smia/css_ontology/css_ontology_utils.py` (constants) and `my_models/ontology/CSS-ontology-smia.owl` (OWL definitions).
+
+---
+
+### 19.8 E2E Readiness Checklist
+
+This section tracks the exact state of each pending fix and the conditions required before testing end-to-end at each stage.
+
+#### Stage A — E2E without orchestrator (Case 0 single machine)
+
+**Goal:** Operator GUI → SMIA_agent@ejabberd → HTTP → Node-RED → crane.
+
+**Blocking fix (AASX PE required):**
+
+| File | Fix | Why it blocks |
+|---|---|---|
+| `LEGO_factory_case0.aasx` | `SMIA_agent` shell → `SoftwareNameplate` → `InstanceName` value: `SMIA_agent@ejabberd` | Operator GUI reads `InstanceName` via semantic ID (`operator_gui_logic.py:447`) and uses the raw value as the XMPP JID for message routing. A value without `@ejabberd` is not a valid XMPP JID — SPADE rejects it silently. |
+
+**Non-blocking issues for this stage:**
+- `rel_SkillNegAvail_agentSvc` IRI bug (`#AccessibleThroughAgentService`) causes a Track 3 warning during SMIA boot but does NOT prevent `StateRunning`. The pick/place flow does not involve negotiation and is unaffected.
+- Other machine/orchestrator AASX issues do not affect machine0's operation.
+
+**Node-RED:** `POST /smia/lego/pick` must be working (already exists).
+
+**How to test:** Run `docker compose up -d`, open `http://localhost:10000/smia_operator`, click Load, select `SMIA_agent@ejabberd`, select `Capability_PickPiece`, submit. All other services (orchestrator, machine1, machine2) start alongside but are not involved.
+
+---
+
+#### Stage B — E2E with orchestrator (Case 1 multi-machine)
+
+**Goal:** Operator GUI → smia_orch@ejabberd → FIPA-CNP → winning machine → HTTP → Node-RED → crane.
+
+**All AASX PE fixes must be done before testing this stage:**
+
+| File | Fix | Why it blocks |
+|---|---|---|
+| `LEGO_factory_case0.aasx` | InstanceName → `SMIA_agent@ejabberd` | (same as Stage A) |
+| `LEGO_factory_case0.aasx` | `rel_SkillNegAvail_agentSvc` semanticId → `http://www.w3id.org/upv-ehu/gcis/css-smia#accessibleThroughAgentService` | SMIA's Track 3 uses exact IRI string matching. Capital 'A' → IRI not found → `Skill_NegAvailability` OWL instance has no linked `SkillInterface` → `get_associated_skill_interface_instances()` returns `None` → negotiation score defaults to 0.0 for all machines → winner selection is arbitrary or fails |
+| `LEGO_machine1_case0.aasx` | Same `rel_SkillNegAvail_agentSvc` IRI fix | Same impact |
+| `LEGO_machine2_case0.aasx` | Same `rel_SkillNegAvail_agentSvc` IRI fix | Same impact |
+| `LEGO_machine2_case0.aasx` | `SMIA_agent` shell `id` → `urn:uuid:6373_1111_2062_0002` | Duplicate UUID with machine0's SMIA shell — AAS Part 1 §5.3.1 requires globally unique shell IDs; BaSyx SDK may raise a conflict error during model loading |
+| `SMIA_orchestrator.aasx` | `SMIA_agent` shell → `InstanceName`: remove trailing space → `smia_orch@ejabberd` | Trailing space makes the JID invalid; SPADE rejects it; operator GUI cannot route requests to the orchestrator |
+| `SMIA_orchestrator.aasx` | `rel_CapPick_isRealizedBy_*` and `rel_CapPlace_isRealizedBy_*`: semanticId `isRealizedBySkill` → `http://www.w3id.org/hsu-aut/css#isRealizedBy` | `isRealizedBySkill` is not a valid CSS IRI — Track 3 cannot link the relationship. The orchestrator functions correctly without it (its dispatch logic is in `OrchestratorDispatchBehaviour`, not the CSS model), but the AASX is semantically incorrect and will fail AAS validation |
+| `SMIA_orchestrator.aasx` | `Capability_PickPiece` and `Capability_PlacePiece` child property: rename `position` (xs:int) → `color` (xs:string) | `OrchestratorDispatchBehaviour._find_capability_color()` scans all AASXs for a property named `color` inside the matching capability SMC. The orchestrator's own AASX is also in the `aas/` folder — if it has a `position` property instead of `color`, the color filter won't match and the orchestrator's own AASX won't contaminate results. However, this is a semantic correctness issue: the orchestrator's AAS must reflect that it accepts `color` (not `position`) as the input parameter from the operator |
+
+**Node-RED fix required (on DIDA central 192.168.155.10:1880):**
+
+Add a global `machine_busy` flag and a `GET /smia/lego/availability` endpoint:
+- Set `machine_busy = true` at the start of the pick HTTP handler, `false` after MQTT publish
+- `GET /smia/lego/availability` → returns `"1.0"` if `!machine_busy`, else `"0.0"`, as plain text (not JSON)
+
+Without this, `smia_machine_agent_services.get_machine_availability()` catches a `ClientConnectorError` and returns `0.0` — every machine always scores 0.0, making winner selection non-deterministic.
+
+**Python code status: complete and verified.** `orchestrator_dispatch_behaviour.py`, `smia_machine_starter.py`, `smia_machine_agent_services.py`, and both starters require no further changes.
+
+**Source verification:**
+- Operator sends `ontology: 'css-service'` (`operator_gui_behaviours.py:264`)
+- Orchestrator filters on `ACL_ONTOLOGY_CSS_SERVICE = 'css-service'` (`fipa_acl_info.py:68`) ✓
+- Routing (asset vs agent service) decided by `handle_negotiation_behaviour.py:309-310` (submodel membership, not IRI) ✓
+
+**Source for all IRIs:** `src/smia/css_ontology/css_ontology_utils.py` (constants) and `my_models/ontology/CSS-ontology-smia.owl` (OWL definitions).
+
+---
+
+*Case 1 implementation completed 2026-03-16. All Python files are in `additional_tools/extended_agents/`. AAS models must be created manually in AASX Package Explorer following §19.3 above. Bugs B1–B8 discovered and corrected 2026-03-25 after full AAS inspection.*

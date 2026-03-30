@@ -6,3 +6,6 @@ dist/
 
 # Sphinx related files
 docs/_build/
+
+# Deployment credentials — never commit real values
+my_models/.env

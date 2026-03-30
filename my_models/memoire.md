@@ -427,11 +427,14 @@ The CSS model defines five key object properties (paper Fig. 4):
 |---|---|---|
 | `isRealizedBy` | Capability → Skill | This capability is implemented by this skill |
 | `isRestrictedBy` | Capability → CapabilityConstraint | This capability is bounded by this constraint |
-| `accessibleThroughAssetService` | Skill → SkillInterface | Skill executes via a **physical asset** service (HTTP) ← Case 0 |
-| `accessibleThroughAgentService` | Skill → SkillInterface | Skill executes via an **agent-internal** service (Python method) |
+| `accessibleThrough` | Skill → SkillInterface | **Base CSS standard** (CaSkade): skill is accessible through this interface |
+| `accessibleThroughAssetService` | Skill → SkillInterface | **SMIA extension**: skill executes via a **physical asset** service (HTTP) ← Case 0 |
+| `accessibleThroughAgentService` | Skill → SkillInterface | **SMIA extension**: skill executes via an **agent-internal** service (Python method) |
 | `hasParameter` | Skill → SkillParameter | This skill has this input/output parameter |
 
-The distinction between the two access paths is critical: `accessibleThroughAssetService` is used when the skill triggers a physical action (e.g., moving the warehouse crane via HTTP); `accessibleThroughAgentService` is used when the skill triggers an internal agent behaviour (e.g., negotiating with other agents). Case 0 exclusively uses the former.
+The base CSS standard (CaSkade, `http://www.w3id.org/hsu-aut/css`) defines `accessibleThrough` as the canonical property linking a Skill to its SkillInterface. SMIA adds two sub-properties as framework extensions (`http://www.w3id.org/upv-ehu/gcis/css-smia`): `accessibleThroughAssetService` for physical HTTP execution and `accessibleThroughAgentService` for agent-internal Python execution. Both SMIA sub-properties inherit the semantics of the base `accessibleThrough` property. Case 0 uses the SMIA `accessibleThroughAssetService` extension for the pick/place skills.
+
+The CSS ontology also defines `isRealizedBySkill` as a sub-property of `isRealizedBy` (with domain `Capability` and range `Skill`). It is more specific than the base property, explicitly constraining the range to `Skill` elements only. However, the SMIA framework processes AAS `RelationshipElement` semanticIds using **exact string comparison** against a fixed list of IRIs (`CSS_ONTOLOGY_OBJECT_PROPERTIES_IRIS` in `css_ontology_utils.py`). Only `http://www.w3id.org/hsu-aut/css#isRealizedBy` is in that list — `#isRealizedBySkill` is not, even though it is ontologically valid. Using `#isRealizedBySkill` in an AASX causes SMIA to silently skip those relationships during self-configuration (Track 3), and causes the operator GUI to display zero capabilities and zero skills for that agent. The correct IRI to use in AAS RelationshipElement semanticIds is always `http://www.w3id.org/hsu-aut/css#isRealizedBy`.
 
 ### 7.4 Why CSS Enables Flexibility
 
@@ -507,6 +510,14 @@ For example:
 - The `isRealizedBy` property is identified by: `http://www.w3id.org/hsu-aut/css#isRealizedBy`
 
 These IRIs are used as `semanticId` values in AAS elements to link them to the ontology. When SMIA reads the AAS model and encounters an element with `semanticId: http://www.w3id.org/hsu-aut/css#Skill`, it knows unambiguously that this element represents a CSS Skill, regardless of what the element is named (`idShort`).
+
+**IRI correctness and case-sensitivity are critical.** SMIA resolves IRIs using exact string equality — not semantic equivalence. A wrong property name or a single wrong character causes a lookup to fail silently.
+
+**Standard vs. extension properties:** The CaSkade CSS ontology (`http://www.w3id.org/hsu-aut/css`) defines `accessibleThrough` as the canonical property linking a Skill to its SkillInterface. SMIA adds two sub-properties as framework-specific extensions (`http://www.w3id.org/upv-ehu/gcis/css-smia`): `accessibleThroughAssetService` (physical HTTP execution) and `accessibleThroughAgentService` (agent-internal Python execution). SMIA processes all three IRIs independently during AAS initialization (each is a separate constant in `css_ontology_utils.py`) and `get_associated_skill_interface_instances()` chains all three — so any of the three works at runtime.
+
+For AAS authoring, **the CSS-standard-compliant choice is `http://www.w3id.org/hsu-aut/css#accessibleThrough`** — it is the canonical property from the primary CaSkade specification and makes the AASX independent of any particular framework extension. The SMIA sub-properties are valid alternatives but are specific to the SMIA implementation.
+
+**Silent failure example:** If a machine AASX uses `#AccessibleThroughAgentService` (uppercase 'A'), SMIA's `AASInitializationBehaviour` cannot match the IRI, the SkillInterface is never linked to the skill, and the negotiation score defaults to 0.0 with no clear error message. This was identified during a full AAS inspection for Case 1 and required correcting the semanticId in all three machine AASX files.
 
 ### 8.4 owlready2: OWL Processing in Python
 
@@ -1083,11 +1094,21 @@ The `ontology.inside-aasx=true` setting instructs SMIA to read the OWL file from
 
 ### 14.3 Docker Compose Configuration
 
-The Docker Compose file orchestrates three services:
+The Docker Compose file (`my_models/docker-compose.yml`) defines seven services across three categories, all on a shared `smia-net` Docker bridge network. Docker DNS resolves container names (`ejabberd`, `nodered`, `mosquitto-central`) automatically — no manual `/etc/hosts` changes required. All credentials are stored in `my_models/.env` (gitignored); a template `my_models/.env.example` is committed to the repository.
 
-- **xmpp-server**: Runs ejabberd with auto-registration of agent accounts via `CTL_ON_CREATE`. Has a health check on port 5222 that prevents agents from starting before the XMPP server is ready.
-- **smia**: The SMIA agent. Mounts the `my_models/aas/` folder into the container's AAS folder. Also mounts the patched `smia_agent.py` to override the version in the Docker image.
-- **smia-operator**: The operator GUI agent. Mounts the same `aas/` folder (shares AASX files with the SMIA agent). Exposes port 10000 for browser access.
+**Infrastructure services (pre-built public images — no build step required):**
+
+- **xmpp-server** (`ghcr.io/processone/ejabberd`): XMPP message broker. Auto-registers all agent XMPP accounts on first container start via the `CTL_ON_CREATE` environment variable. Exposes a health check on port 5222 — all agent containers use `depends_on: condition: service_healthy` to prevent connection attempts before ejabberd is ready.
+- **nodered** (`nodered/node-red:latest`): HTTP→MQTT bridge. Loads the flow from `./nodered/flows.json` on startup. Listens on port 1880; SMIA machine agents call it at `http://nodered:1880` (resolved via Docker DNS).
+- **mosquitto-central** (`eclipse-mosquitto:2`): Central MQTT broker. Bridges to the physical machine's MQTT broker via `./mosquitto/conf.d/bridge.conf` (the `address` line is the only host-specific configuration in the entire deployment).
+
+**Custom SMIA agent services (built from Dockerfiles — requires `docker compose build`):**
+
+- **smia-machine0**, **smia-machine1**, **smia-machine2**: Three machine agents that share the same Dockerfile (`my_models/docker/smia-machine/Dockerfile`). They differ only in AASX model and environment variables (`AAS_MODEL_NAME`, `AAS_ID`, `AGENT_ID`, `AGENT_PASSWD`, `NODERED_URL`).
+- **smia-orchestrator**: FIPA-CNP dispatcher (`my_models/docker/smia-orchestrator/Dockerfile`). Receives capability requests from the operator and negotiates with machines.
+- **smia-operator**: Web GUI (`additional_tools/extended_agents/smia_operator_agent/Dockerfile`). Scans the shared `aas/` folder to discover SMIA targets; exposes port 10000 for browser access.
+
+All agent containers mount `./aas:/smia_archive/config/aas` — a single shared AASX folder that all agents (machines, orchestrator, operator) read from. The SMIA bug fix (`smia_agent.py`) is applied at image build time via the Dockerfile `RUN` step, not at runtime via volume mount (see §14.4).
 
 ### 14.4 smia_agent.py Patch
 
@@ -1097,7 +1118,7 @@ The fix adds two additional comparison strategies:
 1. String comparison: `str(conn_ref) == str(asset_connection_ref)`.
 2. Key tuple comparison: comparing normalized `(type, value)` tuples extracted from the reference's key list.
 
-This fix is applied by mounting the patched file as a Docker volume, overriding the version in the container image.
+This fix is applied at **image build time** via the Dockerfile `RUN` step: the patched file is copied into the container and then placed into the SMIA package directory using a version-independent path detection command (`python3 -c "import smia, os; print(os.path.dirname(smia.__file__))"`). This approach is more robust than a runtime volume mount because it does not depend on the Python version or the exact site-packages path inside the container. The `smia_agent.py` fix is a pending upstream PR to the SMIA repository; once merged, the patch step can be removed from the Dockerfile.
 
 ### 14.5 Node-RED Flow
 
@@ -1133,7 +1154,7 @@ Two major architectural decisions shape the Case 0 deployment. Both were chosen 
 
 **Problem statement.** SMIA (the manufacturing agent) and SMIA-Operator (the GUI agent) communicate exclusively via XMPP. For that communication to work, both agents must resolve the same XMPP server hostname (`ejabberd`) and reach it on port 5222. Without isolation, this requires manually installing and configuring ejabberd on the host machine, managing hostname resolution across processes, and handling dependency startup order. On a shared lab machine running multiple projects simultaneously, these requirements introduce risk of conflicts and non-reproducibility.
 
-**Chosen approach.** Three Docker services are defined in a single `docker-compose.yml`: `xmpp-server` (ejabberd), `smia`, and `smia-operator`. All three share the same Docker-managed bridge network, so the hostname `ejabberd` is automatically resolvable within the network without any `/etc/hosts` modifications. Agents start only after the XMPP server passes a health check on port 5222 (`depends_on: condition: service_healthy`).
+**Chosen approach.** Seven Docker services are defined in a single `docker-compose.yml`: infrastructure services (`xmpp-server`, `nodered`, `mosquitto-central`) and custom agent services (`smia-machine0/1/2`, `smia-orchestrator`, `smia-operator`). All services share the same Docker-managed bridge network (`smia-net`), so hostnames such as `ejabberd`, `nodered`, and `mosquitto-central` are automatically resolvable within the network without any `/etc/hosts` modifications. Agents start only after the XMPP server passes a health check on port 5222 (`depends_on: condition: service_healthy`). Custom agent images are built from Dockerfiles (`docker compose build`) that extend the official `ekhurtado/smia:latest-alpine` image.
 
 **Strengths:**
 
@@ -1145,7 +1166,7 @@ Two major architectural decisions shape the Case 0 deployment. Both were chosen 
 | Controlled startup order | Health-check-based `depends_on` ensures agents connect to ejabberd only after it is ready, eliminating race conditions |
 | Automated XMPP account provisioning | `CTL_ON_CREATE` registers both agent accounts (`SMIA_agent@ejabberd` and `operator001@ejabberd`) on the first container start, removing manual `ejabberdctl` steps |
 | Version-controlled configuration | All service definitions, ejabberd configuration, and AASX files are tracked in git alongside the source code |
-| Customizable without image rebuilds | Docker volume mounts allow overriding specific files (`smia_agent.py` patch, AASX models, ejabberd config) without building new container images |
+| Clean code injection via Dockerfiles | Custom agent code is baked into images at build time via `COPY` — no fragile runtime volume mounts for Python files. AASX models and ejabberd config are still mounted as volumes (data, not code) for easy updates without rebuilds |
 
 **Weaknesses and limitations:**
 
@@ -1153,7 +1174,7 @@ Two major architectural decisions shape the Case 0 deployment. Both were chosen 
 |---|---|
 | Single host — single point of failure | All three services run on one machine; host failure takes down the entire SMIA stack |
 | No horizontal scaling | Each SMIA container manages one asset; scaling to many assets means expanding the same Compose file rather than distributing across machines |
-| Fragile file-level patch | The `smia_agent.py` bug fix is applied by mounting a patched file over the container image's copy. If the upstream `ekhurtado/smia` image is updated, the patch may become stale or conflict with new code. The correct long-term fix is an upstream pull request or a maintained fork |
+| Bug fix pending upstream | The `smia_agent.py` fix is baked into the custom Docker image via a `RUN` build step. If `ekhurtado/smia:latest-alpine` is updated, the patch file (`src/smia/agents/smia_agent.py`) may need review for conflicts. The long-term fix is an upstream pull request to the SMIA repository to eliminate the need for the patch entirely |
 | Network port exposure | XMPP ports (5222, 5269) and the operator GUI port (10000) are exposed on the host. Acceptable in a controlled lab network; not suitable for production environments without a firewall or reverse proxy |
 | Shared AAS folder fragility | Both `smia` and `smia-operator` mount the same `./aas/` directory. Any non-AASX file placed in that folder (e.g., backup files, XML exports) causes the operator GUI to return a 500 error during AAS discovery |
 
@@ -1366,6 +1387,8 @@ The AAS standard allows multiple shells in one AASX package. In the SMIA philoso
 - The `AAS_ID` Docker environment variable (e.g., `urn:uuid:6475_0111_2062_9689`) tells SMIA which shell to use for self-configuration. SMIA reads the AID and CSS submodels from the `LEGO_factory` shell only.
 - The operator GUI's `get_smia_jid_from_aas_store()` searches the entire AASX for a submodel with the `SoftwareNameplate` semantic ID, reads the `InstanceName` property, and displays that JID in the GUI list. The GUI shows `SMIA_agent@ejabberd` — not the shell's `idShort` attribute.
 - The `idShort` of the `SMIA_agent` shell is a display label in AASX Package Explorer only. It has no runtime significance. All three machines use `SMIA_agent` as the idShort in their respective AASX files — this is not a conflict because `idShort` uniqueness is only required within a single AASX package.
+- The `InstanceName` value must be the **full XMPP JID** including the ejabberd domain — e.g., `SMIA_agent@ejabberd`, `smia_machine1@ejabberd`. The orchestrator's `_extract_jid_from_store()` uses this value directly as the target address for CFP messages. A value like `smia_agent` (missing `@ejabberd`) is not a valid XMPP address and will cause the machine to be silently excluded from all negotiations.
+- Each `SMIA_agent` shell must also have a **globally unique `id` (UUID)**. The AAS standard Part 1 (§5.3.1) requires that all shell identifiers be unique across packages. If two machines share the same SMIA agent shell UUID, the BaSyx SDK `DictObjectStore` may silently discard one during deserialization — making that machine's JID unreadable by the orchestrator.
 
 **End-to-end flow (10 steps):**
 
@@ -1424,26 +1447,60 @@ Notice that steps 10–11 (the actual physical execution) are handled entirely b
 | `add_new_agent_capability` | `(behaviour: spade.behaviour.Behaviour)` | Add a SPADE behaviour to the agent — started alongside all base SMIA behaviours when the agent enters StateRunning |
 | `add_new_asset_connection` | `(interface_ref, connection)` | Register a custom asset protocol handler (e.g., OPC UA, MQTT direct) |
 
-**The volume mount override pattern.** Since we cannot change the Docker image (we do not own it), we override the default entrypoint by volume-mounting a custom Python file over the package's starter inside the container:
+**The Dockerfile-based entrypoint override.** Since we cannot change the upstream Docker image (we do not own it), we replace the default launcher by providing a custom `CMD` in our own Dockerfile:
 
-```yaml
-volumes:
-  - ../additional_tools/extended_agents/smia_machine_agent/smia_machine_starter.py:
-    /usr/local/lib/python3.12/site-packages/smia/launchers/smia_docker_starter.py
+```dockerfile
+# my_models/docker/smia-machine/Dockerfile
+FROM ekhurtado/smia:latest-alpine
+
+# Apply smia_agent.py bug fix at build time (version-independent path detection)
+COPY src/smia/agents/smia_agent.py /tmp/smia_agent_patch.py
+RUN set -e && \
+    SMIA_PKG=$(python3 -c "import smia, os; print(os.path.dirname(smia.__file__))") && \
+    cp /tmp/smia_agent_patch.py "$SMIA_PKG/agents/smia_agent.py" && \
+    rm /tmp/smia_agent_patch.py
+
+# Copy our application code into the container
+COPY additional_tools/extended_agents/smia_machine_agent/smia_machine_starter.py /smia_machine_starter.py
+COPY additional_tools/extended_agents/smia_machine_agent/smia_machine_agent_services.py /smia_machine_agent_services.py
+
+WORKDIR /
+CMD ["python3", "-u", "smia_machine_starter.py"]
+# ↑ Replaces the default CMD ("python3 -m smia.launchers.smia_docker_starter")
+#   with our custom launcher. -u = unbuffered stdout for live logging.
 ```
 
-When Docker starts the container, the container's `CMD` (`python3 -m smia.launchers.smia_docker_starter`) now executes our file instead of the original. This is the **official extension pattern** used by the SMIA repository itself — the `smia_operator_starter.py` in the SMIA use-cases package follows the identical approach. We are not hacking the framework; we are using its designed extension point.
+The default SMIA image CMD (`python3 -m smia.launchers.smia_docker_starter`) is overridden cleanly by our `CMD` — no dependency on the Python version or `site-packages` path. The bug fix (`smia_agent.py`) is applied at build time, not at runtime. The `WORKDIR /` instruction adds `/` to Python's `sys.path`, enabling `import smia_machine_agent_services` to resolve without any path manipulation.
+
+This is architecturally cleaner than the volume-mount override approach (which was Python-version-locked to a hardcoded `site-packages` path). The orchestrator Dockerfile follows the identical pattern (`my_models/docker/smia-orchestrator/Dockerfile`).
+
+**Custom implementation — file classification:**
+
+All Python files in this project belong to one of three types:
+
+| Type | Description | Files |
+|---|---|---|
+| **A — New implementation** | Written from scratch for this project; implements application logic that did not exist in SMIA | `smia_machine_starter.py`, `smia_machine_agent_services.py`, `smia_orchestrator_starter.py`, `orchestrator_dispatch_behaviour.py` |
+| **B — Framework extension** | Type A files are also extensions: they use the official SMIA extension API (`add_new_agent_service`, `add_new_agent_capability`) — they extend SMIA without modifying it | Same as above |
+| **C — Bug fix** | One SMIA framework file with a single bug corrected; all other framework code is unmodified | `smia_agent.py` (pending upstream PR) |
+
+**Configuration and data files (not Python code):**
+- AASX models (`.aasx`) — digital twin definitions
+- `nodered/flows.json` — Node-RED HTTP→MQTT bridge flow
+- `mosquitto/mosquitto.conf` + `conf.d/bridge.conf` — MQTT broker + bridge to physical machine
+- `.env.example` — credentials template (`.env` is gitignored)
+- `xmpp_server/ejabberd.yml` — XMPP server configuration
 
 **The four Python files and why each exists:**
 
 | File | Hook used | Reason for existence |
 |---|---|---|
-| `smia_machine_starter.py` | `add_new_agent_service()` | Replaces the default entrypoint so `ExtensibleSMIAAgent` is used instead of `SMIAAgent`; registers the `machineAvailValue` agent service |
-| `smia_machine_agent_services.py` | — (the function itself) | Contains `get_machine_availability()` — the function that queries Node-RED for busy status and returns the negotiation score |
-| `smia_orchestrator_starter.py` | `add_new_agent_capability()` | Replaces the default entrypoint for the orchestrator; registers `OrchestratorDispatchBehaviour` |
-| `orchestrator_dispatch_behaviour.py` | `add_new_agent_capability()` | **The research contribution** — implements the FIPA-CNP initiator side, AAS-based discovery, color routing, and result forwarding |
+| `smia_machine_starter.py` | `add_new_agent_service()` | Creates `ExtensibleSMIAAgent` instead of plain `SMIAAgent`; registers `get_machine_availability` as agent service `machineAvailValue` |
+| `smia_machine_agent_services.py` | — (the function itself) | `async get_machine_availability()`: HTTP GET to Node-RED `/smia/lego/availability`; returns 1.0 (free) or 0.0 (busy) as the FIPA-CNP negotiation score |
+| `smia_orchestrator_starter.py` | `add_new_agent_capability()` | Creates `ExtensibleSMIAAgent` for the orchestrator; registers `OrchestratorDispatchBehaviour` as an additional SPADE behaviour |
+| `orchestrator_dispatch_behaviour.py` | `add_new_agent_capability()` | **The research contribution** — implements the FIPA-CNP initiator: AAS-based machine discovery, colour routing, CFP broadcast, winner selection, task delegation to winning machine, result forwarding to operator |
 
-All three machines (machine0, machine1, machine2) share the same `smia_machine_starter.py` and `smia_machine_agent_services.py`. The difference between machines is entirely in their AASX model and the Docker environment variables (`AAS_MODEL_NAME`, `AAS_ID`, `AGENT_ID`, `AGENT_PASSWD`). This demonstrates R8 (modular and extensible software design): one generic set of Python files parameterised by standardised AAS descriptions.
+All three machines share the same `smia_machine_starter.py` and `smia_machine_agent_services.py`. The difference between machines is entirely in their AASX model and environment variables (`AAS_MODEL_NAME`, `AAS_ID`, `AGENT_ID`, `AGENT_PASSWD`). This directly demonstrates R8 (modular and extensible software design): one generic set of Python files parameterised by standardised AAS descriptions, with zero asset-specific code in the agent software.
 
 ---
 

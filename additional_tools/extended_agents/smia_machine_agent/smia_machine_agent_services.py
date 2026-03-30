@@ -50,15 +50,17 @@ with NO implicit 'self'. Therefore this function is written WITHOUT a self param
 """
 
 import logging
+import os
 
 import aiohttp  # available in the SMIA alpine image (installed as a smia dependency)
 
 _logger = logging.getLogger(__name__)
 
-# Base URL of the Node-RED instance running on the DIDA central PC.
-# Node-RED acts as the HTTP bridge between SMIA and the physical LEGO machine,
-# and also tracks whether the machine is currently executing a task (busy flag).
-NODE_RED_BASE = "http://192.168.155.10:1880"
+# Base URL of the Node-RED instance.
+# Read from the NODERED_URL environment variable so the deployment target
+# (containerized Node-RED vs. external DIDA-Central host) can be changed
+# without rebuilding the image. Default falls back to the Docker service name.
+NODE_RED_BASE = os.environ.get('NODERED_URL', 'http://nodered:1880')
 
 
 async def get_machine_availability():

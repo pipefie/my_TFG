@@ -1,0 +1,399 @@
+[
+    {
+        "id": "ba889291cc994610",
+        "type": "tab",
+        "label": "LEGO Commands (SMIA)",
+        "disabled": false,
+        "info": "",
+        "env": []
+    },
+    {
+        "id": "75e0dac724dd1a62",
+        "type": "http in",
+        "z": "ba889291cc994610",
+        "name": "Pick Endpoint",
+        "url": "/smia/lego/pick",
+        "method": "post",
+        "upload": true,
+        "swaggerDoc": "",
+        "x": 130,
+        "y": 240,
+        "wires": [
+            [
+                "67d511398393fb77"
+            ]
+        ]
+    },
+    {
+        "id": "67d511398393fb77",
+        "type": "json",
+        "z": "ba889291cc994610",
+        "name": "Parser",
+        "property": "payload",
+        "action": "",
+        "pretty": false,
+        "x": 330,
+        "y": 240,
+        "wires": [
+            [
+                "d9ceb7c9f3889e94"
+            ]
+        ]
+    },
+    {
+        "id": "d9ceb7c9f3889e94",
+        "type": "function",
+        "z": "ba889291cc994610",
+        "name": "pick_handler",
+        "func": "// Set machine busy immediately (Case 1: honest FIPA-CNP negotiation scores)\nglobal.set('machine_busy', true);\n\nconst DEFAULT_POSITION = 0;\nconst body   = (msg.payload && typeof msg.payload === 'object') ? msg.payload : {};\nconst query  = (msg.req && msg.req.query) ? msg.req.query : {};\n\nlet posRaw = body.position;\nif (posRaw === undefined || posRaw === null || posRaw === '') posRaw = query.position;\nif ((posRaw === undefined || posRaw === null || posRaw === '') && DEFAULT_POSITION !== null) {\n    posRaw = DEFAULT_POSITION;\n}\nif (posRaw === undefined || posRaw === null || posRaw === '') {\n    global.set('machine_busy', false);\n    const errMsg = { ...msg, req: msg.req, res: msg.res, statusCode: 400,\n                     payload: { status: 'error', reason: 'Missing field: position' } };\n    return [null, errMsg, null];\n}\nconst pos = Number(posRaw);\nif (!Number.isInteger(pos) || pos < 0 || pos > 8) {\n    global.set('machine_busy', false);\n    const errMsg = { ...msg, req: msg.req, res: msg.res, statusCode: 400,\n                     payload: { status: 'error', reason: 'position must be integer 0..8' } };\n    return [null, errMsg, null];\n}\n\nconst mqttMsg  = { ...msg, topic: 'vicom/61/piso_0/lab/lego/commands',\n                   payload: `bandera_custom:${pos}` };\nconst httpMsg  = { ...msg, req: msg.req, res: msg.res, statusCode: 200,\n                   payload: { status: 'ok', payload: `bandera_custom:${pos}`, position: pos } };\n// Output 3: trigger status publish + busy-clear chain (no req/res)\nconst chainMsg = { payload: { action: 'pick', position: pos } };\n\nreturn [mqttMsg, httpMsg, chainMsg];",
+        "outputs": 3,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 520,
+        "y": 240,
+        "wires": [
+            [
+                "b4e8ba9d14ea1264",
+                "ad6b4d3e68ba8c3c"
+            ],
+            [
+                "fe3e6859e5831800",
+                "598a71e97b21c914"
+            ],
+            [
+                "f1a2b3c4d5e6f7a8"
+            ]
+        ]
+    },
+    {
+        "id": "b4e8ba9d14ea1264",
+        "type": "mqtt out",
+        "z": "ba889291cc994610",
+        "name": "Pick command",
+        "topic": "",
+        "qos": "1",
+        "retain": "",
+        "respTopic": "",
+        "contentType": "",
+        "userProps": "",
+        "correl": "",
+        "expiry": "",
+        "broker": "central-broker",
+        "x": 720,
+        "y": 140,
+        "wires": []
+    },
+    {
+        "id": "fe3e6859e5831800",
+        "type": "http response",
+        "z": "ba889291cc994610",
+        "name": "Pick HTTP response",
+        "statusCode": "",
+        "headers": {},
+        "x": 720,
+        "y": 320,
+        "wires": []
+    },
+    {
+        "id": "ad6b4d3e68ba8c3c",
+        "type": "debug",
+        "z": "ba889291cc994610",
+        "name": "debug 13",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "payload",
+        "targetType": "msg",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 640,
+        "y": 80,
+        "wires": []
+    },
+    {
+        "id": "598a71e97b21c914",
+        "type": "debug",
+        "z": "ba889291cc994610",
+        "name": "debug 14",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "false",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 660,
+        "y": 440,
+        "wires": []
+    },
+    {
+        "id": "f1a2b3c4d5e6f7a8",
+        "type": "function",
+        "z": "ba889291cc994610",
+        "name": "Publish status: busy",
+        "func": "// Publishes busy status to MQTT visibility topic immediately\n// msg.payload comes as { action: 'pick'|'place', position: N }\nconst info  = msg.payload;\nmsg.topic   = 'vicom/61/piso_0/lab/lego/status';\nmsg.payload = JSON.stringify({ status: 'busy', action: info.action, position: info.position });\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 540,
+        "y": 560,
+        "wires": [
+            [
+                "d4e5f6a7b8c9d0e1",
+                "b2c3d4e5f6a7b8c9"
+            ]
+        ]
+    },
+    {
+        "id": "b2c3d4e5f6a7b8c9",
+        "type": "delay",
+        "z": "ba889291cc994610",
+        "name": "8s delay",
+        "pauseType": "delay",
+        "timeout": "8",
+        "timeoutUnits": "seconds",
+        "rate": "1",
+        "nbRateUnits": "1",
+        "rateUnits": "second",
+        "randomFirst": "1",
+        "randomLast": "5",
+        "randomUnits": "seconds",
+        "drop": false,
+        "allowrate": false,
+        "outputs": 1,
+        "x": 760,
+        "y": 640,
+        "wires": [
+            [
+                "c3d4e5f6a7b8c9d0"
+            ]
+        ]
+    },
+    {
+        "id": "c3d4e5f6a7b8c9d0",
+        "type": "function",
+        "z": "ba889291cc994610",
+        "name": "Clear busy flag",
+        "func": "// Called 8 s after pick/place starts — releases the machine for new requests\nglobal.set('machine_busy', false);\nmsg.topic   = 'vicom/61/piso_0/lab/lego/status';\nmsg.payload = JSON.stringify({ status: 'available' });\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 950,
+        "y": 640,
+        "wires": [
+            [
+                "d4e5f6a7b8c9d0e1"
+            ]
+        ]
+    },
+    {
+        "id": "d4e5f6a7b8c9d0e1",
+        "type": "mqtt out",
+        "z": "ba889291cc994610",
+        "name": "Status topic",
+        "topic": "",
+        "qos": "1",
+        "retain": "",
+        "respTopic": "",
+        "contentType": "",
+        "userProps": "",
+        "correl": "",
+        "expiry": "",
+        "broker": "central-broker",
+        "x": 1160,
+        "y": 560,
+        "wires": []
+    },
+    {
+        "id": "e5f6a7b8c9d0e1f2",
+        "type": "http in",
+        "z": "ba889291cc994610",
+        "name": "Place Endpoint",
+        "url": "/smia/lego/place",
+        "method": "post",
+        "upload": true,
+        "swaggerDoc": "",
+        "x": 130,
+        "y": 800,
+        "wires": [
+            [
+                "f6a7b8c9d0e1f2a3"
+            ]
+        ]
+    },
+    {
+        "id": "f6a7b8c9d0e1f2a3",
+        "type": "json",
+        "z": "ba889291cc994610",
+        "name": "Parser",
+        "property": "payload",
+        "action": "",
+        "pretty": false,
+        "x": 330,
+        "y": 800,
+        "wires": [
+            [
+                "a7b8c9d0e1f2a3b4"
+            ]
+        ]
+    },
+    {
+        "id": "a7b8c9d0e1f2a3b4",
+        "type": "function",
+        "z": "ba889291cc994610",
+        "name": "place_handler",
+        "func": "global.set('machine_busy', true);\n\nconst body  = (msg.payload && typeof msg.payload === 'object') ? msg.payload : {};\nconst query = (msg.req && msg.req.query) ? msg.req.query : {};\n\nlet posRaw = body.position;\nif (posRaw === undefined || posRaw === null || posRaw === '') posRaw = query.position;\nif (posRaw === undefined || posRaw === null || posRaw === '') {\n    global.set('machine_busy', false);\n    const errMsg = { ...msg, req: msg.req, res: msg.res, statusCode: 400,\n                     payload: { status: 'error', reason: 'Missing field: position' } };\n    return [null, errMsg, null];\n}\nconst pos = Number(posRaw);\nif (!Number.isInteger(pos) || pos < 0 || pos > 8) {\n    global.set('machine_busy', false);\n    const errMsg = { ...msg, req: msg.req, res: msg.res, statusCode: 400,\n                     payload: { status: 'error', reason: 'position must be integer 0..8' } };\n    return [null, errMsg, null];\n}\n\n// NOTE: confirm 'bandera_place' command format with crane operator.\n// If the crane control software only supports 'bandera_custom', change to: `bandera_custom:${pos}`\nconst mqttMsg  = { ...msg, topic: 'vicom/61/piso_0/lab/lego/commands',\n                   payload: `bandera_place:${pos}` };\nconst httpMsg  = { ...msg, req: msg.req, res: msg.res, statusCode: 200,\n                   payload: { status: 'ok', payload: `bandera_place:${pos}`, position: pos } };\nconst chainMsg = { payload: { action: 'place', position: pos } };\n\nreturn [mqttMsg, httpMsg, chainMsg];",
+        "outputs": 3,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 520,
+        "y": 800,
+        "wires": [
+            [
+                "b8c9d0e1f2a3b4c5",
+                "d0e1f2a3b4c5d6e7"
+            ],
+            [
+                "c9d0e1f2a3b4c5d6"
+            ],
+            [
+                "f1a2b3c4d5e6f7a8"
+            ]
+        ]
+    },
+    {
+        "id": "b8c9d0e1f2a3b4c5",
+        "type": "mqtt out",
+        "z": "ba889291cc994610",
+        "name": "Place command",
+        "topic": "",
+        "qos": "1",
+        "retain": "",
+        "respTopic": "",
+        "contentType": "",
+        "userProps": "",
+        "correl": "",
+        "expiry": "",
+        "broker": "central-broker",
+        "x": 720,
+        "y": 720,
+        "wires": []
+    },
+    {
+        "id": "c9d0e1f2a3b4c5d6",
+        "type": "http response",
+        "z": "ba889291cc994610",
+        "name": "Place HTTP response",
+        "statusCode": "",
+        "headers": {},
+        "x": 720,
+        "y": 880,
+        "wires": []
+    },
+    {
+        "id": "d0e1f2a3b4c5d6e7",
+        "type": "debug",
+        "z": "ba889291cc994610",
+        "name": "debug place",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "payload",
+        "targetType": "msg",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 720,
+        "y": 660,
+        "wires": []
+    },
+    {
+        "id": "e1f2a3b4c5d6e7f8",
+        "type": "http in",
+        "z": "ba889291cc994610",
+        "name": "Availability Endpoint",
+        "url": "/smia/lego/availability",
+        "method": "get",
+        "upload": false,
+        "swaggerDoc": "",
+        "x": 150,
+        "y": 1060,
+        "wires": [
+            [
+                "f2a3b4c5d6e7f8a9"
+            ]
+        ]
+    },
+    {
+        "id": "f2a3b4c5d6e7f8a9",
+        "type": "function",
+        "z": "ba889291cc994610",
+        "name": "availability_handler",
+        "func": "// Returns plain-text '1.0' (free) or '0.0' (busy)\n// smia_machine_agent_services.get_machine_availability() calls float(text.strip())\nconst busy     = global.get('machine_busy') || false;\nmsg.statusCode = 200;\nmsg.headers    = { 'Content-Type': 'text/plain' };\nmsg.payload    = busy ? '0.0' : '1.0';\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 390,
+        "y": 1060,
+        "wires": [
+            [
+                "a3b4c5d6e7f8a9b0"
+            ]
+        ]
+    },
+    {
+        "id": "a3b4c5d6e7f8a9b0",
+        "type": "http response",
+        "z": "ba889291cc994610",
+        "name": "Availability HTTP response",
+        "statusCode": "",
+        "headers": {},
+        "x": 630,
+        "y": 1060,
+        "wires": []
+    },
+    {
+        "id": "central-broker",
+        "type": "mqtt-broker",
+        "name": "central",
+        "broker": "mosquitto-central",
+        "port": "1883",
+        "clientid": "",
+        "autoConnect": true,
+        "usetls": false,
+        "compatmode": false,
+        "protocolVersion": "4",
+        "keepalive": "60",
+        "cleansession": true,
+        "autoUnsubscribe": true,
+        "birthTopic": "",
+        "birthQos": "0",
+        "birthPayload": "",
+        "birthMsg": {},
+        "closeTopic": "",
+        "closePayload": "",
+        "closeMsg": {},
+        "willTopic": "",
+        "willQos": "0",
+        "willPayload": "",
+        "willMsg": {},
+        "userProps": "",
+        "sessionExpiry": ""
+    }
+]
