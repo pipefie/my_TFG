@@ -1499,9 +1499,9 @@ SMIA runs in an `asyncio` event loop. A synchronous `requests.get()` call would 
 
 **Full path:** `additional_tools/extended_agents/smia_orchestrator_agent/smia_orchestrator_starter.py`
 
-**Volume mount target (inside container):**
+**Location inside container (after `docker compose build`):**
 ```
-/usr/local/lib/python3.12/site-packages/smia/launchers/smia_docker_starter.py
+/smia_orchestrator_starter.py      (COPY'd by my_models/docker/smia-orchestrator/Dockerfile)
 ```
 
 **What it does.** Identical pattern to `smia_machine_starter.py` but for the orchestrator. The key difference is using `add_new_agent_capability()` instead of `add_new_agent_service()`:
@@ -1519,9 +1519,9 @@ smia_agent.add_new_agent_capability(orch_behaviour)
 
 **Full path:** `additional_tools/extended_agents/smia_orchestrator_agent/orchestrator_dispatch_behaviour.py`
 
-**Volume mount target (inside container):**
+**Location inside container (after `docker compose build`):**
 ```
-/usr/local/lib/python3.12/site-packages/smia/launchers/orchestrator_dispatch_behaviour.py
+/orchestrator_dispatch_behaviour.py      (COPY'd by my_models/docker/smia-orchestrator/Dockerfile)
 ```
 
 **What it does.** Implements the complete FIPA-CNP initiator logic. This is the primary software contribution of Case 1.
@@ -1636,23 +1636,21 @@ for each .aasx in AAS_FOLDER:
 | Added `smia-machine2` | `LEGO_machine2_case0.aasx`, `smia_machine2@ejabberd:machine2pass` |
 | Added `smia-orchestrator` | `Orchestrator_case0.aasx`, `smia_orch@ejabberd:password` |
 | Updated `CTL_ON_CREATE` | Registers all 5 agent accounts in ejabberd |
-| Added volume mounts for starters | 2 mounts per machine service + 2 mounts for orchestrator |
+| Custom Dockerfiles for machine and orchestrator agents | All machines share `docker/smia-machine/Dockerfile`; orchestrator has `docker/smia-orchestrator/Dockerfile` |
 
-**Volume mount pattern — why two mounts per machine:**
+**Custom Dockerfile approach — why two COPY instructions per agent type:**
 
-```yaml
-volumes:
-  # Mount 1: replaces the Docker entrypoint module
-  - ../additional_tools/extended_agents/smia_machine_agent/smia_machine_starter.py:
-    /usr/local/lib/python3.12/site-packages/smia/launchers/smia_docker_starter.py
-
-  # Mount 2: the companion services module — must be in the same directory
-  # so that `import smia_machine_agent_services` resolves from the starter
-  - ../additional_tools/extended_agents/smia_machine_agent/smia_machine_agent_services.py:
-    /usr/local/lib/python3.12/site-packages/smia/launchers/smia_machine_agent_services.py
+```dockerfile
+# my_models/docker/smia-machine/Dockerfile (relevant excerpt)
+COPY additional_tools/extended_agents/smia_machine_agent/smia_machine_starter.py /smia_machine_starter.py
+COPY additional_tools/extended_agents/smia_machine_agent/smia_machine_agent_services.py /smia_machine_agent_services.py
+WORKDIR /
+CMD ["python3", "-u", "smia_machine_starter.py"]
 ```
 
-Mount 1 replaces the entrypoint. Mount 2 places the imported module in the same directory as the entrypoint so Python's module search finds it.
+- **COPY 1** (`smia_machine_starter.py → /`): provides the custom launcher; the Dockerfile `CMD` points directly to it — no Python path lookup needed
+- **COPY 2** (`smia_machine_agent_services.py → /`): the module imported by the starter; both files land in `/` and `WORKDIR /` puts `/` on `sys.path`, so `import smia_machine_agent_services` resolves at runtime
+- No Python-version-locked paths; works regardless of Python version in future base image upgrades
 
 **Orchestrator dependency chain:**
 ```yaml
@@ -1671,8 +1669,8 @@ The orchestrator waits for all machines to be started (not necessarily healthy) 
 
 **Phase 1 startup command (machines only, no orchestrator):**
 ```bash
-cd my_models
-docker compose up xmpp-server smia-machine0 smia-machine1 smia-machine2 smia-operator
+docker compose -f my_models/docker-compose.yml up -d \
+  xmpp-server mosquitto-central nodered smia-machine0 smia-machine1 smia-machine2 smia-operator
 ```
 
 **Phase 2 startup command (full system):**

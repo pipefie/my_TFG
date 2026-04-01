@@ -381,7 +381,7 @@ CapabilitiesAndSkills
 1. String comparison: `str(conn_ref) == str(asset_connection_ref)`
 2. Key-tuple comparison: normalize `(type, value)` tuples from reference key lists
 
-**Applied via:** Docker volume mount overriding the file inside the container image. Verify compatibility whenever pulling a new image version. Long-term fix: upstream PR.
+**Applied via:** `RUN` step in `my_models/docker/smia-machine/Dockerfile` and `my_models/docker/smia-orchestrator/Dockerfile` at image build time. Path detection is version-independent: `python3 -c "import smia, os; print(os.path.dirname(smia.__file__))"`. Verify the patch is still valid when upgrading the base image. Long-term fix: upstream PR.
 
 ---
 
@@ -554,7 +554,7 @@ docker compose -f my_models/docker-compose.yml down -v  # full reset incl. ejabb
 | ejabberd loops, never healthy | ejabberd.yml syntax error or port conflict | Check `docker logs ejabberd` |
 | SMIA never reaches StateRunning (MRO error) | Skills defined as SMC | Redefine Skills as Property in AASX PE |
 | Operator GUI 500 on Load | Non-AASX file in `my_models/aas/` | Remove backups/XMLs from `aas/` |
-| Submit spins (no HTTP in logs) | smia_agent.py patch not mounted | Check volume mount path |
+| Submit spins (no HTTP in logs) | smia_agent.py patch not applied in image | Run `docker compose build`; check Dockerfile `RUN` step output for patch path |
 | HTTP OK but crane does not move | MQTT bridge down or wrong topic | Check Node-RED debug + bridge |
 | XMPP auth failure | AGENT_PASSWD mismatch | Verify CTL_ON_CREATE matches AGENT_PASSWD |
 
@@ -598,7 +598,7 @@ Case 0 has only 4 CSS elements per capability (simpler than the paper's scenario
 - Docker Compose deploys everything one-command (validates R5, R8)
 
 ### Known technical debt
-- `smia_agent.py` bug fix via Docker volume mount — needs upstream PR
+- `smia_agent.py` bug fix baked into custom Docker images via Dockerfile `RUN` step — needs upstream PR to eliminate the build-time patch
 - Central DIDA in critical command path (architectural trade-off — documented in `memoire.md §14.7`)
 
 ### What is NOT implemented yet (future cases)

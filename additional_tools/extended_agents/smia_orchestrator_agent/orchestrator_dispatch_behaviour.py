@@ -68,11 +68,11 @@ mailboxes of ALL active behaviours whose templates match.
 
 The base SMIA's ACLHandlingBehaviour (acl_handling_behaviour.py) is a CyclicBehaviour
 that receives ALL messages. When it receives a CSSRequest, it spawns a HandleCapabilityBehaviour
-to handle it — but ONLY if the message thread is NOT in `self.myagent.reserved_threads`:
-    if msg.thread not in self.myagent.reserved_threads:     # line 67
+to handle it — but ONLY if the message thread is NOT in `self.agent.reserved_threads`:
+    if msg.thread not in self.agent.reserved_threads:     # line 67
         specific_handling_behaviour = HandleCapabilityBehaviour(...)
 
-This class calls `await self.myagent.add_reserved_thread(thread)` immediately upon receiving
+This class calls `await self.agent.add_reserved_thread(thread)` immediately upon receiving
 a CSSRequest from the operator. This prevents ACLHandlingBehaviour from double-handling it.
 For INFORM messages from machines: these belong to threads we reserved, so ACLHandlingBehaviour
 also skips them.
@@ -85,7 +85,7 @@ Each orchestration involves two distinct conversation threads:
     neg_thread  — CFP/PROPOSE/winner-INFORM between orchestrator ↔ machines
     exec_thread — CSSRequest/execution-INFORM between orchestrator ↔ winner
 
-self.myagent.pending_orchestrations dict maps both threads to orchestration state:
+self.agent.pending_orchestrations dict maps both threads to orchestration state:
     neg_thread  → {'phase': 'negotiation', 'op_thread', 'op_sender', 'capability_iri',
                    'resolved_position', 'skill_params'}
     exec_thread → {'phase': 'awaiting_result', 'neg_thread', 'op_thread', 'op_sender'}
@@ -123,7 +123,7 @@ SEMANTICID_INSTANCE_NAME = (
 # IRI of the Skill_NegAvailability OWL individual that machines use to compute negValue.
 # Format: css-smia ontology base IRI + idShort of the Skill element in the AASX.
 # Must match exactly: get_ontology_instance_by_iri() does a string equality check.
-NEG_CRITERION_IRI = "http://www.w3id.org/upv-ehu/gcis/css-smia#Skill_NegAvailability"
+NEG_CRITERION_IRI = "http://www.w3id.org/hsu-aut/css#Skill_NegAvailability"
 
 # Hardcoded mapping from piece color to physical warehouse slot number.
 # The LEGO crane picks by position (slot index), not by color — it has no color sensor.
@@ -150,7 +150,7 @@ class OrchestratorDispatchBehaviour(CyclicBehaviour):
 
     This behaviour runs alongside the base SMIA's ACLHandlingBehaviour and
     NegotiatingBehaviour. Message conflicts are prevented via thread reservation
-    (self.myagent.add_reserved_thread).
+    (self.agent.add_reserved_thread).
     """
 
     async def on_start(self):
@@ -161,7 +161,7 @@ class OrchestratorDispatchBehaviour(CyclicBehaviour):
         """
         # pending_orchestrations maps thread IDs to orchestration state dicts.
         # Two entries exist per active orchestration (neg_thread + exec_thread).
-        self.myagent.pending_orchestrations = {}
+        self.agent.pending_orchestrations = {}
         _logger.info("OrchestratorDispatchBehaviour started and ready.")
 
     async def run(self):
@@ -192,12 +192,12 @@ class OrchestratorDispatchBehaviour(CyclicBehaviour):
         # and not in pending_orchestrations) before taking it over.
         if (performative == FIPAACLInfo.FIPA_ACL_PERFORMATIVE_REQUEST
                 and ontology == ACLSMIAOntologyInfo.ACL_ONTOLOGY_CSS_SERVICE
-                and thread not in self.myagent.reserved_threads
-                and thread not in self.myagent.pending_orchestrations):
+                and thread not in self.agent.reserved_threads
+                and thread not in self.agent.pending_orchestrations):
 
             # Reserve the thread IMMEDIATELY before any await, so ACLHandlingBehaviour
             # skips this message when it also receives it from SPADE's broadcast delivery.
-            await self.myagent.add_reserved_thread(thread)
+            await self.agent.add_reserved_thread(thread)
             _logger.info(f"Orchestrator: new CSSRequest from operator (thread={thread})")
             await self._start_negotiation(msg)
 
@@ -206,8 +206,8 @@ class OrchestratorDispatchBehaviour(CyclicBehaviour):
         # after winning the decentralized FIPA-CNP among machines.
         # We now know which machine won and send it the actual execution request.
         elif (performative == FIPAACLInfo.FIPA_ACL_PERFORMATIVE_INFORM
-              and thread in self.myagent.pending_orchestrations
-              and self.myagent.pending_orchestrations[thread].get('phase') == 'negotiation'):
+              and thread in self.agent.pending_orchestrations
+              and self.agent.pending_orchestrations[thread].get('phase') == 'negotiation'):
 
             _logger.info(f"Orchestrator: winner INFORM from {msg.sender} (neg_thread={thread})")
             body = {}
@@ -227,8 +227,8 @@ class OrchestratorDispatchBehaviour(CyclicBehaviour):
         # The winning machine executed the capability (POST to Node-RED → MQTT) and sends
         # the result back to us. We forward it unchanged to the original operator.
         elif (performative == FIPAACLInfo.FIPA_ACL_PERFORMATIVE_INFORM
-              and thread in self.myagent.pending_orchestrations
-              and self.myagent.pending_orchestrations[thread].get('phase') == 'awaiting_result'):
+              and thread in self.agent.pending_orchestrations
+              and self.agent.pending_orchestrations[thread].get('phase') == 'awaiting_result'):
 
             _logger.info(f"Orchestrator: execution INFORM received (exec_thread={thread})")
             await self._forward_result_to_operator(thread, msg.body)
@@ -236,9 +236,9 @@ class OrchestratorDispatchBehaviour(CyclicBehaviour):
         # ── Route 4: FAILURE from machines ───────────────────────────────────
         # Sent by machines when the negotiation times out or fails (e.g. all machines busy).
         elif (performative == FIPAACLInfo.FIPA_ACL_PERFORMATIVE_FAILURE
-              and thread in self.myagent.pending_orchestrations):
+              and thread in self.agent.pending_orchestrations):
 
-            state = self.myagent.pending_orchestrations[thread]
+            state = self.agent.pending_orchestrations[thread]
             body = {}
             try:
                 body = json.loads(msg.body) if msg.body else {}
@@ -322,12 +322,12 @@ class OrchestratorDispatchBehaviour(CyclicBehaviour):
 
         # ── Build and send CFP ────────────────────────────────────────────────
         neg_thread = str(uuid.uuid4())
-        await self.myagent.add_reserved_thread(neg_thread)
+        await self.agent.add_reserved_thread(neg_thread)
 
         # Store full orchestration state keyed by neg_thread.
         # resolved_position is stored separately — the winner receives {position: N},
         # not the original {color: X}, since the machine's AID/Node-RED uses position.
-        self.myagent.pending_orchestrations[neg_thread] = {
+        self.agent.pending_orchestrations[neg_thread] = {
             'phase': 'negotiation',
             'op_thread': op_thread,
             'op_sender': op_sender,
@@ -378,16 +378,16 @@ class OrchestratorDispatchBehaviour(CyclicBehaviour):
         The machine's AID endpoint and Node-RED flow expect a numeric position,
         not a color string.
         """
-        state = self.myagent.pending_orchestrations[neg_thread]
+        state = self.agent.pending_orchestrations[neg_thread]
 
         # Generate a new unique thread for the execution phase.
         # This is separate from neg_thread to avoid routing conflicts.
         exec_thread = str(uuid.uuid4())
-        await self.myagent.add_reserved_thread(exec_thread)
+        await self.agent.add_reserved_thread(exec_thread)
 
         # Store execution phase state under exec_thread.
         # We keep a reference back to neg_thread for cleanup.
-        self.myagent.pending_orchestrations[exec_thread] = {
+        self.agent.pending_orchestrations[exec_thread] = {
             'phase': 'awaiting_result',
             'neg_thread': neg_thread,
             'op_thread': state['op_thread'],
@@ -435,7 +435,7 @@ class OrchestratorDispatchBehaviour(CyclicBehaviour):
         produced (typically the HTTP response from Node-RED) is what the operator sees.
         Cleanup removes both exec_thread and neg_thread entries from pending_orchestrations.
         """
-        state = self.myagent.pending_orchestrations[exec_thread]
+        state = self.agent.pending_orchestrations[exec_thread]
 
         inform = Message(to=state['op_sender'])
         inform.thread = state['op_thread']
@@ -449,17 +449,17 @@ class OrchestratorDispatchBehaviour(CyclicBehaviour):
 
         # Cleanup both thread entries
         neg_thread = state.get('neg_thread')
-        self.myagent.pending_orchestrations.pop(exec_thread, None)
-        self.myagent.pending_orchestrations.pop(neg_thread, None)
+        self.agent.pending_orchestrations.pop(exec_thread, None)
+        self.agent.pending_orchestrations.pop(neg_thread, None)
 
     async def _send_failure_to_operator(self, thread, reason):
         """Send FAILURE to operator when orchestration fails after state was stored."""
-        state = self.myagent.pending_orchestrations.get(thread, {})
+        state = self.agent.pending_orchestrations.get(thread, {})
         op_sender = state.get('op_sender')
         op_thread = state.get('op_thread')
         if op_sender and op_thread:
             await self._send_failure_direct(op_sender, op_thread, reason)
-        self.myagent.pending_orchestrations.pop(thread, None)
+        self.agent.pending_orchestrations.pop(thread, None)
 
     async def _send_failure_direct(self, op_sender, op_thread, reason):
         """Send FAILURE to operator with explicit sender/thread (before state is stored)."""

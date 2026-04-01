@@ -148,8 +148,9 @@ services:
       - ./mosquitto/mosquitto.conf:/mosquitto/conf/mosquitto.conf
       - ./mosquitto/conf.d:/etc/mosquitto/conf.d
       - mosquitto_data:/mosquitto/data
-    ports:
-      - "1883:1883"
+    # No host port binding — internal Docker DNS (mosquitto-central:1883) is sufficient.
+    # Port 1883 on the host is typically occupied by the existing DIDA Central broker.
+    # If you need to debug MQTT from the host, add: ports: ["1884:1883"]
     restart: unless-stopped
     networks:
       - smia-net

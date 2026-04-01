@@ -12,12 +12,11 @@ The default `smia_docker_starter.py` creates a plain `SMIAAgent`, which does NOT
 the extension hooks (`add_new_agent_service`, `add_new_agent_capability`, etc.).
 
 To register a custom agent service (`machineAvailValue`), we need `ExtensibleSMIAAgent`.
-Since we cannot change the Docker image, we override the starter by volume-mounting this file
-over the original inside the container:
-    - ../additional_tools/extended_agents/smia_machine_agent/smia_machine_starter.py
-      → /usr/local/lib/python3.12/site-packages/smia/launchers/smia_docker_starter.py
+This file is COPY'd into the container by `my_models/docker/smia-machine/Dockerfile`:
+    COPY additional_tools/extended_agents/smia_machine_agent/smia_machine_starter.py /smia_machine_starter.py
+    CMD ["python3", "-u", "smia_machine_starter.py"]
 
-This is the same pattern used by the official smia_operator_agent in the SMIA repository.
+The Dockerfile CMD overrides the default SMIA launcher — no Python path manipulation required.
 
 HOW IT DIFFERS FROM THE DEFAULT STARTER:
 -----------------------------------------
@@ -34,13 +33,12 @@ Everything else (initial_self_configuration, load_aas_model, CSS self-configurat
 AID interface setup, FIPA-CNP capability handling) is handled by the SMIA framework
 identically — we only add the custom service registration before run().
 
-VOLUME MOUNTS IN DOCKER-COMPOSE:
-----------------------------------
-This file is mounted as the starter. The services file must be importable from the same
-Python package directory so `import smia_machine_agent_services` resolves. Therefore both
-files are mounted into the same folder:
-    smia_machine_starter.py      → .../smia/launchers/smia_docker_starter.py
-    smia_machine_agent_services.py → .../smia/launchers/smia_machine_agent_services.py
+DOCKERFILE DEPLOYMENT:
+-----------------------
+Both files are COPY'd to / in the container so Python can import them:
+    smia_machine_starter.py        → /smia_machine_starter.py
+    smia_machine_agent_services.py → /smia_machine_agent_services.py
+WORKDIR / puts / on sys.path, making `import smia_machine_agent_services` resolve correctly.
 
 SHARED ACROSS ALL MACHINES:
 -----------------------------

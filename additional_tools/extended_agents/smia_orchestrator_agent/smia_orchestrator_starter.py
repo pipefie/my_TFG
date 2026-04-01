@@ -9,9 +9,11 @@ Same reason as smia_machine_starter.py: the default Docker starter creates a pla
 `SMIAAgent` without extension hooks. We need `ExtensibleSMIAAgent` to add the
 `OrchestratorDispatchBehaviour` as a SPADE behaviour via `add_new_agent_capability()`.
 
-This file is mounted over the default starter inside the container:
-    - ../additional_tools/extended_agents/smia_orchestrator_agent/smia_orchestrator_starter.py
-      → /usr/local/lib/python3.12/site-packages/smia/launchers/smia_docker_starter.py
+This file is COPY'd into the container by `my_models/docker/smia-orchestrator/Dockerfile`:
+    COPY additional_tools/extended_agents/smia_orchestrator_agent/smia_orchestrator_starter.py /smia_orchestrator_starter.py
+    CMD ["python3", "-u", "smia_orchestrator_starter.py"]
+
+The Dockerfile CMD overrides the default SMIA launcher — no Python path manipulation required.
 
 ROLE OF THE ORCHESTRATOR:
 --------------------------
@@ -24,10 +26,12 @@ The orchestrator's AASX declares AgentCapability (PickPiece, PlacePiece) so it a
 in the operator GUI as a selectable SMIA. The actual execution logic is entirely in
 OrchestratorDispatchBehaviour — the AASX capabilities serve as AAS documentation.
 
-VOLUME MOUNTS IN DOCKER-COMPOSE:
-----------------------------------
-    smia_orchestrator_starter.py          → .../smia/launchers/smia_docker_starter.py
-    orchestrator_dispatch_behaviour.py    → .../smia/launchers/orchestrator_dispatch_behaviour.py
+DOCKERFILE DEPLOYMENT:
+-----------------------
+Both files are COPY'd to / in the container:
+    smia_orchestrator_starter.py       → /smia_orchestrator_starter.py
+    orchestrator_dispatch_behaviour.py → /orchestrator_dispatch_behaviour.py
+WORKDIR / puts / on sys.path, making `from orchestrator_dispatch_behaviour import ...` resolve.
 """
 
 import logging
