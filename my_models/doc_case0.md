@@ -305,6 +305,99 @@ css:Capability ──isRealizedBy──► css:Skill
 
 ---
 
+## 6.5 AAS Qualifiers and the OWL Bridge
+
+### 6.5.1 What is a Qualifier?
+
+A **Qualifier** (AAS metamodel Part 1, §10.2.3) is a metadata annotation that can be attached to any `SubmodelElement`. It is the AAS standard extension mechanism for expressing domain-specific semantic attributes of an element that the fixed AAS element types (`Property`, `SubmodelElementCollection`, etc.) cannot capture alone.
+
+A Qualifier has three fields that matter at runtime:
+
+| Field | Type | Role |
+|---|---|---|
+| `type` | string | Human-readable label: e.g. `"SkillImplementationType"`, `"hasLifecycle"` |
+| `value` | string | The attribute's data value: e.g. `"OPERATION"`, `"OFFER"` |
+| `semanticId` | GlobalReference (IRI) | Links this qualifier to a concept in an external ontology |
+
+### 6.5.2 Why two semanticIds? Element vs. Qualifier
+
+This is the key distinction. A `SubmodelElement` can have its own `semanticId` **and** its qualifiers each have their own `semanticId`. These are not redundant — they answer two completely different questions:
+
+| Level | Question | Maps to OWL |
+|---|---|---|
+| **Element `semanticId`** | *What type/class is this element?* | An `owl:Class` |
+| **Qualifier `semanticId`** | *What attribute/property does this qualifier represent?* | An `owl:DatatypeProperty` |
+
+Example — `Skill_PickPiece`:
+```
+AAS element                              OWL ontology
+──────────────────────────────────────   ────────────────────────────────
+Property "Skill_PickPiece"
+  semanticId: css#Skill           →      owl:Class "Skill"
+
+  Qualifier:
+    type:  "SkillImplementationType"
+    value: "OPERATION"
+    semanticId: css-smia#hasImpl… →      owl:DatatypeProperty "hasImplementationType"
+                                             domain: Skill
+                                             range: {OPERATION, STATE, TRIGGER, FUNCTIONBLOCK}
+```
+
+The element's `semanticId` (`css#Skill`) tells SMIA: "this AAS `Property` element represents an individual of the OWL class `Skill`."
+The qualifier's `semanticId` (`css-smia#hasImplementationType`) tells SMIA: "this qualifier carries the value of the OWL data property `hasImplementationType` on that individual."
+
+Without the qualifier's `semanticId`, SMIA cannot perform step 2 below — it cannot know which OWL data property this qualifier's value belongs to.
+
+### 6.5.3 How SMIA uses the Qualifier semanticId at boot
+
+During self-configuration (Booting state), `add_ontology_required_information()` (`init_aas_model_behaviour.py:188-204`) bridges AAS qualifiers into the OWL ontology:
+
+1. For each CSS OWL class instance just created (e.g., `Skill_PickPiece`), ask the OWL ontology: "which `owl:DatatypeProperty` declarations have this class in their `rdfs:domain`?" (`capability_skill_module.py:71-75`)
+   - For `Skill`: the ontology returns `hasImplementationType` (IRI: `css-smia#hasImplementationType`)
+   - For `Capability`: the ontology returns `hasLifecycle` (IRI: `css-smia#hasLifecycle`)
+
+2. For each data property IRI found, call `get_qualifier_value_by_semantic_id(iri)` on the AAS element — which loops over all qualifiers and checks whether `qualifier.semanticId == iri`.
+
+3. Store the found value on the OWL instance: `ontology_instance.set_data_property_value('hasImplementationType', 'OPERATION')`.
+
+4. The OWL instance is now a fully populated Python representation of that CSS individual.
+
+**If step 2 fails** (no qualifier has a matching semanticId) → `AASModelReadingError` → the OWL instance's data property value is never set → any runtime code that reads this property gets `None` → `HandleNegotiationBehaviour.get_neg_value_with_criteria()` crashes at `list(None)[0]`.
+
+### 6.5.4 Two lookup mechanisms — why the semanticId is context-dependent
+
+SMIA has two completely independent methods for reading a skill qualifier value:
+
+**Mechanism 1 — type-based** (`extended_submodel.py:99`):
+```python
+skill_qualifier = self.get_qualifier_by_type('SkillImplementationType')
+```
+Searches by the `type` string field. Used by `check_cap_skill_ontology_qualifier_for_skills()` when validating a capability request. **Does not need a semanticId.** Used in the direct execution path (Case 0, single machine).
+
+**Mechanism 2 — semanticId-based** (`init_aas_model_behaviour.py:200`):
+```python
+required_value = aas_model_elem.get_qualifier_value_by_semantic_id(required_value_iri)
+```
+Searches by the `semanticId` IRI. Used during boot to populate OWL instances. **Requires the semanticId to be set.** Used in the multi-agent path (Case 1, FIPA-CNP negotiation).
+
+The official preset file (`SMIA-css-qualifier-presets.json`) defines `SkillImplementationType` with `semanticId: null` — it was written for single-machine deployments where only Mechanism 1 is needed.
+
+### 6.5.5 No ConceptDescription needed
+
+A `ConceptDescription` is a documentation element inside the AASX package — it embeds a human-readable definition of a concept for self-contained use. The qualifier's `semanticId` is an `ExternalReference` (GlobalReference) pointing to an IRI in an external standard (the OWL ontology). SMIA's lookup (`check_semantic_id_exist()` in `extended_base.py:14-29`) does a plain string comparison on the IRI — it does not require a `ConceptDescription` to exist in the package.
+
+### 6.5.6 The three CSS qualifiers — complete reference
+
+| Qualifier `type` string | OWL DatatypeProperty IRI | OWL domain | Allowed values | SemanticId required? |
+|---|---|---|---|---|
+| `hasLifecycle` | `http://www.w3id.org/upv-ehu/gcis/css-smia#hasLifecycle` | `css#Capability` | `OFFER`, `ASSURANCE`, `REQUIREMENT` | **Yes** (present in preset) |
+| `SkillImplementationType` | `http://www.w3id.org/upv-ehu/gcis/css-smia#hasImplementationType` | `css#Skill` | `OPERATION`, `STATE`, `TRIGGER`, `FUNCTIONBLOCK` | **Only for Case 1+** (missing in preset) |
+| `hasCondition` | `http://www.w3id.org/upv-ehu/gcis/css-smia#hasCondition` | `css#CapabilityConstraint` | `PRECONDITION`, `POSTCONDITION`, `INVARIANT` | **Yes** (present in preset) |
+
+Note: the `type` field of the `SkillImplementationType` qualifier says `"SkillImplementationType"`, but the OWL DatatypeProperty is named `hasImplementationType`. The `type` string is a human-readable label chosen by the SMIA team for AASX PE convenience. The `semanticId` IRI is the authoritative, machine-readable reference. Both come from the UPV/EHU team's SMIA CSS ontology; they are not invented.
+
+---
+
 ## 7. LEGO_factory_case0.aasx — Detailed Structure
 
 > **Asset:** This AASX models the **fischertechnik Training Factory Industry 4.0 24V** warehouse crane. The file name and AAS shell identifiers use historical names; see the naming note at the top of this document.
@@ -445,7 +538,7 @@ additional_resources/aasx_package_explorer_resources/SMIA-css-qualifier-presets.
 
 To import it in AASX PE: **Edit → Edit Options… → Qualifier Presets → Load…** → select the JSON file. After importing, you can apply qualifiers via **Add Qualifier → (preset dropdown)** instead of typing IRIs manually. The presets are authoritative — they define exactly:
 - `hasLifecycle` qualifier for Capabilities (semanticId: `css-smia#hasLifecycle`, values: `OFFER/ASSURANCE/REQUIREMENT`)
-- `SkillImplementationType` qualifier for Skills (no semanticId, values: `OPERATION/STATE/TRIGGER/FUNCTIONBLOCK`)
+- `SkillImplementationType` qualifier for Skills (values: `OPERATION/STATE/TRIGGER/FUNCTIONBLOCK`). The preset has `semanticId: null` — this is sufficient for **single-machine** execution (Case 0), where SMIA checks the qualifier by `type` string only. For **multi-agent** machines (Case 1+), a `semanticId` must be added (see §19.3.A Step 3 note).
 - `hasCondition` qualifier for CapabilityConstraints (semanticId: `css-smia#hasCondition`, values: `PRECONDITION/POSTCONDITION/INVARIANT`)
 
 ### 8.2 Create a New AASX Package
@@ -594,7 +687,19 @@ This is the most detailed submodel. Follow the AID standard (IDTA 02017).
 2. Add Qualifier on the Property:
    - Type: `SkillImplementationType`
    - Value: `OPERATION`
-   - SemanticId: (leave empty — this qualifier has no semanticId)
+   - SemanticId: (leave empty for Case 0 single-machine only — see the note below for Case 1 machines)
+
+> **SemanticId on `SkillImplementationType` — two mechanisms, two contexts:**
+>
+> SMIA reads `SkillImplementationType` via two independent mechanisms:
+>
+> **Mechanism 1 — type-based** (`extended_submodel.py:99`): `get_qualifier_by_type('SkillImplementationType')`. Searches by qualifier `type` string. Used by `check_cap_skill_ontology_qualifier_for_skills()` during capability request validation. **Works without semanticId.** This is what single-machine Case 0 uses.
+>
+> **Mechanism 2 — semanticId-based** (`init_aas_model_behaviour.py:198-202`): During boot, SMIA reads all OWL data properties of the `Skill` class from the loaded ontology. `hasImplementationType` is such a property (defined in `CSS-ontology-smia.owl:429` as `owl:DatatypeProperty` at IRI `http://www.w3id.org/upv-ehu/gcis/css-smia#hasImplementationType`). SMIA then calls `get_qualifier_value_by_semantic_id(iri)` — which searches qualifiers by their `semanticId`, not by `type`. If no qualifier has that semanticId → `AASModelReadingError` → the skill's OWL instance is not fully populated → `get_associated_skill_interface_instances()` returns `None` → `HandleNegotiationBehaviour` crashes.
+>
+> **For Case 0 single-machine AASXs** (this file): leave semanticId empty — Mechanism 1 is sufficient.
+>
+> **For Case 1 multi-agent machine AASXs** (`LEGO_factory_case0.aasx`, `LEGO_machine1_case0.aasx`, `LEGO_machine2_case0.aasx`): the semanticId on every skill's `SkillImplementationType` qualifier **must** be set to `http://www.w3id.org/upv-ehu/gcis/css-smia#hasImplementationType` — otherwise the negotiation path crashes at boot.
 
 **Add `Skill_PlacePiece` (Property):**
 1. Same structure as `Skill_PickPiece`.
@@ -1727,7 +1832,15 @@ Open `my_models/aas/LEGO_factory_case0.aasx` in AASX Package Explorer.
   - `type`: `SkillImplementationType`
   - `value`: `OPERATION`
   - `valueType`: `xs:string`
-  - `semanticId`: (leave empty — `SkillImplementationType` has no semanticId)
+  - `semanticId` (ExternalReference, GlobalReference): `http://www.w3id.org/upv-ehu/gcis/css-smia#hasImplementationType`
+
+> **Why the semanticId is required here (unlike in Case 0 Step 8.7):**
+>
+> SMIA uses two mechanisms to read `SkillImplementationType`. For multi-agent negotiation (Case 1), the boot-time OWL loading path (Mechanism 2) is critical: `InitAASModelBehaviour.add_ontology_required_information()` reads the CSS-SMIA OWL ontology, finds that `Skill` has the data property `hasImplementationType` at IRI `http://www.w3id.org/upv-ehu/gcis/css-smia#hasImplementationType`, then calls `get_qualifier_value_by_semantic_id(iri)` to find the value in the AAS. If no qualifier has that semanticId, an `AASModelReadingError` is raised, the skill OWL instance is not populated, and `HandleNegotiationBehaviour` crashes at `get_associated_skill_interface_instances()` returning `None`.
+>
+> This applies to **all skills** in all machine AASXs used in Case 1: `Skill_PickPiece`, `Skill_PlacePiece`, and `Skill_NegAvailability`. All must have the semanticId set.
+>
+> The IRI is not invented — it is defined in `additional_resources/css_smia_ontology/CSS-ontology-smia.owl:429` as an `owl:DatatypeProperty` by the SMIA team. The official preset file (`SMIA-css-qualifier-presets.json`) has `semanticId: null` because it was designed for the single-machine case. No ConceptDescription needs to be created in the AASX package — the semanticId is an external (GlobalReference) IRI pointing to the OWL ontology.
 
 > **Why is it a `Skill` and not a `SkillInterface` directly?**
 >
@@ -2044,6 +2157,7 @@ result forwarded to operator (exec_thread=<exec_T>)
 | Operator GUI shows 0 capabilities and 0 skills after Load | All AASXs use `#isRealizedBySkill` instead of `#isRealizedBy` for isRealizedBy relationships | In AASX PE, open each AASX → `SemanticRelationships` submodel → change semanticId of every `rel_Cap*_isRealizedBy*_Skill*` element from `#isRealizedBySkill` to `http://www.w3id.org/hsu-aut/css#isRealizedBy`. (`#isRealizedBySkill` is a valid CSS OWL sub-property but is not in `CSS_ONTOLOGY_OBJECT_PROPERTIES_IRIS` — SMIA skips it silently.) |
 | Orchestrator logs show `no machines found` | AASX not in `aas/` folder, or color not in capability | Verify `.aasx` files exist in `my_models/aas/`; check `Capability_PickPiece/color` value |
 | Machine never reaches StateRunning | `Skill_NegAvailability` or `machineAvailValue` incorrectly defined | Check semanticId matches exactly; Skills must be Property not SMC |
+| `HandleNegotiationBehaviour` crashes: `'NoneType' object is not iterable` | `SkillImplementationType` qualifier on any skill has no semanticId | In AASX PE, open each machine AASX → find every skill Property → edit the `SkillImplementationType` qualifier → set semanticId to `http://www.w3id.org/upv-ehu/gcis/css-smia#hasImplementationType`. Affects all skills: `Skill_PickPiece`, `Skill_PlacePiece`, `Skill_NegAvailability`. See §8.7 / §19.3.A Step 3 for explanation. |
 | Machine always reports score 0.0 in negotiation | `rel_SkillNegAvail_agentSvc` uses a wrong or non-existent IRI | Set semanticId to `http://www.w3id.org/upv-ehu/gcis/css-smia#accessibleThroughAgentService` (lowercase 'a') |
 | Machine0 never participates in CFP | InstanceName in `LEGO_factory_case0.aasx` is not a full JID | Change SMIA_agent shell InstanceName to `SMIA_agent@ejabberd` |
 | `INFORM(winner)` never arrives at orchestrator | `negRequester` field missing or wrong | Check `negRequester` is set to orchestrator JID in CFP body |
@@ -2065,7 +2179,7 @@ wrong character causes silent failure.
 | `isRealizedBy` | `http://www.w3id.org/hsu-aut/css#isRealizedBy` | `#isRealizedBySkill` | `#isRealizedBySkill` IS a valid OWL sub-property of `#isRealizedBy` in the CSS ontology (domain=Capability, range=Skill), but SMIA uses exact string matching. Only `#isRealizedBy` is in `CSS_ONTOLOGY_OBJECT_PROPERTIES_IRIS`. Using `#isRealizedBySkill` → operator GUI shows 0 capabilities/skills. |
 | `accessibleThroughAgentService` (for `rel_SkillNegAvail_agentSvc`) | `http://www.w3id.org/upv-ehu/gcis/css-smia#accessibleThroughAgentService` | `#AccessibleThroughAgentService` (capital 'A') | SMIA extension sub-property for agent-internal Python execution. The base CSS property `#accessibleThrough` also works at runtime but is less semantically precise. All three variants are processed by SMIA; routing is determined by SkillInterface submodel membership, not the IRI. |
 | Capability qualifier type | `hasLifecycle` (string in type field) | `ExpressionSemantic` | Capability not validated by SMIA |
-| Skill qualifier type | `SkillImplementationType` (no semanticId) | `hasImplementationType` | Skill not validated; source: `SMIA-css-qualifier-presets.json` |
+| Skill qualifier type | `SkillImplementationType` with semanticId `http://www.w3id.org/upv-ehu/gcis/css-smia#hasImplementationType` (Case 1 machines) | `SkillImplementationType` with no semanticId (sufficient only for Case 0 single-machine) | SMIA uses two mechanisms: (1) type-based lookup — works without semanticId, used for direct execution; (2) OWL data property lookup by semanticId — required for multi-agent negotiation boot path. Preset file has `semanticId: null` — incomplete for Case 1. |
 | `AssetCapability` | `http://www.w3id.org/upv-ehu/gcis/css-smia#AssetCapability` | `#AgentCapability` for machines | Wrong OWL class → wrong runtime behaviour type |
 | `AgentCapability` | `http://www.w3id.org/upv-ehu/gcis/css-smia#AgentCapability` | `#AssetCapability` for orchestrator | Orchestrator tries to use AID asset service path |
 

@@ -160,6 +160,7 @@ services:
   # Edit mosquitto/conf.d/bridge.conf to set the machine broker IP.
   nodered:
     image: nodered/node-red:latest
+    user: root    # node-red container runs as uid 1000; host dir owned by uid 19137 → permission fix
     container_name: nodered
     environment:
       - NODE_RED_CREDENTIAL_SECRET=${NODERED_CREDENTIAL_SECRET}

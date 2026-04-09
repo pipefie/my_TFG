@@ -60,6 +60,20 @@ class ACLHandlingBehaviour(CyclicBehaviour):
                     self, msg, FIPAACLInfo.FIPA_ACL_PERFORMATIVE_NOT_UNDERSTOOD)
                 return  # The run method is terminated to restart checking for new messages
 
+            # Orchestrator mode: if this agent has OrchestratorDispatchBehaviour registered
+            # (detected by 'pending_orchestrations' set in its on_start), skip css-service
+            # REQUEST messages — OrchestratorDispatchBehaviour handles them exclusively.
+            # The reserved_threads mechanism is insufficient here because SPADE delivers the
+            # message to both behaviours' mailboxes simultaneously, and ACLHandlingBehaviour
+            # checks reserved_threads before OrchestratorDispatchBehaviour has a chance to
+            # receive the message and call add_reserved_thread().
+            if (msg.get_metadata(FIPAACLInfo.FIPA_ACL_ONTOLOGY_ATTRIB) ==
+                    ACLSMIAOntologyInfo.ACL_ONTOLOGY_CSS_SERVICE and
+                    msg.get_metadata(FIPAACLInfo.FIPA_ACL_PERFORMATIVE_ATTRIB) ==
+                    FIPAACLInfo.FIPA_ACL_PERFORMATIVE_REQUEST and
+                    hasattr(self.myagent, 'pending_orchestrations')):
+                return  # OrchestratorDispatchBehaviour handles css-service REQUESTs
+
             _logger.warning("RESERVED THREADS {}".format(self.myagent.reserved_threads))  # TODO BORRAR BUG TEST
             _logger.warning("RECEIVED THREAD: {}".format(msg.thread))  # TODO BORRAR BUG TEST
 

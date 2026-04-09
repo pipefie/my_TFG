@@ -21,13 +21,23 @@ LABEL org="Vicomtech — Data Intelligence for Industry (DII)"
 LABEL description="SMIA Orchestrator Agent — FIPA-CNP multi-machine dispatch"
 LABEL project="smia-lego-case0"
 
-# ── Patch: fix asset connection object-identity bug ──────────────
+# ── Patch 1: fix asset connection object-identity bug ────────────
 COPY src/smia/agents/smia_agent.py /tmp/smia_agent_patch.py
+
+# ── Patch 2: fix ACL race condition for orchestrator mode ─────────
+# ACLHandlingBehaviour receives css-service REQUESTs at the same time as
+# OrchestratorDispatchBehaviour, but checks reserved_threads before the
+# orchestrator behaviour can reserve the thread — causing both to handle
+# the same message. The patch adds an early return for css-service REQUESTs
+# when pending_orchestrations is present (orchestrator-only attribute).
+COPY src/smia/behaviours/acl_handling_behaviour.py /tmp/acl_handling_patch.py
+
 RUN set -e && \
     SMIA_PKG=$(python3 -c "import smia, os; print(os.path.dirname(smia.__file__))") && \
-    echo "[smia-orchestrator] Applying smia_agent.py patch at: $SMIA_PKG" && \
+    echo "[smia-orchestrator] Applying patches at: $SMIA_PKG" && \
     cp /tmp/smia_agent_patch.py "$SMIA_PKG/agents/smia_agent.py" && \
-    rm /tmp/smia_agent_patch.py
+    cp /tmp/acl_handling_patch.py "$SMIA_PKG/behaviours/acl_handling_behaviour.py" && \
+    rm /tmp/smia_agent_patch.py /tmp/acl_handling_patch.py
 
 # ── Custom launcher and FIPA-CNP dispatch behaviour ──────────────
 # Placed at WORKDIR / so that `from orchestrator_dispatch_behaviour import ...`

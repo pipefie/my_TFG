@@ -141,6 +141,24 @@ COLOR_POSITION_MAP = {
 }
 
 
+def _get_skill_param(params, name):
+    """Extract a skill param value by bare name, tolerating full IRI keys.
+
+    The operator GUI (version ≥ 0.2.4) prepends the CSS namespace to every
+    param key before sending, e.g. 'color' → 'http://www.w3id.org/hsu-aut/css#color'.
+    This helper resolves the value regardless of whether the key is a bare name
+    or a full IRI.
+    """
+    if not isinstance(params, dict):
+        return ''
+    if name in params:
+        return params[name] or ''
+    for key, val in params.items():
+        if key.split('#')[-1] == name:
+            return val or ''
+    return ''
+
+
 class OrchestratorDispatchBehaviour(CyclicBehaviour):
     """
     Custom SPADE CyclicBehaviour implementing the FIPA-CNP initiator role.
@@ -287,7 +305,7 @@ class OrchestratorDispatchBehaviour(CyclicBehaviour):
         # Extract color from the operator's skillParams. This is the piece color
         # requested in the manufacturing order. The physical crane operates by
         # slot position, so we translate here before dispatching to the winner.
-        color = skill_params.get('color', '').lower() if isinstance(skill_params, dict) else ''
+        color = _get_skill_param(skill_params, 'color').lower()
 
         resolved_position = None
         if color:
@@ -511,12 +529,20 @@ class OrchestratorDispatchBehaviour(CyclicBehaviour):
             filepath = os.path.join(AAS_FOLDER, filename)
             try:
                 object_store = basyx.aas.model.DictObjectStore()
+                file_store = basyx.aas.adapter.aasx.DictSupplementaryFileContainer()
                 with basyx.aas.adapter.aasx.AASXReader(filepath) as reader:
-                    reader.read_into(object_store=object_store)
+                    reader.read_into(object_store=object_store, file_store=file_store)
 
                 jid = self._extract_jid_from_store(object_store)
                 if not jid:
                     continue  # No SoftwareNameplate → not a machine AASX (e.g. operator)
+
+                # Machine AASXs often store only the local-part (e.g. "smia_machine1")
+                # without the XMPP domain. Normalize to a full JID using our own domain.
+                if '@' not in jid:
+                    domain = str(self.agent.jid).split('@')[-1]
+                    jid = f"{jid}@{domain}"
+
                 if jid == exclude_jid:
                     continue  # Skip our own AASX
 

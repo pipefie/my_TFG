@@ -319,6 +319,105 @@ Every AAS element can (and should) carry a `semanticId`: a URI that links the el
 
 For example, a Property named `base` with semanticId `https://www.w3.org/2019/wot/td#baseURI` is unambiguously identified as the W3C Web of Things base URL property — regardless of what the field is named in a particular implementation.
 
+#### 6.2.5 Qualifier
+
+A **Qualifier** is a metadata annotation that can be attached to any `SubmodelElement` in the AAS metamodel (Part 1, §10.2.3). It is the AAS extension mechanism for expressing attributes of an element that cannot be captured by its element type alone.
+
+##### Structure of a Qualifier
+
+A Qualifier has three principal fields:
+
+| Field | Type | Role |
+|---|---|---|
+| `type` | string | A human-readable label identifying the qualifier (e.g., `"SkillImplementationType"`, `"hasLifecycle"`) |
+| `value` | string | The actual data value of the attribute (e.g., `"OPERATION"`, `"OFFER"`) |
+| `semanticId` | ExternalReference / GlobalReference | An IRI that links this qualifier to a concept in an external ontology or standard |
+
+There is also a `kind` field that indicates the qualifier's role in the data model:
+- `ConceptQualifier`: the qualifier defines the *concept* the element belongs to — it is part of the element's type definition.
+- `TemplateQualifier`: the qualifier appears in a template definition and restricts valid instances.
+- `ValueQualifier`: the qualifier adds a runtime measurement or state value.
+
+In the SMIA CSS context, all CSS-related qualifiers use `ConceptQualifier` kind — they define what kind of CSS concept the element represents.
+
+##### Why Qualifiers Are Needed: The Expressiveness Gap
+
+The AAS standard defines a fixed set of element types (`Property`, `SubmodelElementCollection`, `RelationshipElement`, etc.). These types define *structural* roles but carry no domain-specific semantic meaning. When representing a CSS concept such as a `Skill`, the AAS element type alone (`Property`) only tells a machine "this is a data field." It cannot express "this data field has a value of type `OperationImplementationType` from the CSS ontology, and that type has exactly four allowed values."
+
+Qualifiers fill this expressiveness gap without modifying the AAS metamodel itself. They allow any AAS element to carry additional semantic attributes — including enumerated, typed, and ontology-linked values — in a standardized way.
+
+##### The Two-Level SemanticId Architecture
+
+This is one of the most nuanced aspects of the AAS + OWL integration:
+
+**Level 1 — Element `semanticId`:** Identifies what **OWL class** this element is an instance of.
+
+For example, `Skill_PickPiece` is a `Property` element with `semanticId = http://www.w3id.org/hsu-aut/css#Skill`. This tells SMIA: "this AAS Property element represents an individual of the OWL class `Skill`."
+
+**Level 2 — Qualifier `semanticId`:** Identifies which **OWL DatatypeProperty** this qualifier carries the value of.
+
+For example, the qualifier on `Skill_PickPiece` with `type = "SkillImplementationType"` and `value = "OPERATION"` carries `semanticId = http://www.w3id.org/upv-ehu/gcis/css-smia#hasImplementationType`. This tells SMIA: "this qualifier carries the value of the OWL DatatypeProperty `hasImplementationType` defined in the CSS-SMIA ontology."
+
+These two levels are completely independent:
+
+```
+AAS model element                         OWL ontology
+─────────────────────────────────────     ──────────────────────────────────────
+Property "Skill_PickPiece"
+  semanticId: css#Skill              →    owl:Class "Skill"
+  Qualifier:
+    type: "SkillImplementationType"
+    value: "OPERATION"
+    semanticId: css-smia#hasImpl…    →    owl:DatatypeProperty "hasImplementationType"
+                                              domain: Skill
+                                              range: {OPERATION, STATE, TRIGGER, FUNCTIONBLOCK}
+```
+
+In OWL terms: a `Skill` **individual** has a data property `hasImplementationType` with value `"OPERATION"`. In AAS terms: a `Property` element (representing that individual) has an attached `Qualifier` carrying that data property's value. The qualifier's `semanticId` is the unambiguous, machine-readable **bridge** between the flat AAS world and the structured OWL world.
+
+##### The Bridge Mechanism in SMIA
+
+SMIA exploits this bridge during the **Booting state** (Track 2 of self-configuration, `init_aas_model_behaviour.py:188-204`):
+
+1. For each AAS SubmodelElement whose `semanticId` matches a CSS OWL class IRI (e.g., `Skill`), SMIA creates a Python OWL ontology instance via `owlready2`.
+2. The OWL instance, on creation (`capability_skill_module.py:66-86`), scans all `owl:DatatypeProperty` declarations in `CSS-ontology-smia.owl` and collects those whose `rdfs:domain` includes its class. For a `Skill` instance, this includes `hasImplementationType` (IRI: `css-smia#hasImplementationType`).
+3. SMIA then calls `get_qualifier_value_by_semantic_id(iri)` on the AAS element — searching all its qualifiers for one whose `semanticId` matches `css-smia#hasImplementationType`.
+4. The found value (`"OPERATION"`) is stored on the OWL instance via `set_data_property_value()`.
+5. The OWL instance is now a fully populated Python representation of that CSS individual, with all ontology-linked attributes set from the AAS.
+
+This population step is what enables the runtime OWL graph to be complete: capability → skill → skill_interface → asset_connection.
+
+##### Two Independent Lookup Mechanisms
+
+SMIA reads `SkillImplementationType` through two independent code paths:
+
+| Mechanism | Method | Lookup by | When used | Works without qualifier semanticId? |
+|---|---|---|---|---|
+| 1 — Type-based | `get_qualifier_by_type('SkillImplementationType')` | `type` string | Capability request validation | **Yes** |
+| 2 — SemanticId-based | `get_qualifier_value_by_semantic_id(iri)` | `semanticId` IRI | Boot-time OWL instance population | **No** → error |
+
+Mechanism 1 is used by `check_cap_skill_ontology_qualifier_for_skills()` in `extended_submodel.py:99` — called when a capability request arrives to validate the skill exists and has a valid implementation type. This path works correctly without a qualifier semanticId.
+
+Mechanism 2 is used by `add_ontology_required_information()` in `init_aas_model_behaviour.py:198-202` — called during boot for every CSS OWL instance. If no qualifier carries the `hasImplementationType` IRI as its `semanticId`, `AASModelReadingError` is raised, the OWL instance is partially initialized, and any downstream code depending on the OWL graph (such as `HandleNegotiationBehaviour.get_neg_value_with_criteria()`) crashes.
+
+**Practical implication:** A `SkillImplementationType` qualifier without a `semanticId` is sufficient for single-machine execution (Case 0, direct capability dispatch). It is insufficient for multi-agent negotiation (Case 1+), where the FIPA-CNP path depends on the fully populated OWL graph.
+
+##### Qualifier SemanticId vs. ConceptDescription
+
+A common confusion is whether the qualifier's `semanticId` needs to be backed by a `ConceptDescription` element inside the AASX package. The answer is **no** — as long as the semanticId is an `ExternalReference` (GlobalReference) pointing to an IRI in an external standard or ontology. The `ConceptDescription` element exists to embed documentation about a concept *inside* the package for self-contained use; it is optional and not required for SMIA's machine-readable IRI lookups.
+
+##### The Three CSS Qualifiers in This Project
+
+| Qualifier `type` | OWL DatatypeProperty IRI | Domain OWL class | Values | SemanticId always required? |
+|---|---|---|---|---|
+| `hasLifecycle` | `css-smia#hasLifecycle` | `css#Capability` | `OFFER`, `ASSURANCE`, `REQUIREMENT` | Yes (in official preset) |
+| `SkillImplementationType` | `css-smia#hasImplementationType` | `css#Skill` | `OPERATION`, `STATE`, `TRIGGER`, `FUNCTIONBLOCK` | Only for multi-agent (Case 1+) |
+| `hasCondition` | `css-smia#hasCondition` | `css#CapabilityConstraint` | `PRECONDITION`, `POSTCONDITION`, `INVARIANT` | Yes (in official preset) |
+
+Note the naming asymmetry on the second qualifier: the `type` string is `"SkillImplementationType"` (SMIA convention), but the OWL DatatypeProperty is named `hasImplementationType` (ontology convention). This is because the `type` string is a human-readable label defined by the preset file author, while the `semanticId` IRI is the authoritative, machine-readable reference from the OWL ontology.
+
+The official preset file (`SMIA-css-qualifier-presets.json`) defines `SkillImplementationType` with `semanticId: null`. This was written for single-machine use cases. For multi-agent deployments, the semanticId must be manually added as `http://www.w3id.org/upv-ehu/gcis/css-smia#hasImplementationType` (GlobalReference, ExternalReference). This IRI is defined at line 429 of `CSS-ontology-smia.owl` as an `owl:DatatypeProperty` by the SMIA team (UPV/EHU).
+
 ### 6.3 AAS Types
 
 AAS are classified into three types based on their operational capabilities:
@@ -917,7 +1016,9 @@ Both capabilities have:
 - Scope: **warehouse crane only**. The central vacuum suction crane (ventose) is out of scope for Case 0.
 
 Both skills have:
-- Implementation type qualifier: `SkillImplementationType = OPERATION` (no semanticId — confirmed from `SMIA-css-qualifier-presets.json`).
+- Implementation type qualifier: `SkillImplementationType = OPERATION`. The `semanticId` on this qualifier depends on the deployment context:
+  - **Single-machine (Case 0):** leave `semanticId` empty. SMIA validates the qualifier via a type-string lookup (`get_qualifier_by_type('SkillImplementationType')`) — no semanticId needed.
+  - **Multi-agent machines (Case 1+):** set `semanticId` to `http://www.w3id.org/upv-ehu/gcis/css-smia#hasImplementationType`. During boot, SMIA also reads OWL data properties of the `Skill` class and looks up each by semanticId (`get_qualifier_value_by_semantic_id(iri)`). This IRI is the `hasImplementationType` OWL DatatypeProperty defined in `CSS-ontology-smia.owl`. Without it, the skill OWL instance is not fully populated, and the FIPA-CNP negotiation behaviour crashes at runtime. No ConceptDescription is needed in the AASX package — this is an ExternalReference (GlobalReference) to the OWL ontology IRI.
 
 ### 12.5 Design Decisions
 
@@ -1264,7 +1365,7 @@ fischertechnik control software → warehouse crane macro
 
 | Decision | Core problem addressed | Chosen approach | Primary strength | Primary limitation |
 |---|---|---|---|---|
-| SMIA stack deployment | Shared XMPP infrastructure for multi-agent communication | Docker Compose (3 services, shared Docker network) | One-command reproducible deployment | Single host = single point of failure; file-level patch is fragile |
+| SMIA stack deployment | Shared XMPP infrastructure for multi-agent communication | Docker Compose (8 services: xmpp-server, mosquitto-central, nodered, smia-machine0/1/2, smia-orchestrator, smia-operator — shared Docker network) | One-command reproducible deployment; custom Dockerfiles eliminate runtime file-level patches | Single host = single point of failure |
 | Data processing topology | Per-machine vs. shared data pipelines | Edge per machine + shared central DIDA node | Fault isolation and separation of concerns | Central node in critical path for Case 0 commands; operational complexity of multi-node setup |
 
 ---
@@ -1273,7 +1374,7 @@ fischertechnik control software → warehouse crane macro
 
 ### 15.1 End-to-End Validation
 
-The complete Case 0 pipeline has been validated end-to-end and confirmed working as of 2026-03-04. The validated path:
+The complete Case 0 pipeline has been validated end-to-end and confirmed working as of 2026-03-04. Case 1 (multi-agent orchestration with FIPA-CNP) has been fully implemented and is undergoing E2E validation as of 2026-04-09. The Case 0 validated path:
 
 1. SMIA agent starts, loads AAS model, identifies 2 capabilities and 2 skills.
 2. SMIA logs confirm: `Analyzed capabilities: ['Capability_PickPiece', 'Capability_PlacePiece']`
@@ -1295,6 +1396,9 @@ The following non-trivial issues were identified and resolved during implementat
 | Capability request hanging in `get_asset_connection_class_by_ref()` | Asset connection lookup using object identity | Patched `smia_agent.py` with string/key comparison |
 | Operator GUI HTTP 500 on Load | Backup file (`.bak2`) in AAS folder scanned as invalid | Removed non-`.aasx` files from `aas/` folder |
 | Node-RED returning HTTP 400 | Missing `position` parameter in SMIA's request | Added `DEFAULT_POSITION = 0` fallback in Node-RED function |
+| `HandleNegotiationBehaviour: 'NoneType' object is not iterable` | RelationshipElement semanticIds in AASX used wrong casing: `#AccessibleThroughAgentService` (capital 'A') instead of `#accessibleThroughAgentService` — Track 3 uses exact lowercase match, so the OWL link was never created | Fixed all 3 machine AASXs with a Python zipfile/regex script: corrected IRI casing for all 5 relationship semanticIds |
+| Qualifier `hasImplementationType not found` at boot (Case 1) | Qualifier semanticId was set with `https://` instead of `http://` (typo in AASX PE) — SMIA's `get_qualifier_value_by_semantic_id()` does exact string comparison | Fixed all 3 machine AASXs (4 qualifiers per file) — IRI must be `http://www.w3id.org/upv-ehu/gcis/css-smia#hasImplementationType` |
+| Orchestrator race condition: both `ACLHandlingBehaviour` and `OrchestratorDispatchBehaviour` handling the same css-service message | SPADE broadcasts all messages to all matching behaviours; `ACLHandlingBehaviour` processed the message before the orchestrator could reserve its thread | Patched `acl_handling_behaviour.py`: early return for css-service messages when `pending_orchestrations` attribute present (orchestrator-only) |
 
 ### 15.3 Validation of the Self-Configuration Concept
 
@@ -1320,7 +1424,7 @@ The SMIA paper reports benchmarks from a robotic logistics validation scenario (
 
 Self-configuration time scales with the number of CSS elements in the AAS model (more CSS elements = more OWL instances to load and link). Case 0 defines only 4 CSS elements per capability chain (2 capabilities + 2 skills), significantly fewer than the paper's 21-element scenario — the expected self-configuration time for Case 0 is well under the reported 6.73 s average.
 
-The 2-message pattern (REQUEST + INFORM) observed in Case 0 is confirmed by the paper as the minimum interaction cost for direct execution. Multi-agent negotiation (planned for future cases) follows the 2n+1 formula: n PROPOSE messages + n ACCEPT/REJECT messages + 1 final CONFIRM, totalling 5 for 2 agents.
+The 2-message pattern (REQUEST + INFORM) observed in Case 0 is confirmed by the paper as the minimum interaction cost for direct execution. Multi-agent negotiation (implemented in Case 1 — see §16) involves more messages: the FIPA-CNP round (CFP + PROPOSE exchange + INFORM winner) plus the execution round (REQUEST + INFORM result) plus the result forwarding step; the total message count for 3 machines with 1 colour match is approximately 5–7 FIPA-ACL messages.
 
 The 0.034–0.098 s end-to-end response time validates that SMIA's XMPP-based FIPA-ACL communication introduces negligible latency relative to typical manufacturing operations (which occur on the scale of seconds to minutes). This supports requirement **R6** (P2P communication with I4.0-compliant language) without compromising responsiveness.
 
@@ -1369,7 +1473,7 @@ The Case 1 system consists of six Docker containers sharing one ejabberd XMPP se
 | `smia-machine0` | Manufacturing SMIA, red colour constraint | `LEGO_factory_case0.aasx` |
 | `smia-machine1` | Manufacturing SMIA, blue colour constraint | `LEGO_machine1_case0.aasx` |
 | `smia-machine2` | Manufacturing SMIA, white colour constraint | `LEGO_machine2_case0.aasx` |
-| `smia-orchestrator` | Orchestrator SMIA | `Orchestrator_case0.aasx` |
+| `smia-orchestrator` | Orchestrator SMIA | `SMIA_orchestrator.aasx` |
 | `smia-operator` | Operator GUI — human entry point | `SMIA_Operator_article.aasx` |
 
 The orchestrator sits between the operator and the machines. It is invisible to the physical asset — it never makes an HTTP call to Node-RED directly. Its sole job is to run the FIPA-CNP negotiation and forward the winning machine's execution result back to the operator.
@@ -1685,7 +1789,7 @@ The two threads are necessary because the negotiation and the execution are sema
 **How a machine's availability is determined.** During FIPA-CNP negotiation, SMIA calls the registered agent service `machineAvailValue` to compute the machine's `negValue`. The service function `get_machine_availability()` (file: `additional_tools/extended_agents/smia_machine_agent/smia_machine_agent_services.py`) makes an HTTP GET request to Node-RED:
 
 ```
-GET http://192.168.155.10:1880/smia/lego/availability
+GET http://nodered:1880/smia/lego/availability          (Docker-internal DNS)
 Response: "1.0" (plain text, machine is free)
       or: "0.0" (plain text, machine is executing a task)
 ```
