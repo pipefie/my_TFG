@@ -1399,6 +1399,7 @@ The following non-trivial issues were identified and resolved during implementat
 | `HandleNegotiationBehaviour: 'NoneType' object is not iterable` | RelationshipElement semanticIds in AASX used wrong casing: `#AccessibleThroughAgentService` (capital 'A') instead of `#accessibleThroughAgentService` — Track 3 uses exact lowercase match, so the OWL link was never created | Fixed all 3 machine AASXs with a Python zipfile/regex script: corrected IRI casing for all 5 relationship semanticIds |
 | Qualifier `hasImplementationType not found` at boot (Case 1) | Qualifier semanticId was set with `https://` instead of `http://` (typo in AASX PE) — SMIA's `get_qualifier_value_by_semantic_id()` does exact string comparison | Fixed all 3 machine AASXs (4 qualifiers per file) — IRI must be `http://www.w3id.org/upv-ehu/gcis/css-smia#hasImplementationType` |
 | Orchestrator race condition: both `ACLHandlingBehaviour` and `OrchestratorDispatchBehaviour` handling the same css-service message | SPADE broadcasts all messages to all matching behaviours; `ACLHandlingBehaviour` processed the message before the orchestrator could reserve its thread | Patched `acl_handling_behaviour.py`: early return for css-service messages when `pending_orchestrations` attribute present (orchestrator-only) |
+| Operator GUI crash on Load: `SyntaxError: Unexpected non-whitespace character after JSON at position 4` | Two latent bugs in `operator_gui_logic.py`'s `hasParameter` processing block, never triggered because no default SMIA AASX uses `hasParameter` relationships. Bug 1: `css_elems_info['skillData']` — key never exists → `KeyError`. Bug 2: `param_set.add(skill_param)` where `skill_param` is a list (same pattern as all other relationship types) → `TypeError: unhashable type: 'list'`. Both exposed when `SkillParameter_color` + `hasParameter` rel were added to the orchestrator AASX. | Patched `operator_gui_logic.py`: replaced the entire block with `self.myagent.skills_info[skill].update(skill_params_list)` — checks the correct dict and handles the list structure |
 
 ### 15.3 Validation of the Self-Configuration Concept
 
@@ -1514,7 +1515,7 @@ The AAS standard allows multiple shells in one AASX package. In the SMIA philoso
 [smia-machine0] — HandleNegotiationBehaviour (base SMIA, built-in)
     │ 6. single machine in negTargets → wins immediately (no PROPOSE needed)
     │    OR: calls machineAvailValue agent service
-    │        → GET http://192.168.155.10:1880/smia/lego/availability
+    │        → GET http://nodered:1880/smia/lego/availability
     │        → 1.0 (free) or 0.0 (busy)
     │ 7. sends INFORM {winner: true} to smia_orch (thread=neg_T)
     ▼
@@ -1525,8 +1526,11 @@ The AAS standard allows multiple shells in one AASX package. In the SMIA philoso
     ▼
 [smia-machine0] — HandleCapabilityBehaviour (base SMIA, built-in)
     │ 10. resolves Capability_PickPiece → Skill_PickPiece → AID pickPiece action
-    │     HTTP POST 192.168.155.10:1880/smia/lego/pick {"position":"0"}
-    │     Node-RED → MQTT → crane
+    │     AID base = http://nodered:1880, href = /smia/lego/pick (machine0)
+    │                                            /smia/lego/pick?position=1 (machine1)
+    │                                            /smia/lego/pick?position=2 (machine2)
+    │     HTTP POST http://nodered:1880/smia/lego/pick  ← empty body (see §16.6)
+    │     Node-RED reads position from URL query param → MQTT → crane
     │ 11. sends INFORM {result} to smia_orch (thread=exec_T)
     ▼
 [smia-orchestrator]
@@ -1720,6 +1724,34 @@ This map is hardcoded because the physical layout of the LEGO warehouse is fixed
 
 **Why the machine receives `{position: N}` and not `{color: X}`.** The machine's AID endpoint (`POST /smia/lego/pick`) expects a JSON body containing `position`. Node-RED, which implements the HTTP→MQTT translation, uses the position number to build the `bandera_custom:<N>` MQTT payload. It has no concept of colours — that abstraction exists only at the orchestration and AAS level. The orchestrator performs the translation and stores the `resolved_position` in its `pending_orchestrations` state dict before the negotiation begins, so that when the winner is known, the execution request carries the correct physical parameter.
 
+**Why the position is encoded in the AID URL, not the HTTP body.** SMIA's `HandleCapabilityBehaviour.execute_capability()` (source: `smia/behaviours/.../handle_capability_behaviour.py:403-406`) only populates the HTTP request body with skill parameters if the CSS ontology has `hasParameter` relationships defined for the Skill element:
+
+```python
+received_skill_input_data = {}
+if skill_instance.get_associated_skill_parameter_instances() is not None:
+    for iri, value in received_body_json['skillParams'].items():
+        skill_param_instance = get_ontology_instance_by_iri(iri)
+        received_skill_input_data[skill_param_instance.name] = value
+# → passed as JSON body to Node-RED
+```
+
+The machine AASXs do not define `hasParameter` relationships for `Skill_PickPiece` (they do not need the operator GUI to render a position input field — the position is determined by the orchestrator, not the operator). Therefore `received_skill_input_data = {}` and the HTTP body sent to Node-RED is empty.
+
+Node-RED's `pick_handler` already handles this gracefully via its fallback chain:
+
+```javascript
+let posRaw = body.position;                   // undefined (empty body)
+if (posRaw === undefined) posRaw = query.position;   // reads from URL ?position=N
+if (posRaw === undefined) posRaw = DEFAULT_POSITION; // fallback = 0
+```
+
+The position is therefore encoded in the machine's AID `href` as a URL query parameter:
+- `machine0` (red, slot 0): `href = /smia/lego/pick` → fallback `DEFAULT_POSITION=0` ✓
+- `machine1` (blue, slot 1): `href = /smia/lego/pick?position=1` → `query.position=1` ✓
+- `machine2` (white, slot 2): `href = /smia/lego/pick?position=2` → `query.position=2` ✓
+
+This is semantically correct: the warehouse slot number is a fixed physical property of each machine's AID interface — it describes *how* to invoke the physical action on that particular machine. Encoding it in the AID URL means it is part of the machine's standard description and requires no changes to any agent logic when machines are added or reorganised.
+
 ---
 
 ### 16.7 SPADE Broadcast Model and Thread Reservation
@@ -1862,7 +1894,9 @@ Operator          Orchestrator         Machine0              Node-RED
   │                    │  skillParams:     │                     │
   │                    │  {position:"0"}}  │                     │
   │                    │──────────────────►│                     │
-  │                    │                   │ POST /smia/lego/pick│
+  │                    │                   │ POST /smia/lego/pick│  ← empty body
+  │                    │                   │ (position from AID  │  ← URL: ?position=N
+  │                    │                   │  href query param)  │  ← or DEFAULT=0
   │                    │                   │────────────────────►│
   │                    │                   │◄────────────────────│
   │                    │                   │ {status:"ok",...}   │
@@ -1915,7 +1949,42 @@ execution REQUEST sent to SMIA_agent@ejabberd (exec_thread=...)
 result forwarded to operator (exec_thread=...)
 ```
 
-If the orchestrator returns a `FAILURE`, the most common causes are: colour misspelling in `skillParams`, no AASX in the folder with that colour in its `Capability_PickPiece`, or the `Orchestrator_case0.aasx` not having the correct CSS structure (which would prevent SMIA from booting).
+If the orchestrator returns a `FAILURE`, the most common causes are: colour misspelling in `skillParams`, no AASX in the folder with that colour in its `Capability_PickPiece`, or `SMIA_orchestrator.aasx` not having the correct CSS structure (which would prevent SMIA from booting).
+
+---
+
+### 16.12 How the Operator GUI Passes Color to the Orchestrator
+
+**The AAS SkillParameter mechanism.** The SMIA operator GUI reads skill parameters from the AAS model before rendering the request form. It does so via two paths:
+
+1. **Operation input variables** (`operator_gui_logic.py:95-103`): if a Skill element is an AAS `Operation`, its `inputVariable` list defines the parameters. This path is not used in SMIA (skills must be `Property` elements to avoid the MRO crash; see §14.4).
+
+2. **CSS `hasParameter` relationships** (`operator_gui_logic.py:125-132`): the GUI scans the `SemanticRelationships` submodel for relationships with `semanticId = http://www.w3id.org/hsu-aut/css#hasParameter`. For each such relationship, it records the `second` element (a `SkillParameter` element) as a parameter of the `first` element (the Skill).
+
+For the orchestrator, `SMIA_orchestrator.aasx` defines:
+- `SkillParameter_color` — a `Property` element with `semanticId = css#SkillParameter` in the `CapabilitiesAndSkills` submodel
+- `rel_SkillOrch_hasParam_color` — a `RelationshipElement` in `SemanticRelationships` linking `Skill_Orchestrate_PickPiece → SkillParameter_color` with `semanticId = css#hasParameter`
+
+When the operator selects `smia_orch@ejabberd → Capability_PickPiece → Skill_Orchestrate_PickPiece`, the GUI detects `SkillParameter_color` via the `hasParameter` relationship and renders a text input labelled `color`. The user types `red`, and the GUI sends:
+
+```json
+{
+  "capabilityIRI": "http://www.w3id.org/upv-ehu/gcis/css-smia#Capability_PickPiece",
+  "skillIRI":      "http://www.w3id.org/hsu-aut/css#Skill_Orchestrate_PickPiece",
+  "skillParams":   {"http://www.w3id.org/hsu-aut/css#color": "red"}
+}
+```
+
+Note: the GUI automatically prepends the CSS IRI namespace to bare parameter names (`color` → `http://www.w3id.org/hsu-aut/css#color`). The orchestrator's `_get_skill_param(skill_params, 'color')` handles both bare names and full IRIs as keys.
+
+**Fallback behaviour (color='').** If the operator sends no `skillParams` (e.g., by selecting `Skill_PickPiece` instead of `Skill_Orchestrate_PickPiece`, or by leaving color blank), the orchestrator receives `color=''` and treats it as *no colour filter*: all discovered machines are eligible. The winning machine receives `skillParams: {}` (empty), and Node-RED uses `position=0` as the default warehouse slot. This is a valid and documented fallback — useful for testing without committing to a colour constraint.
+
+**Benign BaSyx deserialization errors.** During orchestrator AAS discovery (scanning all `.aasx` files in the folder), the BaSyx SDK logs several `AASConstraintViolation` errors for the `SMIA_Operator_article.aasx`. This AASX (from the upstream SMIA repository) contains submodel elements whose `idShort` includes hyphens (e.g., `SoftwareNameplate-Instance`), violating the AAS constraint AASd-002 (only letters, digits, and underscores). These errors are:
+- **Benign**: the orchestrator only needs the `color` and `InstanceName` properties from each machine AASX; the failing elements are in the operator AASX and in ConceptDescription sections not used for discovery.
+- **Expected**: they have always been present in the upstream SMIA operator AASX; fixing them would require modifying the upstream asset (outside the scope of this TFG).
+- **Logged as ERROR but do not crash**: BaSyx continues parsing; discovered JIDs and colours are read correctly for all three machine AASXs.
+
+Similarly, `ConceptDescription duplicate identifier` warnings appear because all five AASXs in the folder embed the same CSS ontology ConceptDescriptions. BaSyx skips duplicates after the first occurrence — this is correct behaviour with no runtime impact.
 
 ---
 
@@ -1931,7 +2000,7 @@ Several challenges and limitations were encountered:
 
 **Limited error reporting**: When SMIA's `InitAASModelBehaviour` fails (e.g., due to an MRO crash), it logs the error but continues; capabilities and skills are simply not registered. The operator GUI shows "0 capabilities" with no indication of why. Better error propagation would improve the developer experience.
 
-**Single-hop execution**: Case 0 involves a single SMIA agent executing a capability on behalf of a single operator. More realistic flexible manufacturing scenarios require multi-agent negotiation: multiple agents offering overlapping capabilities, dynamic task allocation, and conflict resolution. These are addressed in the broader SMIA research agenda but were not within the scope of this TFG.
+**Multi-agent coordination complexity**: Case 0 demonstrates single-agent direct execution — simple and verifiable. Case 1 extends this to three machine agents with FIPA-CNP negotiation (§16). The added complexity introduced new failure modes: IRI casing sensitivity in Track 3 relationship matching, the `https://` vs `http://` qualifier semanticId typo (which caused silent OWL population failure), and the SPADE message broadcast race condition between `ACLHandlingBehaviour` and `OrchestratorDispatchBehaviour`. Each required careful source-level diagnosis. This experience demonstrates that the AAS + CSS approach, while powerful, imposes a high precision requirement on the AAS model author — a single incorrect character in a semanticId causes a silent runtime failure rather than an early validation error.
 
 **No security layer**: The current deployment uses no authentication for HTTP calls (Node-RED accepts any POST without credentials). In a production environment, appropriate security measures (TLS, API keys, OAuth) would be required.
 

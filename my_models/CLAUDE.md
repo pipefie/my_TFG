@@ -417,7 +417,12 @@ AAS: LEGO_factory (or LEGO_machine1, LEGO_machine2)
                    └── InteractionMetadata
                        └── actions
                            ├── pickPiece  (ActionAffordance)
-                           │   ├── forms: href=/smia/lego/pick, method=POST
+                           │   ├── forms: href=/smia/lego/pick (machine0)
+                           │   │         href=/smia/lego/pick?position=1 (machine1)
+                           │   │         href=/smia/lego/pick?position=2 (machine2)
+                           │   │         NOTE: SMIA sends empty HTTP body (no hasParameter
+                           │   │         for Skill_PickPiece); position comes from URL query
+                           │   │         param → Node-RED reads query.position as fallback
                            │   └── input: color (xs:string), position (xs:int)
                            └── placePiece (ActionAffordance)
                                └── forms: href=/smia/lego/place, method=POST
@@ -475,12 +480,21 @@ AAS: SMIA_orchestrator
         1. SubmodelWithCapabilitySkillOntology
         2. CapabilitiesAndSkills
                ├── Capability_PickPiece (semanticId: css-smia#AgentCapability)  ← AgentCapability, not AssetCapability!
-               │   └── qualifier: hasLifecycle=OFFER
-               └── Skill_Orchestrate_PickPiece (Property xs:string)
+               │   ├── qualifier: hasLifecycle=OFFER
+               │   ├── color (Property xs:string)          ← used by orchestrator for AAS discovery/display
+               │   └── position (Property xs:int)
+               ├── Skill_Orchestrate_PickPiece (Property xs:string)
+               └── SkillParameter_color (Property xs:string, semanticId: css#SkillParameter)
+                   ← linked to Skill_Orchestrate_PickPiece via hasParameter rel
+                   ← operator GUI reads this and shows a color input field
         3. SemanticRelationships
-               └── rel_CapPick_isRealizedBySkill_Orch
-                   semanticId: ...#isRealizedBy
-                   first: Capability_PickPiece  second: Skill_Orchestrate_PickPiece
+               ├── rel_CapPick_isRealizedBy_SkillOrchPick
+               │   semanticId: ...#isRealizedBy
+               │   first: Capability_PickPiece  second: Skill_Orchestrate_PickPiece
+               └── rel_SkillOrch_hasParam_color
+                   semanticId: http://www.w3id.org/hsu-aut/css#hasParameter
+                   first: Skill_Orchestrate_PickPiece  second: SkillParameter_color
+                   ← makes GUI prompt for color when Skill_Orchestrate_PickPiece is selected
         4. SoftwareNameplate
                └── SoftwareNameplateInstance
                    ├── InstanceName: smia_orch@ejabberd  ← MUST include @ejabberd domain!
@@ -620,7 +634,35 @@ Skill_NegAvailability (hasImplementationType=OPERATION)
 **Fix:** Added two comparison strategies: string comparison (`str(conn_ref) == str(asset_connection_ref)`) and key-tuple comparison (normalize `(type, value)` tuples).
 **Status:** Upstream PR needed. Applied as build-time patch in both Dockerfiles.
 
-### 11.2 `acl_handling_behaviour.py` — orchestrator race condition
+### 11.2 `operator_gui_logic.py` — hasParameter processing (two latent upstream bugs)
+
+**Location in container:** Applied via `RUN` in the smia-operator Dockerfile at build time.
+**Why it was never triggered:** No default SMIA AASX uses a `hasParameter` relationship. Both bugs only manifest when an AASX has a `RelationshipElement` with `semanticId = css#hasParameter` — which the orchestrator AASX now has (for `SkillParameter_color`).
+
+**Bug 1 — wrong dict key (`css_elems_info['skillData']`):**
+Original code checked `if skill not in css_elems_info['skillData']`. The key `'skillData'` is never set anywhere — `css_elems_info` is keyed by capability `id_short` strings. This `KeyError` crashes the load handler → browser gets malformed JSON.
+Fix: `css_elems_info['skillData']` → `self.myagent.skills_info`.
+
+**Bug 2 — unhashable type (`set.add(list)`):**
+`aas_elems` maps `domain_elem → [list_of_range_elems]` (same pattern as `isRealizedBy` → list of skills). The original code called `param_set.add(skill_param)` where `skill_param` is the whole list → `TypeError: unhashable type: 'list'`.
+
+**Bug 3 — AAS objects stored instead of id_short strings:**
+The `operator_request_controller` does `eval(skill_params)` and `form.get(param)` — both expect id_short strings (same as the Operation parameter path). Storing AAS objects produces `eval("{ExtendedSkillParameter[...]}") → SyntaxError`.
+Fix: store `p.id_short for p in skill_params_list` instead of the objects.
+
+**AASX consequence:** The SkillParameter element id_short must be `color` (not `SkillParameter_color`) because the GUI passes it directly as the form field name → IRI key becomes `css#color`, which is what `_get_skill_param(params, 'color')` matches.
+
+**Final fix (replaces the entire hasParameter block):**
+```python
+for skill, skill_params_list in aas_elems.items():
+    if skill not in self.myagent.skills_info:
+        self.myagent.skills_info[skill] = set()
+    self.myagent.skills_info[skill].update(p.id_short for p in skill_params_list)
+```
+**Impact:** Backward compatible — machine AASXs have no `hasParameter` → this branch never entered for them.
+**Status:** Two pre-existing upstream bugs, now fixed. Pending upstream PR.
+
+### 11.3 `acl_handling_behaviour.py` — orchestrator race condition
 
 **Location in container:** Applied via `RUN` in the orchestrator Dockerfile at build time.
 **Bug:** When an operator sends a `css-service` REQUEST to the orchestrator, `ACLHandlingBehaviour` and `OrchestratorDispatchBehaviour` both check the inbox concurrently. `ACLHandlingBehaviour` sees the message before `OrchestratorDispatchBehaviour` reserves it → both behaviours handle the same message.
@@ -744,8 +786,11 @@ docker compose -f my_models/docker-compose.yml up -d
 | XMPP auth failure / IP blacklisting | Password mismatch between `.env` and ejabberd DB | `docker compose down -v && up -d` (full ejabberd DB reset) |
 | `HandleNegotiationBehaviour: 'NoneType' object is not iterable` | Track 3 OWL link missing — `rel_SkillNegAvail_agentSvc` semanticId has wrong casing | Check IRI: must be exactly `...#accessibleThroughAgentService` (lowercase 'a') |
 | Qualifier `hasImplementationType not found` at boot | Qualifier semanticId is `https://` instead of `http://` | Fix in AASX PE: `http://www.w3id.org/upv-ehu/gcis/css-smia#hasImplementationType` |
-| Orchestrator handles request but no CFP sent | Color not extracted from skillParams | Params keys are IRIs (`http://...css#color`), not bare strings; check `_get_skill_param()` |
+| CFP sent but color='' (all machines eligible) | Operator GUI sent no skillParams — `Skill_Orchestrate_PickPiece` has no `hasParameter` relationship | Add `SkillParameter_color` element and `rel_SkillOrch_hasParam_color` (semanticId: css#hasParameter) to orchestrator AASX; rebuild orchestrator. **Already done** in current SMIA_orchestrator.aasx |
+| GUI shows no color input when Skill_Orchestrate_PickPiece selected | GUI reads params from `hasParameter` relationships only — none defined | Add `SkillParameter_color` + `hasParameter` rel to orchestrator AASX (see above). Now fixed. |
 | Operator shows orchestrator alongside machines in GUI | Expected behavior — orchestrator has `AgentCapability_PickPiece` → appears in discovery | Select `smia_orch@ejabberd` to trigger FIPA-CNP; selecting a machine gives direct execution |
+| `AASConstraintViolation: id_short must contain only letters/digits/underscore` in orchestrator logs | BaSyx SDK parsing `SMIA_Operator_article.aasx` which has elements with hyphens (e.g. `SoftwareNameplate-Instance`) — violations in that AASX | **Benign** — color/JID discovery still works correctly. These affect the operator AASX, not the machine AASXs |
+| `ConceptDescription duplicate identifier` in orchestrator logs | Multiple AASXs embed the same CSS ConceptDescriptions; BaSyx skips duplicates | **Benign** — BaSyx reports and ignores them; no impact on runtime |
 | SCRAM-SHA-512-PLUS warnings in ejabberd logs | Harmless — SPADE tries channel-binding variants first, falls through to plain SCRAM-SHA-512 | No action needed |
 
 ---
@@ -809,6 +854,7 @@ Case 1 message count with 3 machines: 1 (operator→orch) + 3 (CFP→machines) +
 | All `.aasx` machine files | **New — TFG** | AAS models for 3 machines + orchestrator; CSS-enriched with full ontology wiring |
 | `smia_agent.py` (patched) | **SMIA bug fix** | Asset-connection object-identity lookup; pending upstream PR |
 | `acl_handling_behaviour.py` (patched) | **SMIA bug fix** | Race condition between ACLHandlingBehaviour and OrchestratorDispatchBehaviour |
+| `operator_gui_logic.py` (patched) | **SMIA bug fix** | `css_elems_info['skillData']` KeyError in `hasParameter` processing — latent upstream bug exposed by adding SkillParameter_color to orchestrator AASX |
 | `docker-compose.yml`, Dockerfiles, `flows.json`, `ejabberd.yml` | **Infrastructure — TFG** | Full containerized deployment stack |
 
 **What SMIA provides out of the box (we do NOT reimplement this):**

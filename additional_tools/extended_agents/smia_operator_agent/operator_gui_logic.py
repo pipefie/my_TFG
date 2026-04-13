@@ -123,13 +123,15 @@ class GUIControllers:
                             else:
                                 css_elems_info[capability.id_short]['capConstraints'].update(const_info)
                     if CapabilitySkillOntologyInfo.CSS_ONTOLOGY_PROP_HASPARAMETER_IRI == rel.iri:
-                        for skill, skill_param in aas_elems.items():
-                            if skill not in css_elems_info['skillData']:
-                                param_set = set()
-                                param_set.add(skill_param)
-                                self.myagent.skills_info[skill] = param_set
-                            else:
-                                self.myagent.skills_info[skill].add(skill_param)
+                        # bug fix: aas_elems values are lists (same pattern as isRealizedBy); original code used
+                        # css_elems_info['skillData'] (key never exists → KeyError) and assumed a single element
+                        # (set.add(list) → TypeError: unhashable type: 'list').
+                        # Store id_short strings (not AAS objects) to match the Operation param path —
+                        # the GUI's eval(skill_params) and form.get(param) both operate on id_short strings.
+                        for skill, skill_params_list in aas_elems.items():
+                            if skill not in self.myagent.skills_info:
+                                self.myagent.skills_info[skill] = set()
+                            self.myagent.skills_info[skill].update(p.id_short for p in skill_params_list)
 
         # Once all data is analyzed, it is saved in the agent dictionary
         self.myagent.css_elems_info = css_elems_info
