@@ -1625,6 +1625,18 @@ Notice that steps 10–11 (the actual physical execution) are handled entirely b
 | `add_new_agent_capability` | `(behaviour: spade.behaviour.Behaviour)` | Add a SPADE behaviour to the agent — started alongside all base SMIA behaviours when the agent enters StateRunning |
 | `add_new_asset_connection` | `(interface_ref, connection)` | Register a custom asset protocol handler (e.g., OPC UA, MQTT direct) |
 
+**Agent service vs. agent capability — the key distinction.** Despite sharing the same extension API, these two hooks have fundamentally different execution models:
+
+| Property | Agent service (`add_new_agent_service`) | Agent capability (`add_new_agent_capability`) |
+|---|---|---|
+| Execution | **Passive** — called only when SMIA's internal dispatch invokes it | **Active** — runs as a SPADE `CyclicBehaviour` in the asyncio event loop |
+| Messages | Cannot send or receive FIPA-ACL messages | Full XMPP access — sends CFPs, REQUESTs, INFORMs |
+| State | Stateless between calls | Maintains state across event loop iterations |
+| Return value | Returns a Python value directly to the calling framework | No direct return — communicates via FIPA-ACL messages |
+| Typical use | Compute a value during an existing protocol flow (e.g., negotiation score) | Drive a new proactive protocol (e.g., FIPA-CNP initiator, monitoring loop) |
+
+The choice is determined by a single question: *does the extension need to proactively send messages, or only respond to internal calls from the framework?* In this TFG: `get_machine_availability()` is an agent service — it is called passively by `HandleNegotiationBehaviour` when it needs a negotiation score. `OrchestratorDispatchBehaviour` is an agent capability — it is an active behaviour that drives the full FIPA-CNP initiator state machine, sends its own XMPP messages, and keeps state in `pending_orchestrations` across iterations.
+
 **The Dockerfile-based entrypoint override.** Since we cannot change the upstream Docker image (we do not own it), we replace the default launcher by providing a custom `CMD` in our own Dockerfile:
 
 ```dockerfile
@@ -1689,27 +1701,57 @@ All three machines share the same `smia_machine_starter.py` and `smia_machine_ag
 **The protocol messages:**
 
 ```
-Initiator                         Contractors (all)
-    │                                    │
-    │── CFP (Call For Proposals) ───────►│  "who can do X?"
-    │                                    │
-    │◄─ PROPOSE (bid value) ────────────►│  contractors talk to each other
-    │   (only winner sends to initiator) │  comparing their bids
-    │                                    │
-    │◄── INFORM {winner: true} ──────────│  from the winner only
-    │                                    │
-    │── REQUEST (execute task) ─────────►│  to winner only
-    │                                    │
-    │◄── INFORM {result} ────────────────│
+Initiator (Manager)               Contractors
+    │                                  │
+    │── CFP (Call For Proposals) ─────►│  "who can do this task?"
+    │                                  │
+    │◄─ PROPOSE (bid value) ──────────►│  peers compare bids among themselves
+    │   (only winner reports back)     │
+    │                                  │
+    │◄── INFORM {winner: true} ────────│  from the winner only
+    │                                  │
+    │── REQUEST (execute task) ────────│  to winner only
+    │                                  │
+    │◄── INFORM {result} ──────────────│
 ```
+
+**SMIA's adaptation: peer-to-peer PROPOSE exchange.** The classical FIPA-CNP has each contractor send its PROPOSE back to the initiator, which then compares and sends an ACCEPT/REJECT. SMIA's `HandleNegotiationBehaviour` deviates from this: machines broadcast PROPOSE messages directly to each other (peer-to-peer), each compares locally, and only the winner sends a single INFORM to the initiator. The orchestrator never sees individual bid values — only the winner announcement:
+
+```
+Classical FIPA-CNP:
+    Initiator ── CFP ──► Machine A, Machine B
+    Machine A ── PROPOSE(X) ──────────────────► Initiator
+    Machine B ── PROPOSE(Y) ──────────────────► Initiator
+    Initiator compares X vs Y → ACCEPT winner, REJECT loser
+
+SMIA-adapted FIPA-CNP (HandleNegotiationBehaviour):
+    Orchestrator ── CFP ──► Machine A, Machine B
+                    Machine A ──── PROPOSE(X=1.0) ────► Machine B
+                    Machine B ──── PROPOSE(Y=1.0) ────► Machine A
+                    (each machine compares, highest wins;
+                     tie-break: lowest JID alphabetically wins)
+    Machine B (winner) ── INFORM{winner:true} ──────────► Orchestrator
+    Orchestrator ── REQUEST ──────────────────────────────► Machine B
+    Machine B ── INFORM{result} ─────────────────────────► Orchestrator
+```
+
+**Degenerate case (one machine per colour).** In the current deployment, colour filtering reduces `negTargets` to exactly one machine per request. `HandleNegotiationBehaviour` detects this:
+
+```
+3. If only one machine is in `negTargets`: wins immediately — sends
+   INFORM {winner: true} to negRequester without computing negValue or
+   broadcasting any PROPOSE. (No GET to Node-RED, no peer messages.)
+```
+
+This degenerate case is the common path in Case 1. The PROPOSE exchange only occurs if two or more machines share the same colour constraint — which the protocol already supports without code changes.
 
 **The responder/proposer side (built into base SMIA — `HandleNegotiationBehaviour`).**
 When a machine receives a CFP, `NegotiatingBehaviour` (a base SMIA behaviour) detects the `fipa-contract-net` protocol in the message metadata and spawns a `HandleNegotiationBehaviour` for it. This behaviour:
 
 1. Reserves the `neg_thread` so `ACLHandlingBehaviour` ignores subsequent messages on that thread
 2. Validates that the requested capability (`capabilityIRI`) exists in its CSS ontology
-3. If only one machine is in `negTargets`: wins immediately — sends `INFORM {winner: true}` to `negRequester` without broadcasting a PROPOSE
-4. If multiple machines are in `negTargets`: computes `negValue` via the `negCriterion` agent service, broadcasts `PROPOSE {negValue}` to all other `negTargets`
+3. If only one machine is in `negTargets`: wins immediately (no PROPOSE broadcast, no availability check)
+4. If multiple machines are in `negTargets`: computes `negValue` via the `negCriterion` agent service, broadcasts `PROPOSE {negValue}` to all other `negTargets` (peer-to-peer)
 5. Collects `PROPOSE` messages from peers, compares values; highest value wins
 6. Winner sends `INFORM {winner: true}` to `negRequester` (the orchestrator)
 
@@ -1911,6 +1953,83 @@ msg.payload = busy ? "0.0" : "1.0";
 **Why an agent service (not an asset service)?** An agent service is a Python function registered directly on the SMIA agent. An asset service is an HTTP endpoint defined in the AID submodel. The availability query is performed by the agent's negotiation behaviour — not by a skill execution. Using an agent service avoids adding an unnecessary entry to the AID submodel and keeps the AID clean (it only describes physical action endpoints, not internal monitoring queries). This also allows using Python's `aiohttp` for the GET, which is compatible with SMIA's `asyncio` event loop — using the synchronous `requests` library would block the entire event loop.
 
 **Behaviour on error.** If Node-RED is unreachable, `aiohttp.ClientConnectorError` is caught and `0.0` is returned. Treating an unreachable Node-RED as *busy* (not *available*) is the safe default — it prevents the orchestrator from dispatching work to a machine whose bridge is broken.
+
+All three error paths (`ClientConnectorError`, `ValueError`, generic `Exception`) return `0.0`. The `ValueError` case handles the scenario where Node-RED responds with an HTML error page or an empty body — `float(text.strip())` raises `ValueError`, which is caught and reported as busy. This conservative design means any malfunction in the bridge is automatically reflected as non-availability, without requiring explicit monitoring.
+
+**`Skill_NegAvailability` — the AAS element that bridges FIPA-CNP to Node-RED.**
+
+The `negCriterion` field in the CFP body is an IRI. The orchestrator puts the IRI `http://www.w3id.org/hsu-aut/css#Skill_NegAvailability` there. Each machine resolves it against its CSS ontology to find which Python function to call. This IRI refers to a specific AAS element — and that element **was created by this TFG**. It does not exist in the upstream SMIA framework or in the CSS ontology.
+
+**What the AAS element looks like** (inside each machine AASX, `CapabilitiesAndSkills` submodel):
+
+```
+Skill_NegAvailability  [Property, xs:string, semanticId: http://www.w3id.org/hsu-aut/css#Skill]
+    └── Qualifier
+        ├── type:       SkillImplementationType
+        ├── value:      OPERATION
+        └── semanticId: http://www.w3id.org/upv-ehu/gcis/css-smia#hasImplementationType
+```
+
+And in `SemanticRelationships`:
+
+```
+rel_SkillNegAvail_agentSvc  [RelationshipElement]
+    semanticId: http://www.w3id.org/upv-ehu/gcis/css-smia#accessibleThroughAgentService
+    first:  → Skill_NegAvailability
+    second: → AID/Interface_00/InteractionMetadata/actions/machineAvailValue
+```
+
+**How the IRI is assembled.** During self-configuration (Track 2, `init_aas_model_behaviour.py:174–175`), SMIA creates OWLready2 individuals for every CSS element in the AAS. For `Skill_NegAvailability`:
+
+```python
+# SMIA calls:
+create_ontology_object_instance(ontology_class, sme_elem.id_short)
+#   ontology_class = the OWL class object for css:Skill
+#   sme_elem.id_short = "Skill_NegAvailability"
+
+# OWLready2 constructs:
+css_Skill("Skill_NegAvailability")
+# → IRI = {class_ontology_namespace} + "#" + "Skill_NegAvailability"
+#        = http://www.w3id.org/hsu-aut/css  + "#" + "Skill_NegAvailability"
+#        = http://www.w3id.org/hsu-aut/css#Skill_NegAvailability
+```
+
+The namespace (`http://www.w3id.org/hsu-aut/css`) is determined by where OWL defines the `Skill` class — in the HSU-aut base CSS ontology — not by any choice made in this project. This means the IRI cannot be changed by renaming the element in a different namespace; the namespace is fixed by the class definition.
+
+**Two-place coupling — both must be identical.**
+
+| Location | Value |
+|---|---|
+| `id_short` of `Skill_NegAvailability` in each machine AASX | `Skill_NegAvailability` |
+| `NEG_CRITERION_IRI` in `orchestrator_dispatch_behaviour.py:126` | `"http://www.w3id.org/hsu-aut/css#Skill_NegAvailability"` |
+
+The resolution (source: `capability_skill_ontology.py:126–129`):
+```python
+for instance_class in self.ontology.individuals():
+    if instance_class.iri == instance_iri:   # exact string equality
+        return instance_class
+return None
+```
+
+If the `id_short` in the AASX does not match the string in the orchestrator code — even by one character — `get_ontology_instance_by_iri()` returns `None`. SMIA then calls `get_associated_skill_interface_instances(None)` → returns `[]` → `negValue` defaults to `0.0` → the machine receives no task → **no error message is logged**. This silent failure makes the coupling one of the most fragile points in the entire system. Any future developer who renames the AASX element must also update `NEG_CRITERION_IRI` in the orchestrator code, and vice versa.
+
+**Why a Skill and not a SkillInterface.** SMIA's resolution chain requires starting from the Skill:
+
+```
+CFP body: negCriterion IRI
+    → get_ontology_instance_by_iri(IRI)          [exact string match]
+    → Skill_NegAvailability OWL instance
+    → get_associated_skill_interface_instances()  [traverses accessibleThroughAgentService]
+    → machineAvailValue SkillInterface instance
+    → get_aas_sme_ref()                           [gets the AAS element reference]
+    → execute_agent_service_by_id('machineAvailValue')
+```
+
+If `negCriterion` pointed directly at `machineAvailValue` (the SkillInterface), step 3 (`get_associated_skill_interface_instances()` called on a SkillInterface) returns an empty set — the chain breaks and `negValue=0.0` silently.
+
+**Why `Skill_NegAvailability` has no `isRealizedBy` from any Capability.** The standard CSS chain runs: `Capability → isRealizedBy → Skill → accessibleThrough* → SkillInterface`. `Skill_NegAvailability` breaks this pattern intentionally — it has no incoming `isRealizedBy` relationship from any Capability. This is correct: availability reporting is not a user-facing capability that an operator should ever request directly. It is an internal negotiation mechanism that the FIPA-CNP protocol accesses by IRI, bypassing the Capability layer entirely. Declaring a hypothetical `Capability_NegAvailability` would be semantically wrong — the operator should not see it in the GUI.
+
+**Naming rationale.** The name `Skill_NegAvailability` reads as "the Skill that computes the Negotiation Availability value." The `Neg` prefix distinguishes it from a hypothetical generic `Skill_Availability` that could mean something different in another context. It follows the established SMIA id_short convention (`Skill_PickPiece`, `Skill_PlacePiece`) — same prefix, same `_CamelCase` suffix — which is important because future developers extending the system will pattern-match against existing elements.
 
 ---
 

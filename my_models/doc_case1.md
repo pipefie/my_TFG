@@ -85,6 +85,11 @@ During self-configuration (Track 1), SMIA creates OWLready2 instances for each C
 10. [AASX Models — Full Structure](#10-aasx-models--full-structure)
 11. [Agent Services vs. Agent Capabilities](#11-agent-services-vs-agent-capabilities)
 12. [Machine Availability Service](#12-machine-availability-service)
+    - [12.1 `Skill_NegAvailability` — What It Is, How It Was Created, and Why](#121-skill_negavailability--what-it-is-how-it-was-created-and-why)
+    - [12.2 Purpose](#122-purpose)
+    - [12.3 Implementation](#123-implementation)
+    - [12.4 Registration](#124-registration)
+    - [12.5 How SMIA Calls It](#125-how-smia-calls-it)
 13. [Orchestrator Dispatch Behaviour](#13-orchestrator-dispatch-behaviour)
 14. [Custom Docker Images and Patches](#14-custom-docker-images-and-patches)
     - [14.2 Machine Image](#142-machine-image-my_modelsdockersmia-machinedockerfile)
@@ -911,11 +916,122 @@ When `smia.run()` is called and the agent enters `StateRunning`, SMIA starts all
 
 ## 12. Machine Availability Service
 
-### 12.1 Purpose
+### 12.1 `Skill_NegAvailability` — What It Is, How It Was Created, and Why
+
+**This was created by this TFG. The name does not exist in the upstream SMIA framework or the CSS ontology.**
+
+The SMIA framework provides the entire FIPA-CNP infrastructure: the `negCriterion` field in the CFP body, the OWL instance resolution chain, and the `accessibleThroughAgentService` relationship. What we had to design and create is the specific AAS element that becomes the negotiation criterion for our use case.
+
+#### What we created in each machine AASX
+
+In each machine AASX (under `CapabilitiesAndSkills` submodel):
+
+```
+Skill_NegAvailability  [Property, xs:string, value=""]
+    semanticId: http://www.w3id.org/hsu-aut/css#Skill   ← CSS Skill class
+    Qualifier:
+        type:      SkillImplementationType
+        value:     OPERATION
+        semanticId: http://www.w3id.org/upv-ehu/gcis/css-smia#hasImplementationType
+```
+
+And in `SemanticRelationships`:
+
+```
+rel_SkillNegAvail_agentSvc  [RelationshipElement]
+    semanticId: http://www.w3id.org/upv-ehu/gcis/css-smia#accessibleThroughAgentService
+    first:  → Skill_NegAvailability
+    second: → AID/Interface_00/actions/machineAvailValue
+```
+
+#### How SMIA turns the `id_short` into an IRI (the mechanism)
+
+During self-configuration Track 1 (`init_aas_model_behaviour.py:174-175`), SMIA creates an OWLready2 individual from the AAS element:
+
+```python
+created_instance = await self.myagent.css_ontology.create_ontology_object_instance(
+    ontology_class,        # the OWL class object for css:Skill
+    sme_elem.id_short      # "Skill_NegAvailability"
+)
+```
+
+`create_ontology_object_instance` calls `ontology_class('Skill_NegAvailability')` — standard OWLready2 individual creation. OWLready2 assembles the IRI as:
+
+```
+individual.iri = ontology_namespace_of_the_class + "#" + instance_name
+                = http://www.w3id.org/hsu-aut/css      + "#" + "Skill_NegAvailability"
+                = http://www.w3id.org/hsu-aut/css#Skill_NegAvailability
+```
+
+**The namespace is determined by the OWL class, not by us.** `css:Skill` is defined in the HSU-aut CSS ontology (`http://www.w3id.org/hsu-aut/css`). Any AAS element declared with `semanticId = css#Skill` will have its OWL individual placed in that namespace. This is why the IRI begins with `hsu-aut/css#`, not `css-smia#` — even though we are extending SMIA.
+
+#### The two-place coupling — the only fragile point
+
+The orchestrator hardcodes this IRI in `orchestrator_dispatch_behaviour.py:126`:
+
+```python
+# IRI of the Skill_NegAvailability OWL individual that machines use to compute negValue.
+# Format: css-smia ontology base IRI + idShort of the Skill element in the AASX.
+# Must match exactly: get_ontology_instance_by_iri() does a string equality check.
+NEG_CRITERION_IRI = "http://www.w3id.org/hsu-aut/css#Skill_NegAvailability"
+```
+
+This value is placed in the `negCriterion` field of every CFP. Each machine resolves it via:
+
+```python
+# In capability_skill_ontology.py:116-129
+async def get_ontology_instance_by_iri(self, instance_iri):
+    for instance_class in self.ontology.individuals():
+        if instance_class.iri == instance_iri:   # exact string equality
+            return instance_class
+    return None
+```
+
+**Exact string equality — no partial match, no normalization.** The two places that must stay in sync:
+
+| Location | Value |
+|---|---|
+| `id_short` in each machine AASX (`CapabilitiesAndSkills/Skill_NegAvailability`) | `Skill_NegAvailability` |
+| `NEG_CRITERION_IRI` in `orchestrator_dispatch_behaviour.py:126` | `"http://www.w3id.org/hsu-aut/css#Skill_NegAvailability"` |
+
+**What happens if they don't match:** `get_ontology_instance_by_iri()` returns `None`. `HandleNegotiationBehaviour` catches `None` and defaults `negValue` to `0.0`. The machine participates in the negotiation with score 0 and never wins. **No exception is raised, no error is logged at ERROR level** — it is a silent failure. This is the root cause of the `ñ` bug that was fixed earlier (the stray character made the IRI not match).
+
+#### Why it is a Skill, not a SkillInterface
+
+`negCriterion` in the CFP body points to the **Skill** IRI, not the **SkillInterface** IRI. This is intentional in the SMIA design:
+
+- The Skill (`Skill_NegAvailability`) is the *what* — the specific function that computes availability for this machine.
+- The SkillInterface (`machineAvailValue`) is the *how* — the invocation mechanism (a Python agent service).
+
+SMIA resolves `negCriterion → Skill_NegAvailability OWL instance → get_associated_skill_interface_instances() → machineAvailValue → execute_agent_service_by_id('machineAvailValue')`.
+
+If `negCriterion` pointed directly to the SkillInterface, `get_associated_skill_interface_instances()` would receive a SkillInterface instance (not a Skill), the OWL property traversal would return empty, and `negValue` would default to 0.0.
+
+This also mirrors the CSS ontology design intent: a Skill is the unique identifier of a concrete implementation. Different machines could compute availability via different mechanisms (HTTP, OPC-UA, a lookup table) — each as a distinct Skill with a distinct IRI. `negCriterion` specifies *which kind of availability measurement* to use, and each machine independently resolves the invocation path from its own OWL instance graph.
+
+#### Why it does not link via `isRealizedBy` to a Capability
+
+Standard CSS chains go: `Capability → isRealizedBy → Skill → accessibleThrough* → SkillInterface`. `Skill_NegAvailability` breaks this pattern — it has no `isRealizedBy` incoming relationship from any Capability. This is correct: availability reporting is not a user-facing capability that an operator requests. It is an internal negotiation mechanism that the FIPA-CNP protocol accesses directly by IRI. Declaring a `Capability_NegAvailability` would be wrong — the operator should never be able to request "compute your availability" as a standalone capability.
+
+#### Naming rationale
+
+`Skill_NegAvailability` follows the established SMIA convention (`Skill_PickPiece`, `Skill_PlacePiece`). The name reads as "the Skill that computes the Negotiation Availability value." The `Neg` prefix was chosen deliberately to distinguish it from a hypothetical generic `Skill_Availability` that could mean something else in other contexts.
+
+#### Extending for future use
+
+**If you rename the Skill:** change `id_short` in all machine AASXs AND update `NEG_CRITERION_IRI` in `orchestrator_dispatch_behaviour.py`. Both must change together.
+
+**If you add a new type of negotiation criterion** (e.g., pick time, queue depth): create a new Skill element with a different `id_short`, link it to a different agent service, and pass that Skill's IRI as `negCriterion` in the CFP. The SMIA framework resolves any valid Skill IRI — `Skill_NegAvailability` is not hardcoded inside the framework itself, only in our orchestrator code.
+
+**If machines should use different criteria** (e.g., machine A reports availability, machine B reports queue depth): each machine only needs to have the Skill IRI referenced in the CFP as an OWL individual. If machine B has `Skill_QueueDepth` linked to a different agent service, but the orchestrator sends `negCriterion = Skill_NegAvailability`, machine B's lookup returns `None` and it scores 0.0. Each machine must implement the same criterion Skill for the negotiation to be fair.
+
+---
+
+### 12.2 Purpose
 
 Each machine must report its availability (0.0 = busy, 1.0 = free) to participate in FIPA-CNP negotiation. This value is the machine's `negValue`: the criterion by which the winner is selected. Node-RED tracks whether the machine is currently processing a command by maintaining a `machine_busy` global variable, set to `true` when a POST arrives and cleared to `false` after the MQTT publish completes.
 
-### 12.2 Implementation
+### 12.3 Implementation
 
 **File:** `additional_tools/extended_agents/smia_machine_agent/smia_machine_agent_services.py`
 
@@ -977,7 +1093,7 @@ async def get_machine_availability():
 
 **Error conservatism:** All three error paths return `0.0`. An unreachable machine — whether due to Node-RED being down, a misconfigured flow, or any other failure — is treated as busy. This ensures such a machine cannot win a FIPA-CNP negotiation and be sent an execution request it cannot fulfill.
 
-### 12.3 Registration
+### 12.4 Registration
 
 In `smia_machine_starter.py`:
 ```python
@@ -986,7 +1102,7 @@ smia_agent.add_new_agent_service('machineAvailValue', machine_svc.get_machine_av
 
 The string `'machineAvailValue'` must exactly match the `id_short` of the `machineAvailValue` action inside `Interface_00` in the machine's AASX. This is the only link between the AAS model and the Python function. If the `id_short` or the string key differ, the service is never found and the negotiation falls back to `negValue=0.0`.
 
-### 12.4 How SMIA Calls It
+### 12.5 How SMIA Calls It
 
 `HandleNegotiationBehaviour.get_neg_value_with_criteria()`:
 1. Gets the OWL instance of `Skill_NegAvailability` by resolving the `negCriterion` IRI from the CFP.
