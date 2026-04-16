@@ -1223,13 +1223,79 @@ This fix is applied at **image build time** via the Dockerfile `RUN` step: the p
 
 ### 14.5 Node-RED Flow
 
-The Node-RED flow (`flow_dida_central_lego.json`) implements the HTTP-to-MQTT bridge:
+The containerised Node-RED flow is stored in `my_models/nodered/flows.json` (loaded on startup by the `nodered` service). It exposes three HTTP endpoints:
 
-1. **HTTP In node**: Listens for POST requests at `/smia/lego/pick`.
-2. **JSON node**: Parses the request body.
-3. **Function node**: Extracts the `position` parameter from the request (tries `payload.position`, `query.position`, `payload.skillParams.position`; falls back to `DEFAULT_POSITION = 0` if not found). Validates that position is an integer 0–8. Builds the MQTT payload: `bandera_custom:<position>`.
-4. **MQTT Out node**: Publishes to topic `vicom/61/piso_0/lab/lego/commands` on broker `mosquitto-central:1883`, QoS 1.
-5. **HTTP Response node**: Returns a JSON response with the publication status.
+#### Pick flow (POST `/smia/lego/pick`)
+
+Node structure:
+
+```
+[HTTP In: POST /smia/lego/pick]
+    → [Function: pick_handler]
+    → [MQTT Out: mosquitto-central:1883 / vicom/61/piso_0/lab/lego/commands / QoS=1]
+    → [HTTP Response: 200 JSON]
+```
+
+The `pick_handler` function node:
+
+```javascript
+var DEFAULT_POSITION = 0;
+var body = msg.payload || {};
+var query = msg.req.query || {};
+
+// Position resolution: body → URL query param → fallback
+var posRaw = body.position;
+if (posRaw === undefined) posRaw = query.position;
+if (posRaw === undefined) posRaw = DEFAULT_POSITION;
+
+var position = parseInt(posRaw, 10);
+if (isNaN(position) || position < 0 || position > 8) {
+    node.error("Invalid position: " + posRaw);
+    msg.payload = { error: "invalid position", received: posRaw };
+    msg.statusCode = 400;
+    return msg;
+}
+
+// Track busy state for availability queries
+global.set("machine_busy", true);
+
+// MQTT payload format expected by fischertechnik control software
+msg.payload = "bandera_custom:" + position;
+msg.topic = "vicom/61/piso_0/lab/lego/commands";
+
+// Response (populated after MQTT publish completes via wire to HTTP Response)
+msg.response_payload = { status: "ok", payload: msg.payload, position: position };
+
+global.set("machine_busy", false);
+return msg;
+```
+
+**Why three position sources?** SMIA sends an empty HTTP body when `Skill_PickPiece` has no `hasParameter` relationship (see §16.6). The URL query parameter (`?position=N`) encoded in the AID `href` serves as the primary position carrier. The `body.position` path handles direct operator requests (Case 0 or direct testing). `DEFAULT_POSITION = 0` ensures machine0 (red, slot 0) always works without any explicit position parameter.
+
+#### Availability flow (GET `/smia/lego/availability`)
+
+Node structure:
+
+```
+[HTTP In: GET /smia/lego/availability]
+    → [Function: availability_handler]
+    → [HTTP Response: 200 plain text]
+```
+
+The `availability_handler` function node:
+
+```javascript
+var busy = global.get("machine_busy") || false;
+msg.payload = busy ? "0.0" : "1.0";
+msg.headers = { "Content-Type": "text/plain" };
+return msg;
+```
+
+Returns `"1.0"` (free) or `"0.0"` (busy) as plain text — not JSON — so `get_machine_availability()` can call `float(text.strip())` directly without parsing.
+
+#### Place flow (POST `/smia/lego/place`)
+
+Identical structure to the pick flow, with different MQTT topic or payload format as required by the fischertechnik control software for place operations.
 
 ### 14.6 MQTT Chain
 
@@ -1466,16 +1532,20 @@ Real flexible manufacturing systems involve **pools of interchangeable machines*
 
 ### 16.2 Architecture Overview
 
-The Case 1 system consists of six Docker containers sharing one ejabberd XMPP server:
+The Case 1 system runs eight Docker services on a single host, all sharing the `smia-net` Docker bridge network. Docker DNS resolves service names (`ejabberd`, `nodered`, `mosquitto-central`) automatically within the network.
 
-| Container | Role | AAS model |
-|---|---|---|
-| `ejabberd` | XMPP message broker — routes all agent messages | — |
-| `smia-machine0` | Manufacturing SMIA, red colour constraint | `LEGO_factory_case0.aasx` |
-| `smia-machine1` | Manufacturing SMIA, blue colour constraint | `LEGO_machine1_case0.aasx` |
-| `smia-machine2` | Manufacturing SMIA, white colour constraint | `LEGO_machine2_case0.aasx` |
-| `smia-orchestrator` | Orchestrator SMIA | `SMIA_orchestrator.aasx` |
-| `smia-operator` | Operator GUI — human entry point | `SMIA_Operator_article.aasx` |
+| Container | Image | Role | AAS model |
+|---|---|---|---|
+| `ejabberd` | `ghcr.io/processone/ejabberd` | XMPP message broker — routes all FIPA-ACL messages between agents | — |
+| `mosquitto-central` | `eclipse-mosquitto:2` | Containerised MQTT broker; bridges outbound commands to the physical machine's broker | — |
+| `nodered` | `nodered/node-red:latest` | HTTP→MQTT bridge; exposes `/smia/lego/pick`, `/smia/lego/place`, `/smia/lego/availability` | — |
+| `smia-machine0` | custom (Dockerfile) | Manufacturing SMIA, red colour constraint | `LEGO_factory_case0.aasx` |
+| `smia-machine1` | custom (Dockerfile) | Manufacturing SMIA, blue colour constraint | `LEGO_machine1_case0.aasx` |
+| `smia-machine2` | custom (Dockerfile) | Manufacturing SMIA, white colour constraint | `LEGO_machine2_case0.aasx` |
+| `smia-orchestrator` | custom (Dockerfile) | Orchestrator SMIA — FIPA-CNP initiator | `SMIA_orchestrator.aasx` |
+| `smia-operator` | custom (Dockerfile) | Operator web GUI; discovers SMIAs by scanning `aas/` folder | `SMIA_Operator_article.aasx` |
+
+The three infrastructure services (`ejabberd`, `mosquitto-central`, `nodered`) use upstream public images. The five agent services use custom images built from Dockerfiles that extend `ekhurtado/smia:latest-alpine`. The AASX models in `my_models/aas/` are mounted as a shared read-only volume at `/smia_archive/config/aas/` in all containers — enabling the orchestrator and operator GUI to scan all AASX files for agent discovery without restarting containers.
 
 The orchestrator sits between the operator and the machines. It is invisible to the physical asset — it never makes an HTTP call to Node-RED directly. Its sole job is to run the FIPA-CNP negotiation and forward the winning machine's execution result back to the operator.
 
