@@ -10,7 +10,9 @@
 
 ---
 
-> **Note to reader:** This document is the official TFG memory, structured in accordance with the *Especificación de Proyecto Fin de Grado* of the Grado en Ciencia de Datos e Inteligencia Artificial at Universidad de Deusto. It is the formal base for the LaTeX submission. For deeper technical reference (AASX modelling tutorials, exact IRI tables, per-instruction Dockerfile walkthroughs, and troubleshooting guides), see the companion technical documents `doc_case0.md` and `doc_case1.md`.
+> **Working draft — in progress.** This document is being written in parallel with the implementation work. Sections describing completed work (Cases 0 and 1, bug fixes, validation) reflect the current state of the project. Sections covering future work (extended negotiation testing, repository migration, additional machine scenarios) will be updated as that work is completed. The Vicomtech internship agreement runs until June 2026; submission to Universidad de Deusto is planned for end of May 2026.
+>
+> For deeper technical reference (AASX modelling tutorials, exact IRI tables, per-instruction Dockerfile walkthroughs, troubleshooting guides), see the companion technical documents `doc_case0.md` and `doc_case1.md`.
 
 ---
 
@@ -256,90 +258,97 @@ Design and implement a prototype flexible manufacturing scenario in which a phys
 
 The project was structured in seven sequential phases:
 
-**Phase 1 — Framework study (October–November 2025)**
+**Phase 1 — Framework study (February 2026, weeks 1–2)**
 - 1.1 Study AAS standard (IDTA 01001-3-0, metamodel, AASX format)
 - 1.2 Study CSS ontological model (CaSkade CSS-ontology v1.0.1)
 - 1.3 Study SMIA architecture (source code, paper, self-configuration process)
 - 1.4 Study SPADE, FIPA-ACL, and XMPP
 - 1.5 Set up development environment (Docker, AASX Package Explorer, VS Code)
 
-**Phase 2 — Case 0 implementation (November–December 2025)**
+**Phase 2 — Case 0 implementation (February 2026, weeks 2–4)**
 - 2.1 Create fischertechnik AAS model (AASX Package Explorer)
 - 2.2 Configure AID submodel (HTTP endpoints for Node-RED)
 - 2.3 Define CSS capabilities, skills, and semantic relationships
 - 2.4 Deploy Docker Compose stack (ejabberd, SMIA, operator)
 - 2.5 Configure Node-RED flows (HTTP→MQTT bridge)
-- 2.6 Debug and resolve framework issues (MRO crash, asset connection bug)
+- 2.6 Debug and resolve initial framework issues (MRO crash, asset connection bug)
 
-**Phase 3 — Case 0 validation and documentation (January 2026)**
+**Phase 3 — Case 0 validation and documentation (late February – early March 2026)**
 - 3.1 End-to-end validation (crane moves on operator click)
 - 3.2 Write `doc_case0.md` technical reference document
 - 3.3 Write `memoire.md` academic base (sections 1–15)
 
-**Phase 4 — Case 1 architecture design (January–February 2026)**
+**Phase 4 — Case 1 architecture design (February – March 2026)**
 - 4.1 Design multi-agent architecture (3 machines + orchestrator)
 - 4.2 Create machine AASXs (machine1, machine2) with colour constraints
 - 4.3 Create orchestrator AASX (AgentCapability, SkillParameter)
 - 4.4 Design `Skill_NegAvailability` and `machineAvailValue` agent service
 
-**Phase 5 — Case 1 implementation (February–March 2026)**
+**Phase 5 — Case 1 implementation (March 2026)**
 - 5.1 Implement `get_machine_availability()` agent service
 - 5.2 Implement `OrchestratorDispatchBehaviour` (FIPA-CNP initiator)
 - 5.3 Implement custom Dockerfiles (machine + orchestrator images)
 - 5.4 Add Node-RED availability endpoint (`GET /smia/lego/availability`)
 - 5.5 Containerize Node-RED and Mosquitto
 
-**Phase 6 — Case 1 debugging and E2E validation (March–April 2026)**
+**Phase 6 — Case 1 debugging and E2E validation (March – April 2026)**
 - 6.1 Debug IRI casing issues in Track 3 relationship matching
 - 6.2 Debug qualifier `semanticId` typo (`https://` vs `http://`)
-- 6.3 Debug SPADE broadcast race condition (ACLHandlingBehaviour vs OrchestratorDispatchBehaviour)
+- 6.3 Debug SPADE concurrent delivery race condition (`ACLHandlingBehaviour` vs `OrchestratorDispatchBehaviour`)
 - 6.4 Debug operator GUI `hasParameter` processing bugs
 - 6.5 E2E validation (orchestrator receives request, selects machine, crane moves)
 
-**Phase 7 — Memory writing and finalization (April 2026)**
-- 7.1 Complete `doc_case1.md` technical reference
-- 7.2 Complete `memoire.md` (sections 16+)
-- 7.3 Write `memoria_tfg.md` (this document)
-- 7.4 Final review and formatting
+**Phase 7 — Extended testing (April – May 2026)**
+- 7.1 Add duplicate-colour machine agents (two machines per colour) to test availability-based selection under competition
+- 7.2 Add a multicolour machine agent (capable of multiple colours) and validate it participates in negotiation for each
+- 7.3 Migrate project to a dedicated repository (clean separation of TFG assets from the upstream SMIA repo)
+- 7.4 Validate all extended scenarios end-to-end; update documentation
+
+**Phase 8 — Memory writing and finalization (April – May 2026)**
+- 8.1 Complete `doc_case1.md` technical reference
+- 8.2 Complete `memoire.md` (all sections)
+- 8.3 Finalize `memoria_tfg.md` (this document) — LaTeX conversion
+- 8.4 Final review and submission preparation
 
 ### 4.2 Schedule — Gantt Chart
 
-The following table shows the actual schedule. Each cell represents two weeks. ● = active, ◐ = partial activity.
+The following table shows the actual schedule. Each cell represents one week. ● = active, ◐ = partial activity.
 
 ```
-Phase / Activity        │ Oct  │ Nov  │ Dec  │ Jan  │ Feb  │ Mar  │ Apr
-                        │W1 W3 │W1 W3 │W1 W3 │W1 W3 │W1 W3 │W1 W3 │W1 W3
-────────────────────────┼──────┼──────┼──────┼──────┼──────┼──────┼─────
-Ph.1 Framework study    │ ●  ● │ ●  ◐ │      │      │      │      │
-Ph.2 Case 0 impl.       │      │ ◐  ● │ ●  ● │ ◐    │      │      │
-Ph.3 Case 0 val.+docs   │      │      │      │ ●  ● │ ◐    │      │
-Ph.4 Case 1 design      │      │      │      │ ◐  ● │ ●  ◐ │      │
-Ph.5 Case 1 impl.       │      │      │      │      │ ◐  ● │ ●  ◐ │
-Ph.6 Case 1 debug+E2E   │      │      │      │      │      │ ◐  ● │ ●
-Ph.7 Memory writing     │      │      │      │ ◐    │ ◐    │ ◐  ● │ ●  ●
+Phase / Activity        │      February      │        March       │        April       │        May
+                        │ W1   W2   W3   W4  │ W1   W2   W3   W4  │ W1   W2   W3   W4  │ W1   W2   W3   W4
+────────────────────────┼────────────────────┼────────────────────┼────────────────────┼────────────────────
+Ph.1 Framework study    │  ●    ●    ◐        │                    │                    │
+Ph.2 Case 0 impl.       │       ◐    ●    ●   │  ◐                 │                    │
+Ph.3 Case 0 val.+docs   │                     │  ●    ●    ◐       │                    │
+Ph.4 Case 1 design      │            ◐    ●   │  ●    ◐            │                    │
+Ph.5 Case 1 impl.       │                     │  ◐    ●    ●    ◐  │                    │
+Ph.6 Case 1 debug+E2E   │                     │            ◐    ●  │  ●    ●            │
+Ph.7 Extended testing   │                     │                    │       ◐    ●    ●  │  ●    ●
+Ph.8 Memory + submit    │       ◐             │       ◐            │  ●    ●    ●    ●  │  ●    ●    ●    ●
 ```
 
-**Total duration:** 6 months (October 2025 – April 2026), part-time alongside internship duties at Vicomtech.
+**Total duration:** ~4 months (February – May 2026), part-time alongside internship duties at Vicomtech. The Vicomtech agreement runs until June 2026; submission is planned for end of May 2026.
 
 ### 4.3 Human Resources Plan
 
 | Role | Person | Dedication | Responsibilities |
 |---|---|---|---|
-| **Student / Developer** | Andrés Felipe Fierro Fonseca | ~450 hours total (part-time, 6 months) | All development, debugging, AAS modelling, documentation |
-| **Academic director** | Ander García Gangoiti | ~15 hours | Academic guidance, TFG structure review, evaluation preparation |
-| **Academic co-director** | Xabier Oregui Biain | ~15 hours | Technical review, industry alignment |
-| **Technical tutor (Vicomtech)** | DII department senior researcher | ~20 hours | Lab access, fischertechnik asset, technical environment support |
+| **Student / Developer** | Andrés Felipe Fierro Fonseca | ~450 hours total (part-time, ~4 months) | All development, debugging, AAS modelling, testing, documentation |
+| **Academic tutor (Universidad de Deusto)** | Ander García Gangoiti | ~15 hours | Academic guidance, TFG structure review, evaluation preparation |
+| **Technical tutor (Vicomtech)** | Xabier Oregui Biain | ~20 hours | Industrial alignment, lab access, fischertechnik asset, technical environment support |
 
 ### 4.4 Milestones
 
 | # | Milestone | Date | Deliverable |
 |---|---|---|---|
-| M1 | Framework understood; first AASX created | November 2025 | `LEGO_factory_case0.aasx` (initial version) |
-| M2 | Case 0 end-to-end validated | December 2025 | Crane moves on operator click; logs confirm E2E |
-| M3 | Multi-agent AASX models complete | February 2026 | 3 machine AASXs + orchestrator AASX |
-| M4 | FIPA-CNP flow operational | March 2026 | Orchestrator selects winner, crane executes |
-| M5 | All bugs resolved; E2E Case 1 validated | April 2026 | Full Case 1 working end-to-end |
-| M6 | Memory finalized | April 2026 | This document + `memoire.md` + `doc_case1.md` |
+| M1 | Framework understood; first AASX created | End of February 2026 | `LEGO_factory_case0.aasx` (initial version) |
+| M2 | Case 0 end-to-end validated | Early March 2026 | Crane moves on operator click; logs confirm E2E |
+| M3 | Multi-agent AASX models complete | Mid-March 2026 | 3 machine AASXs + orchestrator AASX |
+| M4 | FIPA-CNP flow operational | Late March 2026 | Orchestrator selects winner, crane executes |
+| M5 | All bugs resolved; E2E Case 1 validated | Mid-April 2026 | Full Case 1 working end-to-end |
+| M6 | Extended negotiation scenarios validated | End of April 2026 | Duplicate-colour + multicolour machines working; repo migrated |
+| M7 | TFG memory finalized and submitted | End of May 2026 | This document (LaTeX) + `memoire.md` + `doc_case1.md` |
 
 ---
 
@@ -355,18 +364,17 @@ The student performed multiple roles throughout the project. Hours are estimated
 | Systems analyst (architecture design, AAS modelling) | 120 h | €20 | €2,400 |
 | Technical writer (documentation) | 80 h | €20 | €1,600 |
 | **Student subtotal** | **450 h** | | **€9,000** |
-| Academic director (Ander García Gangoiti) | 15 h | €80 | €1,200 |
-| Academic co-director (Xabier Oregui Biain) | 15 h | €80 | €1,200 |
-| Technical tutor (Vicomtech DII) | 20 h | €80 | €1,600 |
-| **Labor total** | | | **€13,000** |
+| Academic tutor — Ander García Gangoiti (Univ. Deusto) | 15 h | €80 | €1,200 |
+| Technical tutor — Xabier Oregui Biain (Vicomtech) | 20 h | €80 | €1,600 |
+| **Labor total** | | | **€11,800** |
 
 ### 5.2 Equipment and Hardware
 
 | Item | Total value | Useful life | Usage period | Amortization |
 |---|---|---|---|---|
-| fischertechnik Training Factory Industry 4.0 24V | €2,500 | 5 years | 6 months | **€250** |
-| Development laptop (existing Vicomtech equipment) | €1,200 | 3 years | 6 months | **€200** |
-| **Equipment total** | | | | **€450** |
+| fischertechnik Training Factory Industry 4.0 24V | €2,500 | 5 years | 3 months | **€125** |
+| Development laptop (existing Vicomtech equipment) | €1,200 | 3 years | 3 months | **€100** |
+| **Equipment total** | | | | **€225** |
 
 ### 5.3 Software and Licenses
 
@@ -389,12 +397,12 @@ All software used is open source or freely available:
 
 | Category | Cost |
 |---|---|
-| Labor | €13,000 |
-| Equipment (amortization) | €450 |
+| Labor | €11,800 |
+| Equipment (amortization) | €225 |
 | Software | €0 |
 | Travel and accommodation | €0 |
 | Other costs | €0 |
-| **Total** | **€13,450** |
+| **Total** | **€12,025** |
 
 ---
 
@@ -634,13 +642,131 @@ All three machine agents share this single Dockerfile; they differ only in their
 
 #### 7.4.2 Patches Applied to the SMIA Framework
 
-Three bugs were identified in the base SMIA framework and fixed via build-time patches in the Dockerfiles. All patches are pending upstream PR submission.
+During the implementation of Case 1, three bugs were identified in the base SMIA framework. All were fixed via build-time patches applied in the Dockerfiles (the patched files replace the originals inside the container image at build time, using a version-independent path detection technique). All patches are pending upstream PR submission to the SMIA repository. Each bug is documented in full below.
 
-| File patched | Bug | Fix applied |
-|---|---|---|
-| `smia_agent.py` | Asset connection lookup used Python object identity — a different instance of the same reference was created during skill execution, causing `None` to be returned and no HTTP call made | Added string and key-tuple comparison strategies alongside the original identity check |
-| `acl_handling_behaviour.py` | Race condition between `ACLHandlingBehaviour` and `OrchestratorDispatchBehaviour`: both receive `css-service` messages, both attempt to process the same message | Early return for `css-service` messages when `pending_orchestrations` attribute is present (orchestrator-only) |
-| `operator_gui_logic.py` | Two bugs in `hasParameter` processing: (1) `css_elems_info['skillData']` key never exists → `KeyError`; (2) `param_set.add(skill_param)` where `skill_param` is a list → `TypeError: unhashable type` | Replaced the entire block: check `self.myagent.skills_info` (correct dict), use `.update(p.id_short for p in skill_params_list)` |
+---
+
+**Bug 1 — `smia_agent.py`: asset connection lookup failure due to Python object identity comparison**
+
+*Affected file:* `src/smia/agents/smia_agent.py`, method `get_asset_connection_class_by_ref()`
+
+*When it was first encountered:* Case 0, first end-to-end test. The operator GUI submitted a pick request; SMIA logs showed the capability and skill resolved correctly; but no HTTP call was made and the crane did not move.
+
+*Root cause:*
+
+During self-configuration (Track 1, `AASInitializationBehaviour`), SMIA reads the Asset Interfaces Description (AID) submodel, creates an `AssetConnection` object for each interface, and stores it in the agent's `asset_connections` dictionary with the `ModelReference` object (a BaSyx Python SDK object) to the AID interface as the key:
+
+```python
+self.asset_connections[interface_reference] = asset_connection
+```
+
+Later, during skill execution (`HandleCapabilityBehaviour`), SMIA retrieves the AID interface reference for the matched skill (e.g. `pickPiece`) and calls `get_asset_connection_class_by_ref(asset_connection_ref)` to look up the stored connection. This method iterates over `self.asset_connections.items()` and compares:
+
+```python
+for conn_ref, conn_class in self.asset_connections.items():
+    if conn_ref == asset_connection_ref:   # original — only this comparison existed
+        return conn_class
+```
+
+The problem is that `conn_ref` (stored during boot) and `asset_connection_ref` (obtained during execution) are **two different Python objects** — both represent the same AAS model path, but they are separately instantiated `ModelReference` instances from the BaSyx SDK. Python's `==` operator, when the class does not override `__eq__`, falls back to identity comparison (`is`), which is `False` for two different instances of the same path. Even if BaSyx has a partial `__eq__` implementation, the comparison failed in practice: the loop always exhausted without finding a match and raised `AASModelReadingError("There is not asset connection class linked to ...")`. The error was caught upstream, logged, and the skill execution path returned without making any HTTP call — silently.
+
+*Fix applied:*
+
+Added two additional comparison strategies as fallbacks:
+
+```python
+for conn_ref, conn_class in self.asset_connections.items():
+    if conn_ref == asset_connection_ref:            # 1. original: BaSyx __eq__
+        return conn_class
+    if str(conn_ref) == str(asset_connection_ref):  # 2. string representation
+        return conn_class
+    if _ref_keys_tuple(conn_ref) == requested_ref_keys:  # 3. key-tuple comparison
+        return conn_class
+raise AASModelReadingError(...)
+```
+
+The key-tuple helper normalizes each `ModelReference` to a tuple of `(str(key.type), key.value)` pairs — the actual semantic content of the reference — and compares those. This is unambiguous and works regardless of object identity. Strategy 2 (string comparison) was added as an intermediate fallback since `str(ModelReference)` includes the path.
+
+*Impact:* Without this fix, no HTTP call is ever made to Node-RED, and the physical crane never moves. This bug affects **all** SMIA deployments that call `get_asset_connection_class_by_ref()`, i.e. any skill execution via an asset service. It was not caught in the SMIA paper's test scenario because the paper's operator used the newer `css-service` ontology format that follows a different code path.
+
+---
+
+**Bug 2 — `acl_handling_behaviour.py`: concurrent message delivery to two behaviours causes double processing**
+
+*Affected file:* `src/smia/behaviours/acl_handling_behaviour.py`, method `run()`
+
+*When it was first encountered:* Case 1 integration testing. After the orchestrator received a `css-service` REQUEST from the operator, two conflicting executions started simultaneously: `OrchestratorDispatchBehaviour` began the FIPA-CNP negotiation flow, while `ACLHandlingBehaviour` spawned a `HandleCapabilityBehaviour` that tried to directly execute the capability on the orchestrator itself (which has no AID asset service defined for it), producing errors and leaving the system in an inconsistent state.
+
+*Root cause:*
+
+SMIA uses SPADE's multi-behaviour architecture. In the `RUNNING` state, the agent runs multiple `CyclicBehaviour` instances concurrently within the same asyncio event loop. `ACLHandlingBehaviour` calls `await self.receive(timeout=10)` each iteration. `OrchestratorDispatchBehaviour` (our custom extension) also calls `await self.receive(...)` to watch for incoming operator requests.
+
+SPADE routes incoming XMPP messages to **all behaviours** that have a matching message template. When the operator sends a `css-service` REQUEST to the orchestrator, both `ACLHandlingBehaviour` and `OrchestratorDispatchBehaviour` receive the same message in their respective `receive()` calls during the same asyncio scheduling round.
+
+The existing SMIA framework had a `reserved_threads` mechanism designed to prevent this: when `OrchestratorDispatchBehaviour` receives and takes ownership of a message, it was supposed to call `add_reserved_thread(msg.thread)`, and `ACLHandlingBehaviour` would then skip that thread. However, this mechanism has a fundamental race: both `receive()` calls return in the same asyncio scheduling round. By the time `ACLHandlingBehaviour` checks `reserved_threads`, `OrchestratorDispatchBehaviour` has not yet had a chance to execute its next statement and call `add_reserved_thread()`. The check therefore finds an empty set and proceeds to process the message.
+
+*Fix applied:*
+
+Introduced a sentinel attribute `pending_orchestrations` on the orchestrator agent only (set in `OrchestratorDispatchBehaviour.on_start()`). Added an early return in `ACLHandlingBehaviour.run()` before the thread reservation check:
+
+```python
+if (msg.get_metadata(FIPAACLInfo.FIPA_ACL_ONTOLOGY_ATTRIB) ==
+        ACLSMIAOntologyInfo.ACL_ONTOLOGY_CSS_SERVICE and
+        msg.get_metadata(FIPAACLInfo.FIPA_ACL_PERFORMATIVE_ATTRIB) ==
+        FIPAACLInfo.FIPA_ACL_PERFORMATIVE_REQUEST and
+        hasattr(self.myagent, 'pending_orchestrations')):
+    return  # OrchestratorDispatchBehaviour handles css-service REQUESTs
+```
+
+This check is evaluated synchronously, before any `await`, so it cannot race with `OrchestratorDispatchBehaviour`. Machine agents do not have the `pending_orchestrations` attribute, so `hasattr(...)` returns `False` for them and the patch is completely transparent — their `css-service` REQUEST handling is unaffected.
+
+*Impact:* Without this fix, every operator request to the orchestrator triggers two conflicting processing paths. The `HandleCapabilityBehaviour` spawned by `ACLHandlingBehaviour` fails because the orchestrator has no AID-defined asset service; the error propagates and the operator receives a malformed or missing response. The FIPA-CNP negotiation started by `OrchestratorDispatchBehaviour` may also be disrupted by the concurrent state changes. This bug only manifests when a custom `AgentCapability` behaviour (like our orchestrator) is added to an ExtensibleSMIAAgent alongside the built-in `ACLHandlingBehaviour`.
+
+---
+
+**Bug 3 — `operator_gui_logic.py`: two latent errors in `hasParameter` relationship processing**
+
+*Affected file:* `additional_tools/extended_agents/smia_operator_agent/operator_gui_logic.py`, method `operator_load_controller()` (the handler executed when the operator clicks "Load" in the GUI)
+
+*When it was first encountered:* Case 1 GUI testing, after adding `SkillParameter_color` with a `hasParameter` relationship to the orchestrator AASX. Clicking "Load" in the operator GUI returned a 500 error; the smia-operator container logs showed a `KeyError` or `TypeError`.
+
+*Why it was never triggered before:* No AASX model shipped with the SMIA framework uses a `css:hasParameter` relationship. Both bugs are latent — they exist in the original code but are only reached when the `operator_load_controller` processes an AASX that contains at least one `RelationshipElement` with `semanticId = http://www.w3id.org/hsu-aut/css#hasParameter`. Our orchestrator AASX introduced this pattern for the first time.
+
+*Background — how the GUI processes AAS relationships:*
+
+The `operator_load_controller` reads each AASX from the `aas/` folder, extracts all `RelationshipElement`s grouped by their `semanticId` IRI, and iterates over them. For each relationship type there is a dedicated `if` branch. The `hasParameter` branch was the one with bugs. The data structure is `aas_elems: dict[AASElement, list[AASElement]]` — exactly the same pattern as `isRealizedBy` (mapping a Capability to a list of Skills), but mapping a Skill to a list of SkillParameter elements.
+
+*Bug 3a — wrong dictionary key (`KeyError`):*
+
+The original code in the `hasParameter` branch referenced `css_elems_info['skillData']`. The variable `css_elems_info` is a dictionary keyed by capability `id_short` strings (e.g. `css_elems_info['Capability_PickPiece']`). The key `'skillData'` is never set anywhere in the function — it does not exist. This `KeyError` propagated up through the aiohttp request handler and caused the 500 response.
+
+*Bug 3b — unhashable type when adding to a set (`TypeError`):*
+
+The `aas_elems` dictionary maps each Skill (domain) to a **list** of SkillParameter elements (range) — the same `dict[elem, list]` pattern used for `isRealizedBy`. The original code attempted:
+
+```python
+param_set.add(skill_param)   # skill_param is the whole list, not an individual element
+```
+
+Python `set.add()` requires hashable elements. A `list` is not hashable, so this raises `TypeError: unhashable type: 'list'`. Even if bug 3a had been absent, bug 3b would have prevented correct execution.
+
+*Additional issue — AAS objects stored instead of id_short strings:*
+
+The GUI's request submission logic (`operator_request_controller`) passes skill parameters to the FIPA-ACL message using their `id_short` strings, retrieved via `form.get(param)` where `param` is an id_short string. If the `skills_info` dictionary stored AAS objects instead of strings, `eval(skill_params)` would produce a `SyntaxError` and `form.get(param)` would look up the wrong key. Skill parameters must be stored as their `id_short` string values.
+
+*Fix applied — replaces the entire `hasParameter` block:*
+
+```python
+if CapabilitySkillOntologyInfo.CSS_ONTOLOGY_PROP_HASPARAMETER_IRI == rel.iri:
+    for skill, skill_params_list in aas_elems.items():
+        if skill not in self.myagent.skills_info:
+            self.myagent.skills_info[skill] = set()
+        self.myagent.skills_info[skill].update(p.id_short for p in skill_params_list)
+```
+
+This: (1) uses the correct dictionary `self.myagent.skills_info` (keyed by AAS skill elements); (2) iterates over individual elements in `skill_params_list` rather than treating the list as a single value; (3) stores `id_short` strings (hashable, and compatible with the downstream request controller). The fix is backward compatible: machine AASXs have no `hasParameter` relationships, so this branch is never entered for them.
+
+*AASX design consequence discovered during debugging:* The SkillParameter element's `id_short` must be `color` (not `SkillParameter_color`). The GUI uses the id_short directly as the HTML form field name, so it must match the parameter name used downstream in the FIPA-ACL message body and in `_get_skill_param(params, 'color')` in the orchestrator code.
 
 ### 7.5 Launch
 

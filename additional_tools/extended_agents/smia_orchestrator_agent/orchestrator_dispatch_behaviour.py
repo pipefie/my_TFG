@@ -550,9 +550,13 @@ class OrchestratorDispatchBehaviour(CyclicBehaviour):
                 if color is None:
                     continue  # This AASX has no matching capability (e.g. operator AASX)
 
-                if color_filter and color.lower() != color_filter.lower():
-                    _logger.debug(f"Skipping {jid}: color={color} ≠ filter={color_filter}")
-                    continue
+                if color_filter:
+                    # Support comma-separated colour values for multi-colour machines
+                    # e.g. color="red,blue" matches filter "red" AND filter "blue".
+                    machine_colors = [c.strip().lower() for c in (color or '').split(',')]
+                    if color_filter.lower() not in machine_colors:
+                        _logger.debug(f"Skipping {jid}: colors={machine_colors} ≠ filter={color_filter}")
+                        continue
 
                 machines.append({'jid': jid, 'color': color})
                 _logger.info(f"Eligible machine: {jid} (color={color}) from {filename}")

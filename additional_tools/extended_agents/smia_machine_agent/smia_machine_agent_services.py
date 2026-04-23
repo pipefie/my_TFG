@@ -61,6 +61,10 @@ _logger = logging.getLogger(__name__)
 # (containerized Node-RED vs. external DIDA-Central host) can be changed
 # without rebuilding the image. Default falls back to the Docker service name.
 NODE_RED_BASE = os.environ.get('NODERED_URL', 'http://nodered:1880')
+# Local part of the XMPP JID (e.g. "smia_machine1" from "smia_machine1@ejabberd").
+# Used as the per-machine key in Node-RED's machine_busy_<machineId> flags so that
+# multiple machines sharing the same Node-RED instance track availability independently.
+MACHINE_ID = os.environ.get('AGENT_ID', 'machine').split('@')[0]
 
 
 async def get_machine_availability():
@@ -84,7 +88,7 @@ async def get_machine_availability():
         float: 1.0 if the machine is available, 0.0 if currently busy.
                Returns 0.0 on connection error (treats unreachable Node-RED as unavailable).
     """
-    url = f"{NODE_RED_BASE}/smia/lego/availability"
+    url = f"{NODE_RED_BASE}/smia/lego/availability?machine={MACHINE_ID}"
     try:
         # aiohttp is used instead of requests because SMIA runs in an asyncio event loop.
         # Using synchronous requests.get() here would block the entire event loop,
@@ -93,14 +97,14 @@ async def get_machine_availability():
             async with session.get(url, timeout=aiohttp.ClientTimeout(total=5)) as resp:
                 text = await resp.text()
                 value = float(text.strip())
-                _logger.info(f"[machineAvailValue] Node-RED availability: {value}")
+                _logger.info(f"[machineAvailValue] Node-RED availability for {MACHINE_ID}: {value}")
                 return value
     except aiohttp.ClientConnectorError:
-        _logger.warning(f"[machineAvailValue] Cannot connect to Node-RED at {url} — returning 0.0 (busy)")
+        _logger.warning(f"[machineAvailValue] Cannot connect to Node-RED at {url} ({MACHINE_ID}) — returning 0.0 (busy)")
         return 0.0
     except ValueError:
-        _logger.warning(f"[machineAvailValue] Node-RED returned non-float response — returning 0.0")
+        _logger.warning(f"[machineAvailValue] Node-RED returned non-float response ({MACHINE_ID}) — returning 0.0")
         return 0.0
     except Exception as e:
-        _logger.error(f"[machineAvailValue] Unexpected error: {e} — returning 0.0")
+        _logger.error(f"[machineAvailValue] Unexpected error ({MACHINE_ID}): {e} — returning 0.0")
         return 0.0

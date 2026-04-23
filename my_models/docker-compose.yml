@@ -26,7 +26,7 @@ services:
       - ERLANG_COOKIE=${EJABBERD_COOKIE}
       # Registers all SMIA agent accounts on first container creation.
       # To add a new machine: append ; register <user> ejabberd ${NEW_PASSWD}
-      - CTL_ON_CREATE=! register SMIA_agent ejabberd ${MACHINE0_PASSWD} ; register operator001 ejabberd ${OPERATOR_PASSWD} ; register smia_machine1 ejabberd ${MACHINE1_PASSWD} ; register smia_machine2 ejabberd ${MACHINE2_PASSWD} ; register smia_orch ejabberd ${ORCH_PASSWD}
+      - CTL_ON_CREATE=! register SMIA_agent ejabberd ${MACHINE0_PASSWD} ; register operator001 ejabberd ${OPERATOR_PASSWD} ; register smia_machine1 ejabberd ${MACHINE1_PASSWD} ; register smia_machine2 ejabberd ${MACHINE2_PASSWD} ; register smia_orch ejabberd ${ORCH_PASSWD} ; register smia_machine3 ejabberd ${MACHINE3_PASSWD} ; register smia_machine4 ejabberd ${MACHINE4_PASSWD} ; register smia_machine5 ejabberd ${MACHINE5_PASSWD}
     ports:
       - "5222:5222"
       - "5269:5269"
@@ -114,6 +114,75 @@ services:
     networks:
       - smia-net
 
+  # ── Machine 3 — Red duplicate (negotiation testing) ────────────
+  smia-machine3:
+    build:
+      context: ..
+      dockerfile: my_models/docker/smia-machine/Dockerfile
+    container_name: smia-machine3
+    environment:
+      - AAS_MODEL_NAME=${MACHINE3_AAS_FILE}
+      - AAS_ID=${MACHINE3_AAS_ID}
+      - AGENT_ID=${MACHINE3_AGENT_ID}
+      - AGENT_PASSWD=${MACHINE3_PASSWD}
+      - NODERED_URL=${NODERED_URL}
+    depends_on:
+      xmpp-server:
+        condition: service_healthy
+      nodered:
+        condition: service_started
+    volumes:
+      - ./aas:/smia_archive/config/aas
+    restart: unless-stopped
+    networks:
+      - smia-net
+
+  # ── Machine 4 — Blue duplicate (negotiation testing) ────────────
+  smia-machine4:
+    build:
+      context: ..
+      dockerfile: my_models/docker/smia-machine/Dockerfile
+    container_name: smia-machine4
+    environment:
+      - AAS_MODEL_NAME=${MACHINE4_AAS_FILE}
+      - AAS_ID=${MACHINE4_AAS_ID}
+      - AGENT_ID=${MACHINE4_AGENT_ID}
+      - AGENT_PASSWD=${MACHINE4_PASSWD}
+      - NODERED_URL=${NODERED_URL}
+    depends_on:
+      xmpp-server:
+        condition: service_healthy
+      nodered:
+        condition: service_started
+    volumes:
+      - ./aas:/smia_archive/config/aas
+    restart: unless-stopped
+    networks:
+      - smia-net
+
+  # ── Machine 5 — Multicolour red+blue (negotiation testing) ──────
+  smia-machine5:
+    build:
+      context: ..
+      dockerfile: my_models/docker/smia-machine/Dockerfile
+    container_name: smia-machine5
+    environment:
+      - AAS_MODEL_NAME=${MACHINE5_AAS_FILE}
+      - AAS_ID=${MACHINE5_AAS_ID}
+      - AGENT_ID=${MACHINE5_AGENT_ID}
+      - AGENT_PASSWD=${MACHINE5_PASSWD}
+      - NODERED_URL=${NODERED_URL}
+    depends_on:
+      xmpp-server:
+        condition: service_healthy
+      nodered:
+        condition: service_started
+    volumes:
+      - ./aas:/smia_archive/config/aas
+    restart: unless-stopped
+    networks:
+      - smia-net
+
   # ── Orchestrator — FIPA-CNP multi-machine dispatcher ───────────
   smia-orchestrator:
     build:
@@ -133,6 +202,12 @@ services:
       smia-machine1:
         condition: service_started
       smia-machine2:
+        condition: service_started
+      smia-machine3:
+        condition: service_started
+      smia-machine4:
+        condition: service_started
+      smia-machine5:
         condition: service_started
     volumes:
       - ./aas:/smia_archive/config/aas
