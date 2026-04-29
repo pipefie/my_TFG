@@ -342,7 +342,7 @@ Ph.8 Memory + submit    │       ◐             │       ◐            │  
 
 | # | Milestone | Date | Deliverable |
 |---|---|---|---|
-| M1 | Framework understood; first AASX created | End of February 2026 | `LEGO_factory_case0.aasx` (initial version) |
+| M1 | Framework understood; first AASX created | End of February 2026 | `LEGO_machine0.aasx` (initial version) |
 | M2 | Case 0 end-to-end validated | Early March 2026 | Crane moves on operator click; logs confirm E2E |
 | M3 | Multi-agent AASX models complete | Mid-March 2026 | 3 machine AASXs + orchestrator AASX |
 | M4 | FIPA-CNP flow operational | Late March 2026 | Orchestrator selects winner, crane executes |
@@ -583,7 +583,7 @@ The base SMIA framework implements the FIPA-CNP **responder/proposer** side (`Ha
 Validated end-to-end on 2026-03-04. The successful validation sequence:
 
 1. SMIA agent starts → logs confirm: `Analyzed capabilities: ['Capability_PickPiece', 'Capability_PlacePiece']`
-2. Operator GUI loads → discovers `SMIA_agent@ejabberd` → displays capabilities
+2. Operator GUI loads → discovers `smia_machine0@ejabberd` → displays capabilities
 3. Operator selects `Capability_PickPiece` → clicks Submit
 4. SMIA logs: `Executing skill of the capability through an asset service...` and `HTTP communication successfully completed.`
 5. Node-RED publishes `bandera_custom:0` to MQTT topic `vicom/61/piso_0/lab/lego/commands`
@@ -599,10 +599,10 @@ Implemented and under E2E validation as of April 2026. The expected orchestrator
 ```
 OrchestratorDispatchBehaviour started.
 new CSSRequest from operator (thread=op_T)
-Eligible machine: SMIA_agent@ejabberd (color=red) from LEGO_factory_case0.aasx
-CFP sent to SMIA_agent@ejabberd (neg_thread=neg_T)
-received winner INFORM from SMIA_agent@ejabberd
-execution REQUEST sent to SMIA_agent@ejabberd
+Eligible machine: smia_machine0@ejabberd (color=red) from LEGO_machine0.aasx
+CFP sent to smia_machine0@ejabberd (neg_thread=neg_T)
+received winner INFORM from smia_machine0@ejabberd
+execution REQUEST sent to smia_machine0@ejabberd
 result forwarded to operator
 ```
 
@@ -927,7 +927,7 @@ This TFG demonstrates that the AAS Type 3 + CSS paradigm provides a technically 
 
 **RQ1: Can a manufacturing asset's capabilities be fully described in AAS + CSS such that a SMIA agent derives the complete execution path without any asset-specific hard-coded logic?**
 
-Yes — confirmed by Case 0. The SMIA agent reads the `LEGO_factory_case0.aasx` model at startup and derives the entire chain: `Capability_PickPiece → isRealizedBy → Skill_PickPiece → accessibleThroughAssetService → AID pickPiece action → HTTP POST to http://nodered:1880/smia/lego/pick`. No Python file contains the crane's IP address, endpoint path, capability name, or skill name. If a different machine were added with a different AID endpoint, the agent would handle it without code modification. This validates requirements R2 (automated self-configuration) and R7 (separation between physical asset and Digital Twin).
+Yes — confirmed by Case 0. The SMIA agent reads the `LEGO_machine0.aasx` model at startup and derives the entire chain: `Capability_PickPiece → isRealizedBy → Skill_PickPiece → accessibleThroughAssetService → AID pickPiece action → HTTP POST to http://nodered:1880/smia/lego/pick`. No Python file contains the crane's IP address, endpoint path, capability name, or skill name. If a different machine were added with a different AID endpoint, the agent would handle it without code modification. This validates requirements R2 (automated self-configuration) and R7 (separation between physical asset and Digital Twin).
 
 **RQ2: Can the same approach scale from a single agent to a multi-agent FIPA-CNP negotiation, with machine selection based on runtime availability, without modifying agent code?**
 
@@ -1041,7 +1041,7 @@ Yes — within the acceptable range. Self-configuration time is under 7 seconds 
 
 ### Appendix A — AASX Model Structure (Machine Agent)
 
-Each machine AASX (`LEGO_factory_case0.aasx`, `LEGO_machine1_case0.aasx`, `LEGO_machine2_case0.aasx`) contains two AAS shells. The asset shell structure:
+Each machine AASX (`LEGO_machine0.aasx`, `LEGO_machine1.aasx`, `LEGO_machine2.aasx`) contains two AAS shells. The asset shell structure:
 
 ```
 AAS: LEGO_factory  (id: urn:uuid:6475_0111_2062_9689)
@@ -1089,7 +1089,7 @@ AAS: LEGO_factory  (id: urn:uuid:6475_0111_2062_9689)
 AAS: SMIA_agent  (id: urn:uuid:6373_1111_2062_6896)
 └── Submodel: SoftwareNameplate
     └── SoftwareNameplateInstance
-        ├── InstanceName: "SMIA_agent@ejabberd"  ← XMPP JID (must include @ejabberd domain)
+        ├── InstanceName: "smia_machine0@ejabberd"  ← XMPP JID (must include @ejabberd domain)
         └── InstalledVersion: "0.3.1"
 ```
 
@@ -1100,7 +1100,7 @@ services:
   ejabberd:         ghcr.io/processone/ejabberd  — XMPP broker (port 5222)
   mosquitto-central: eclipse-mosquitto:2          — MQTT broker (port 1883)
   nodered:          nodered/node-red:latest        — HTTP→MQTT bridge (port 1880)
-  smia-machine0:    build: docker/smia-machine     — machine agent (SMIA_agent@ejabberd)
+  smia-machine0:    build: docker/smia-machine     — machine agent (smia_machine0@ejabberd)
   smia-machine1:    build: docker/smia-machine     — machine agent (smia_machine1@ejabberd)
   smia-machine2:    build: docker/smia-machine     — machine agent (smia_machine2@ejabberd)
   smia-orchestrator: build: docker/smia-orchestrator — orchestrator (smia_orch@ejabberd)
@@ -1138,20 +1138,20 @@ HTTP In (GET /smia/lego/availability)
 # ejabberd
 EJABBERD_ERLANG_COOKIE=<random_string>
 
-# Machine 0 (SMIA_agent@ejabberd, LEGO_factory_case0.aasx)
-MACHINE0_AAS_FILE=LEGO_factory_case0.aasx
+# Machine 0 (smia_machine0@ejabberd, LEGO_machine0.aasx)
+MACHINE0_AAS_FILE=LEGO_machine0.aasx
 MACHINE0_AAS_ID=urn:uuid:6475_0111_2062_9689
-MACHINE0_AGENT_ID=SMIA_agent@ejabberd
+MACHINE0_AGENT_ID=smia_machine0@ejabberd
 MACHINE0_PASSWD=<password>
 
-# Machine 1 (smia_machine1@ejabberd, LEGO_machine1_case0.aasx)
-MACHINE1_AAS_FILE=LEGO_machine1_case0.aasx
+# Machine 1 (smia_machine1@ejabberd, LEGO_machine1.aasx)
+MACHINE1_AAS_FILE=LEGO_machine1.aasx
 MACHINE1_AAS_ID=urn:uuid:6475_0111_2062_0001
 MACHINE1_AGENT_ID=smia_machine1@ejabberd
 MACHINE1_PASSWD=<password>
 
-# Machine 2 (smia_machine2@ejabberd, LEGO_machine2_case0.aasx)
-MACHINE2_AAS_FILE=LEGO_machine2_case0.aasx
+# Machine 2 (smia_machine2@ejabberd, LEGO_machine2.aasx)
+MACHINE2_AAS_FILE=LEGO_machine2.aasx
 MACHINE2_AAS_ID=urn:uuid:6475_0111_2062_0002
 MACHINE2_AGENT_ID=smia_machine2@ejabberd
 MACHINE2_PASSWD=<password>

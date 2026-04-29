@@ -237,7 +237,7 @@ Case 0 only uses `AssetCapability` because we are modelling the warehouse crane'
 
 ## Slide 10 — The AAS Model We Built: Overview
 
-### File: `LEGO_factory_case0.aasx`
+### File: `LEGO_machine0.aasx`
 (Historical name — models the fischertechnik warehouse crane)
 
 **Two AAS shells in one package:**
@@ -270,7 +270,7 @@ No install needed — extract ZIP, run `AasxPackageExplorer.exe`.
 **Step 1: New package**
 ```
 File → New → AASX Package
-Save as: LEGO_factory_case0.aasx
+Save as: LEGO_machine0.aasx
 ```
 
 **Step 2: Add two AAS shells**
@@ -526,14 +526,14 @@ Mounted into container at: `/smia_archive/config/smia-initialization.properties`
 
 ```properties
 [DT]
-dt.agentID=SMIA_agent@ejabberd   # XMPP JID (must match ejabberd account)
+dt.agentID=smia_machine0@ejabberd   # XMPP JID (must match ejabberd account)
 dt.password=asd                   # XMPP password
 dt.xmpp-server=ejabberd           # ejabberd container hostname
 
 [AAS]
 aas.model.serialization=AASX
 aas.model.folder=/smia_archive/config/aas   # where AASX files are mounted
-aas.model.file=LEGO_factory_case0.aasx      # which file to load
+aas.model.file=LEGO_machine0.aasx      # which file to load
 
 [ONTOLOGY]
 ontology.file=CSS-ontology-smia.owl
@@ -573,9 +573,9 @@ services:
   smia:                     # ← waits for ejabberd to be healthy
     image: ekhurtado/smia:latest-alpine
     environment:
-      - AAS_MODEL_NAME=LEGO_factory_case0.aasx
+      - AAS_MODEL_NAME=LEGO_machine0.aasx
       - AAS_ID=urn:uuid:6475_0111_2062_9689
-      - AGENT_ID=SMIA_agent@ejabberd
+      - AGENT_ID=smia_machine0@ejabberd
       - AGENT_PASSWD=asd
     volumes:
       - ../src/smia/agents/smia_agent.py:/usr/.../smia_agent.py  ← patched file
@@ -644,7 +644,7 @@ FIPA-ACL message (structured content)
 ### XMPP Addressing (JIDs)
 
 ```
-SMIA agent:     SMIA_agent@ejabberd
+SMIA agent:     smia_machine0@ejabberd
 Operator agent: operator001@ejabberd
 ```
 
@@ -655,7 +655,7 @@ Both agents connect to `ejabberd:5222`. The domain `ejabberd` is the Docker cont
 ```
 Field         │ REQUEST (operator → SMIA)
 ──────────────┼────────────────────────────────────────────────
-to            │ SMIA_agent@ejabberd
+to            │ smia_machine0@ejabberd
 sender        │ operator001@ejabberd
 performative  │ Request
 ontology      │ CSSRequest       ← tells SMIA this is a CSS capability request
@@ -842,14 +842,14 @@ ERROR: Cannot create a consistent method resolution order
 
 ### Problem 3: Operator GUI HTTP 500 on "Load"
 
-**Cause:** A backup file (`LEGO_factory_case0.aasx.bak2`) was present in `my_models/aas/`. The operator's file scanner tried to parse it, got `None` (not a valid AASX), then passed `None` to `analyze_aas_model_store()`, which set the AAS store to `None`. All subsequent CSS queries crashed with `NoneType is not iterable`.
+**Cause:** A backup file (`LEGO_machine0.aasx.bak2`) was present in `my_models/aas/`. The operator's file scanner tried to parse it, got `None` (not a valid AASX), then passed `None` to `analyze_aas_model_store()`, which set the AAS store to `None`. All subsequent CSS queries crashed with `NoneType is not iterable`.
 
 **Symptom:** Browser shows HTTP 500. Logs show `NoneType is not iterable`.
 
 **Fix:** Remove all non-`.aasx` files from `my_models/aas/`. Keep only:
 ```
 my_models/aas/
-├── LEGO_factory_case0.aasx
+├── LEGO_machine0.aasx
 └── SMIA_Operator_article.aasx
 ```
 
@@ -909,7 +909,7 @@ No certificate found matching ...
 ### The chain, end to end
 
 ```
-AASX model (LEGO_factory_case0.aasx)
+AASX model (LEGO_machine0.aasx)
   ↓ SMIA reads at startup
   ↓ CSS ontology IRIs → wraps elements as ExtendedCapability, ExtendedSkill
   ↓ SemanticRelationships → builds: PickPiece → Skill_PickPiece → pickPiece action
@@ -1180,7 +1180,7 @@ SMIA                                 SMIA
 SMIA/
 ├── my_models/                       ← everything for Case 0
 │   ├── aas/
-│   │   ├── LEGO_factory_case0.aasx  ← the AAS model (open in AASX PE)
+│   │   ├── LEGO_machine0.aasx  ← the AAS model (open in AASX PE)
 │   │   └── SMIA_Operator_article.aasx
 │   ├── xmpp_server/ejabberd.yml
 │   ├── ontology/CSS-ontology-smia.owl
@@ -1280,7 +1280,7 @@ HTTP done but no crane movement?
   → Check MQTT bridge to fischertechnik machine
 
 XMPP errors?
-  → Check credentials: SMIA_agent@ejabberd:asd / operator001@ejabberd:gcis1234
+  → Check credentials: smia_machine0@ejabberd:asd / operator001@ejabberd:gcis1234
   → Check ejabberd container is healthy
   → Try: docker compose down -v && docker compose up -d (re-registers accounts)
 ```

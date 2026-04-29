@@ -5,7 +5,7 @@
 **Physical asset:** fischertechnik Training Factory Industry 4.0 24V (ref. 554868) — warehouse crane (Hochregallager)
 **Scope:** Warehouse crane pick/place via SMIA, AASX, Node-RED, and MQTT.
 
-> **Naming note:** File names and AAS identifiers (`LEGO_factory_case0.aasx`, `LEGO_factory`, `/smia/lego/pick`, topic `vicom/61/piso_0/lab/lego/commands`) are historical artifacts from initial development. They refer to the fischertechnik Training Factory and its warehouse crane.
+> **Naming note:** AAS identifiers inside the packages (`LEGO_factory` idShort, `/smia/lego/pick` endpoint, MQTT topic `vicom/61/piso_0/lab/lego/commands`) are historical artifacts from initial development referring to the fischertechnik Training Factory warehouse crane. AASX filenames have been standardised to `LEGO_machine0.aasx` etc. Do not change the internal `idShort` values or IRIs — they appear in running logs and OWL instance names.
 
 ---
 
@@ -17,7 +17,7 @@
 4. [Repository Layout](#4-repository-layout-my_models)
 5. [Key Semantic IDs Reference](#5-key-semantic-ids-reference)
 6. [CSS Ontology](#6-css-ontology)
-7. [LEGO_factory_case0.aasx — Detailed Structure](#7-lego_factory_case0aasx--detailed-structure)
+7. [LEGO_machine0.aasx — Detailed Structure](#7-lego_factory_case0aasx--detailed-structure)
 8. [AASX Package Explorer — From-Scratch Tutorial](#8-aasx-package-explorer--from-scratch-tutorial)
 9. [SMIA_Operator_article.aasx — Operator Agent AAS](#9-smia_operator_articleaasx--operator-agent-aas)
 10. [Configuration Files](#10-configuration-files)
@@ -74,7 +74,7 @@ Three physical machines are involved:
     |
     | FIPA-ACL over XMPP (port 5222)
     v
-[ejabberd container]  ──── SMIA_agent@ejabberd / operator001@ejabberd
+[ejabberd container]  ──── smia_machine0@ejabberd / operator001@ejabberd
     |
     | FIPA-ACL REQUEST: execute Capability_PickPiece
     v
@@ -139,7 +139,7 @@ The lab hosts multiple physical machines (fischertechnik, KUKA, etc.). A per-mac
 |---|---|---|
 | **AAS / AASX** (IEC 63278) | Digital twin standard; `.aasx` packages define the agent model | AASX Package Explorer (authoring), basyx-python-sdk (runtime parsing) |
 | **CSS Ontology** (OWL 2) | Capability–Skill–Service model; defines relationships between capabilities, skills, and interfaces | `CSS-ontology-smia.owl` (embedded in AASX) |
-| **AID Submodel** (IDTA 02017) | W3C WoT-inspired submodel; describes HTTP endpoints, methods, and parameters | Defined inside `LEGO_factory_case0.aasx` |
+| **AID Submodel** (IDTA 02017) | W3C WoT-inspired submodel; describes HTTP endpoints, methods, and parameters | Defined inside `LEGO_machine0.aasx` |
 | **SMIA** | SPADE-based Python industrial agent; reads AAS + CSS ontology at startup, handles capability requests | `ekhurtado/smia:latest-alpine` |
 | **SMIA Operator** | Web GUI agent; allows operator to discover SMIAs and request capabilities | `ekhurtado/smia-use-cases:latest-operator` |
 | **ejabberd** | XMPP server; transports FIPA-ACL messages between agents | `ghcr.io/processone/ejabberd` |
@@ -159,7 +159,7 @@ The lab hosts multiple physical machines (fischertechnik, KUKA, etc.). A per-mac
 ```
 my_models/
 ├── aas/
-│   ├── LEGO_factory_case0.aasx       # Main SMIA AAS model (Case 0)
+│   ├── LEGO_machine0.aasx       # Main SMIA AAS model (Case 0)
 │   └── SMIA_Operator_article.aasx    # Operator agent AAS (from SMIA repo)
 ├── xmpp_server/
 │   └── ejabberd.yml                  # ejabberd XMPP server configuration
@@ -187,7 +187,7 @@ additional_tools/extended_agents/smia_operator_agent/
 
 ## 5. Key Semantic IDs Reference
 
-All semantic IDs listed here are verified from the SMIA source code (`src/smia/utilities/smia_info.py` and `src/smia/css_ontology/css_ontology_utils.py`) and from the working `LEGO_factory_case0.aasx` model.
+All semantic IDs listed here are verified from the SMIA source code (`src/smia/utilities/smia_info.py` and `src/smia/css_ontology/css_ontology_utils.py`) and from the working `LEGO_machine0.aasx` model.
 
 ### 5.1 CSS Ontology IRIs
 
@@ -398,11 +398,11 @@ Note: the `type` field of the `SkillImplementationType` qualifier says `"SkillIm
 
 ---
 
-## 7. LEGO_factory_case0.aasx — Detailed Structure
+## 7. LEGO_machine0.aasx — Detailed Structure
 
 > **Asset:** This AASX models the **fischertechnik Training Factory Industry 4.0 24V** warehouse crane. The file name and AAS shell identifiers use historical names; see the naming note at the top of this document.
 
-The file `my_models/aas/LEGO_factory_case0.aasx` is a ZIP archive containing:
+The file `my_models/aas/LEGO_machine0.aasx` is a ZIP archive containing:
 - `aasx/LEGO_factory/LEGO_factory.aas.xml` — the main AAS model (XML, AAS metamodel v3)
 - `aasx/CSS-ontology-smia.owl` — embedded CSS OWL ontology (36 KB)
 - `aasx/smia-initialization.properties` — properties template (not used at runtime; see §10.1)
@@ -512,7 +512,7 @@ SMIA reads these four relationships during startup (`InitAASModelBehaviour`) to 
 
 ## 8. AASX Package Explorer — From-Scratch Tutorial
 
-This section explains how to create `LEGO_factory_case0.aasx` from scratch using AASX Package Explorer (AASX PE). This AASX models the **fischertechnik Training Factory Industry 4.0 24V warehouse crane**. If you already have the file, use this as a verification guide.
+This section explains how to create `LEGO_machine0.aasx` from scratch using AASX Package Explorer (AASX PE). This AASX models the **fischertechnik Training Factory Industry 4.0 24V warehouse crane**. If you already have the file, use this as a verification guide.
 
 **Process reference (paper Fig. 6):** The SMIA paper defines the canonical CSS-enriched AAS development workflow as:
 1. Open AASX Package Explorer
@@ -545,7 +545,7 @@ To import it in AASX PE: **Edit → Edit Options… → Qualifier Presets → Lo
 
 1. Open AASX Package Explorer.
 2. Menu: **File → New…**
-3. Save the new package as `LEGO_factory_case0.aasx` in `my_models/aas/`.
+3. Save the new package as `LEGO_machine0.aasx` in `my_models/aas/`.
 
 ### 8.3 Embed Supplementary Files
 
@@ -699,7 +699,7 @@ This is the most detailed submodel. Follow the AID standard (IDTA 02017).
 >
 > **For Case 0 single-machine AASXs** (this file): leave semanticId empty — Mechanism 1 is sufficient.
 >
-> **For Case 1 multi-agent machine AASXs** (`LEGO_factory_case0.aasx`, `LEGO_machine1_case0.aasx`, `LEGO_machine2_case0.aasx`): the semanticId on every skill's `SkillImplementationType` qualifier **must** be set to `http://www.w3id.org/upv-ehu/gcis/css-smia#hasImplementationType` — otherwise the negotiation path crashes at boot.
+> **For Case 1 multi-agent machine AASXs** (`LEGO_machine0.aasx`, `LEGO_machine1.aasx`, `LEGO_machine2.aasx`): the semanticId on every skill's `SkillImplementationType` qualifier **must** be set to `http://www.w3id.org/upv-ehu/gcis/css-smia#hasImplementationType` — otherwise the negotiation path crashes at boot.
 
 **Add `Skill_PlacePiece` (Property):**
 1. Same structure as `Skill_PickPiece`.
@@ -783,7 +783,7 @@ Mounted into the `smia` container at: `/smia_archive/config/smia-initialization.
 ```properties
 [DT]
 dt.version=0.2.0
-dt.agentID=SMIA_agent@ejabberd
+dt.agentID=smia_machine0@ejabberd
 dt.password=asd
 dt.xmpp-server=ejabberd
 dt.web-ui=false
@@ -792,7 +792,7 @@ dt.web-ui=false
 aas.meta-model.version=3.0
 aas.model.serialization=AASX
 aas.model.folder=/smia_archive/config/aas
-aas.model.file=LEGO_factory_case0.aasx
+aas.model.file=LEGO_machine0.aasx
 
 [ONTOLOGY]
 ontology.file=CSS-ontology-smia.owl
@@ -801,14 +801,14 @@ ontology.inside-aasx=true
 
 | Key | Value | Explanation |
 |---|---|---|
-| `dt.agentID` | `SMIA_agent@ejabberd` | XMPP JID for the SMIA agent |
+| `dt.agentID` | `smia_machine0@ejabberd` | XMPP JID for the SMIA agent |
 | `dt.password` | `asd` | XMPP password (must match ejabberd registration) |
 | `dt.xmpp-server` | `ejabberd` | Container hostname of the XMPP server |
 | `dt.web-ui` | `false` | Disables built-in web UI (operator GUI is separate) |
 | `aas.meta-model.version` | `3.0` | AAS metamodel version |
 | `aas.model.serialization` | `AASX` | Use AASX format (not raw XML) |
 | `aas.model.folder` | `/smia_archive/config/aas` | Container path where AASX files are mounted |
-| `aas.model.file` | `LEGO_factory_case0.aasx` | Which AASX file to load |
+| `aas.model.file` | `LEGO_machine0.aasx` | Which AASX file to load |
 | `ontology.file` | `CSS-ontology-smia.owl` | OWL ontology filename to look for |
 | `ontology.inside-aasx` | `true` | Look for the `.owl` file inside the AASX package (at `aasx/<ontology.file>`) |
 
@@ -824,7 +824,7 @@ Key configuration points:
 ```yaml
 hosts:
   - localhost
-  - ejabberd            # Both SMIA_agent@ejabberd and operator001@ejabberd register here
+  - ejabberd            # Both smia_machine0@ejabberd and operator001@ejabberd register here
 
 listen:
   - port: 5222          # XMPP C2S (client-to-server) — agents connect here
@@ -897,7 +897,7 @@ All XMPP accounts are registered automatically on first ejabberd startup via `CT
 
 | Account | Service that uses it |
 |---|---|
-| `SMIA_agent@ejabberd` | `smia-machine0` |
+| `smia_machine0@ejabberd` | `smia-machine0` |
 | `smia_machine1@ejabberd` | `smia-machine1` |
 | `smia_machine2@ejabberd` | `smia-machine2` |
 | `smia_orch@ejabberd` | `smia-orchestrator` |
@@ -1160,7 +1160,7 @@ Before starting:
 2. Node-RED flow from `my_models/flow_dida_central_lego.json` is deployed on DIDA central.
 3. MQTT chain from DIDA central to the fischertechnik/PLC machine is online.
 4. `my_models/aas/` folder contains **only** these two files:
-   - `LEGO_factory_case0.aasx`
+   - `LEGO_machine0.aasx`
    - `SMIA_Operator_article.aasx`
 
 ### 14.2 Start the Stack
@@ -1298,7 +1298,7 @@ Use this checklist to replicate Case 0 from scratch.
 - [ ] Mosquitto broker running on DIDA central; bridge to fischertechnik machine configured
 
 ### AAS Authoring
-- [ ] Created `LEGO_factory_case0.aasx` with AASX PE (or verified existing file matches §7) — this models the fischertechnik warehouse crane
+- [ ] Created `LEGO_machine0.aasx` with AASX PE (or verified existing file matches §7) — this models the fischertechnik warehouse crane
 - [ ] Two AAS shells: `LEGO_factory` (urn:uuid:6475_0111_2062_9689) and `SMIA_agent`
 - [ ] Embedded `CSS-ontology-smia.owl` at path `aasx/CSS-ontology-smia.owl`
 - [ ] `AssetInterfacesDescription` submodel present with `InterfaceHTTP`, `EndpointMetadata`, `actions/pickPiece`, `actions/placePiece`
@@ -1309,7 +1309,7 @@ Use this checklist to replicate Case 0 from scratch.
 - [ ] `SemanticRelationships`: 4 RelationshipElements with correct semanticIds and references
 
 ### File Placement
-- [ ] `my_models/aas/LEGO_factory_case0.aasx` in place
+- [ ] `my_models/aas/LEGO_machine0.aasx` in place
 - [ ] `my_models/aas/SMIA_Operator_article.aasx` in place (from SMIA repo examples)
 - [ ] `my_models/aas/` contains ONLY the two `.aasx` files above — no backups, no other files
 - [ ] `my_models/smia-initialization.properties` configured (see §10.1)
@@ -1355,7 +1355,7 @@ This section is the definitive guide for Vicomtech DII colleagues to add a new p
 
 ### Step 1 — Create the AAS model in AASX Package Explorer
 
-Use an existing machine AASX (e.g. `LEGO_machine1_case0.aasx`) as a template:
+Use an existing machine AASX (e.g. `LEGO_machine1.aasx`) as a template:
 
 1. **Copy** the file and rename it: `LEGO_machineN_case0.aasx`
 2. **Assign new UUIDs** to both AAS shells (Asset Management shell and SMIA_agent shell):
@@ -1737,8 +1737,8 @@ for each .aasx in AAS_FOLDER:
 | Change | Detail |
 |---|---|
 | Renamed `smia` → `smia-machine0` | Explicit naming for clarity |
-| Added `smia-machine1` | `LEGO_machine1_case0.aasx`, `smia_machine1@ejabberd:machine1pass` |
-| Added `smia-machine2` | `LEGO_machine2_case0.aasx`, `smia_machine2@ejabberd:machine2pass` |
+| Added `smia-machine1` | `LEGO_machine1.aasx`, `smia_machine1@ejabberd:machine1pass` |
+| Added `smia-machine2` | `LEGO_machine2.aasx`, `smia_machine2@ejabberd:machine2pass` |
 | Added `smia-orchestrator` | `Orchestrator_case0.aasx`, `smia_orch@ejabberd:password` |
 | Updated `CTL_ON_CREATE` | Registers all 5 agent accounts in ejabberd |
 | Custom Dockerfiles for machine and orchestrator agents | All machines share `docker/smia-machine/Dockerfile`; orchestrator has `docker/smia-orchestrator/Dockerfile` |
@@ -1798,14 +1798,14 @@ The following four tasks must be completed manually in AASX Package Explorer bef
 
 ---
 
-#### 19.3.A Modify `LEGO_factory_case0.aasx` (machine0 — red pieces)
+#### 19.3.A Modify `LEGO_machine0.aasx` (machine0 — red pieces)
 
-Open `my_models/aas/LEGO_factory_case0.aasx` in AASX Package Explorer.
+Open `my_models/aas/LEGO_machine0.aasx` in AASX Package Explorer.
 
 **Step 0 — Fix the `SMIA_agent` shell InstanceName (CRITICAL):**
 - Navigate to: `SMIA_agent` shell → `SoftwareNameplate` submodel → find the `InstanceName` property (inside `SoftwareNameplateInstance` or `SoftwareNameplateInstance_smia_agent` SMC)
 - The current value is `smia_agent` — this is **wrong** for Case 1
-- Change value to: **`SMIA_agent@ejabberd`** (full XMPP JID including `@ejabberd` domain)
+- Change value to: **`smia_machine0@ejabberd`** (full XMPP JID including `@ejabberd` domain)
 
 > **Why the full JID is required:** The orchestrator's `_extract_jid_from_store()` reads `InstanceName` and uses that string directly as the XMPP address to send CFP messages to. If InstanceName is just `smia_agent` (no domain), SMIA will try to send to a non-existent XMPP address and machine0 will never participate in any negotiation. The value must be a complete JID: `user@domain`.
 
@@ -1885,10 +1885,10 @@ Open `my_models/aas/LEGO_factory_case0.aasx` in AASX Package Explorer.
 
 ---
 
-#### 19.3.B Create `LEGO_machine1_case0.aasx` (blue pieces)
+#### 19.3.B Create `LEGO_machine1.aasx` (blue pieces)
 
-1. **Clone** `LEGO_factory_case0.aasx`:
-   - File → Save As → `LEGO_machine1_case0.aasx` (save to same `my_models/aas/` folder)
+1. **Clone** `LEGO_machine0.aasx`:
+   - File → Save As → `LEGO_machine1.aasx` (save to same `my_models/aas/` folder)
 
    > From this point, all edits are on the clone.
 
@@ -1910,7 +1910,7 @@ Open `my_models/aas/LEGO_factory_case0.aasx` in AASX Package Explorer.
    > - `LEGO_factory` / `LEGO_machine1` — the **physical asset** DT: AID, Capabilities, Skills, CSS relationships. Used by SMIA for self-configuration, selected via the `AAS_ID` Docker env var.
    > - `SMIA_agent` — the **software agent** DT: SoftwareNameplate (identity, XMPP JID). Used by the operator GUI for discovery.
    >
-   > The operator GUI's `get_smia_jid_from_aas_store()` searches every AASX for a submodel with the SoftwareNameplate semantic ID, then reads the `InstanceName` property value. This is what appears in the GUI list — not the shell's `idShort`. So when you load `LEGO_machine1_case0.aasx`, the GUI shows `smia_machine1@ejabberd` as the agent entry.
+   > The operator GUI's `get_smia_jid_from_aas_store()` searches every AASX for a submodel with the SoftwareNameplate semantic ID, then reads the `InstanceName` property value. This is what appears in the GUI list — not the shell's `idShort`. So when you load `LEGO_machine1.aasx`, the GUI shows `smia_machine1@ejabberd` as the agent entry.
    >
    > The two shells are packaged together in one AASX because they are deployed together in one Docker container. The AAS standard explicitly supports multiple shells per package for exactly this reason.
 
@@ -1929,13 +1929,13 @@ Open `my_models/aas/LEGO_factory_case0.aasx` in AASX Package Explorer.
 
 ---
 
-#### 19.3.C Create `LEGO_machine2_case0.aasx` (white pieces)
+#### 19.3.C Create `LEGO_machine2.aasx` (white pieces)
 
 Repeat the same steps as 19.3.B. The two-shell rationale and idShort explanation from §19.3.B apply equally here. With these values:
 
 | Field | Value |
 |---|---|
-| Output filename | `LEGO_machine2_case0.aasx` |
+| Output filename | `LEGO_machine2.aasx` |
 | Factory shell idShort | `LEGO_machine2` |
 | Factory shell id | `urn:uuid:6475_0111_2062_0002` |
 | Agent shell id | **`urn:uuid:6373_1111_2062_0002`** ← must be unique, different from machine0 (`6896`) and machine1 (`0001`) |
@@ -2002,8 +2002,8 @@ File → New → Create empty AASX package. Then:
 
 **Step 5 — Embed required files:**
 - In AASX Package Explorer: Extras → AASX File Repository → Add supplemental files
-- Add `aasx/CSS-ontology-smia.owl` (copy from `LEGO_factory_case0.aasx`)
-- Add `aasx/smia-initialization.properties` (copy from `LEGO_factory_case0.aasx`)
+- Add `aasx/CSS-ontology-smia.owl` (copy from `LEGO_machine0.aasx`)
+- Add `aasx/smia-initialization.properties` (copy from `LEGO_machine0.aasx`)
 - The properties file can be the same content — runtime values come from Docker env vars
 
 **Step 6 — Save:** File → Save → `SMIA_orchestrator.aasx` in `my_models/aas/`
@@ -2090,7 +2090,7 @@ docker compose up xmpp-server smia-machine0 smia-machine1 smia-machine2 smia-ope
 **Expected startup logs for each machine:**
 ```
 Machine SMIA: initial self-configuration complete.
-Machine SMIA: loading AAS model from /smia_archive/config/aas/LEGO_factory_case0.aasx
+Machine SMIA: loading AAS model from /smia_archive/config/aas/LEGO_machine0.aasx
 Machine SMIA: registered 'machineAvailValue' agent service.
 AAS model initialized.
 Analyzed capabilities: ['Capability_PickPiece', 'Capability_PlacePiece']
@@ -2100,10 +2100,10 @@ Analyzed capabilities: ['Capability_PickPiece', 'Capability_PlacePiece']
 **Validation checklist:**
 
 - [ ] `docker logs smia-machine0` shows `Analyzed capabilities` and `StateRunning`
-- [ ] `docker logs smia-machine1` shows the same for `LEGO_machine1_case0.aasx`
-- [ ] `docker logs smia-machine2` shows the same for `LEGO_machine2_case0.aasx`
+- [ ] `docker logs smia-machine1` shows the same for `LEGO_machine1.aasx`
+- [ ] `docker logs smia-machine2` shows the same for `LEGO_machine2.aasx`
 - [ ] Operator GUI at `http://localhost:10000/smia_operator` → Load → shows all 3 machine JIDs
-- [ ] Send `Capability_PickPiece` with `skillParams: {position: 0}` directly to `SMIA_agent@ejabberd` → crane moves
+- [ ] Send `Capability_PickPiece` with `skillParams: {position: 0}` directly to `smia_machine0@ejabberd` → crane moves
 - [ ] `curl http://192.168.155.10:1880/smia/lego/availability` returns `1.0` at rest
 - [ ] Trigger pick → immediately query availability → should return `0.0` (busy)
 
@@ -2135,10 +2135,10 @@ OrchestratorDispatchBehaviour started.
 **Expected orchestrator log sequence:**
 ```
 new CSSRequest from operator (thread=<op_T>)
-Eligible machine: SMIA_agent@ejabberd (color=red) from LEGO_factory_case0.aasx
-CFP sent to SMIA_agent@ejabberd (neg_thread=<neg_T>)
-received winner INFORM (thread=<neg_T>) from SMIA_agent@ejabberd
-execution REQUEST sent to SMIA_agent@ejabberd (exec_thread=<exec_T>)
+Eligible machine: smia_machine0@ejabberd (color=red) from LEGO_machine0.aasx
+CFP sent to smia_machine0@ejabberd (neg_thread=<neg_T>)
+received winner INFORM (thread=<neg_T>) from smia_machine0@ejabberd
+execution REQUEST sent to smia_machine0@ejabberd (exec_thread=<exec_T>)
 result forwarded to operator (exec_thread=<exec_T>)
 ```
 
@@ -2159,7 +2159,7 @@ result forwarded to operator (exec_thread=<exec_T>)
 | Machine never reaches StateRunning | `Skill_NegAvailability` or `machineAvailValue` incorrectly defined | Check semanticId matches exactly; Skills must be Property not SMC |
 | `HandleNegotiationBehaviour` crashes: `'NoneType' object is not iterable` | `SkillImplementationType` qualifier on any skill has no semanticId | In AASX PE, open each machine AASX → find every skill Property → edit the `SkillImplementationType` qualifier → set semanticId to `http://www.w3id.org/upv-ehu/gcis/css-smia#hasImplementationType`. Affects all skills: `Skill_PickPiece`, `Skill_PlacePiece`, `Skill_NegAvailability`. See §8.7 / §19.3.A Step 3 for explanation. |
 | Machine always reports score 0.0 in negotiation | `rel_SkillNegAvail_agentSvc` uses a wrong or non-existent IRI | Set semanticId to `http://www.w3id.org/upv-ehu/gcis/css-smia#accessibleThroughAgentService` (lowercase 'a') |
-| Machine0 never participates in CFP | InstanceName in `LEGO_factory_case0.aasx` is not a full JID | Change SMIA_agent shell InstanceName to `SMIA_agent@ejabberd` |
+| Machine0 never participates in CFP | InstanceName in `LEGO_machine0.aasx` is not a full JID | Change SMIA_agent shell InstanceName to `smia_machine0@ejabberd` |
 | `INFORM(winner)` never arrives at orchestrator | `negRequester` field missing or wrong | Check `negRequester` is set to orchestrator JID in CFP body |
 | Orchestrator container never starts | `AAS_MODEL_NAME` doesn't match filename | Verify docker-compose uses `SMIA_orchestrator.aasx` (exact name) |
 | Operator GUI crashes on Load (500 error) | Non-AASX file in `aas/` folder | Remove any backup, XML, or JSON files from `my_models/aas/` |
@@ -2193,13 +2193,13 @@ This section tracks the exact state of each pending fix and the conditions requi
 
 #### Stage A — E2E without orchestrator (Case 0 single machine)
 
-**Goal:** Operator GUI → SMIA_agent@ejabberd → HTTP → Node-RED → crane.
+**Goal:** Operator GUI → smia_machine0@ejabberd → HTTP → Node-RED → crane.
 
 **Blocking fix (AASX PE required):**
 
 | File | Fix | Why it blocks |
 |---|---|---|
-| `LEGO_factory_case0.aasx` | `SMIA_agent` shell → `SoftwareNameplate` → `InstanceName` value: `SMIA_agent@ejabberd` | Operator GUI reads `InstanceName` via semantic ID (`operator_gui_logic.py:447`) and uses the raw value as the XMPP JID for message routing. A value without `@ejabberd` is not a valid XMPP JID — SPADE rejects it silently. |
+| `LEGO_machine0.aasx` | `SMIA_agent` shell → `SoftwareNameplate` → `InstanceName` value: `smia_machine0@ejabberd` | Operator GUI reads `InstanceName` via semantic ID (`operator_gui_logic.py:447`) and uses the raw value as the XMPP JID for message routing. A value without `@ejabberd` is not a valid XMPP JID — SPADE rejects it silently. |
 
 **Non-blocking issues for this stage:**
 - `rel_SkillNegAvail_agentSvc` IRI bug (`#AccessibleThroughAgentService`) causes a Track 3 warning during SMIA boot but does NOT prevent `StateRunning`. The pick/place flow does not involve negotiation and is unaffected.
@@ -2207,7 +2207,7 @@ This section tracks the exact state of each pending fix and the conditions requi
 
 **Node-RED:** `POST /smia/lego/pick` must be working (already exists).
 
-**How to test:** Run `docker compose up -d`, open `http://localhost:10000/smia_operator`, click Load, select `SMIA_agent@ejabberd`, select `Capability_PickPiece`, submit. All other services (orchestrator, machine1, machine2) start alongside but are not involved.
+**How to test:** Run `docker compose up -d`, open `http://localhost:10000/smia_operator`, click Load, select `smia_machine0@ejabberd`, select `Capability_PickPiece`, submit. All other services (orchestrator, machine1, machine2) start alongside but are not involved.
 
 ---
 
@@ -2219,11 +2219,11 @@ This section tracks the exact state of each pending fix and the conditions requi
 
 | File | Fix | Why it blocks |
 |---|---|---|
-| `LEGO_factory_case0.aasx` | InstanceName → `SMIA_agent@ejabberd` | (same as Stage A) |
-| `LEGO_factory_case0.aasx` | `rel_SkillNegAvail_agentSvc` semanticId → `http://www.w3id.org/upv-ehu/gcis/css-smia#accessibleThroughAgentService` | SMIA's Track 3 uses exact IRI string matching. Capital 'A' → IRI not found → `Skill_NegAvailability` OWL instance has no linked `SkillInterface` → `get_associated_skill_interface_instances()` returns `None` → negotiation score defaults to 0.0 for all machines → winner selection is arbitrary or fails |
-| `LEGO_machine1_case0.aasx` | Same `rel_SkillNegAvail_agentSvc` IRI fix | Same impact |
-| `LEGO_machine2_case0.aasx` | Same `rel_SkillNegAvail_agentSvc` IRI fix | Same impact |
-| `LEGO_machine2_case0.aasx` | `SMIA_agent` shell `id` → `urn:uuid:6373_1111_2062_0002` | Duplicate UUID with machine0's SMIA shell — AAS Part 1 §5.3.1 requires globally unique shell IDs; BaSyx SDK may raise a conflict error during model loading |
+| `LEGO_machine0.aasx` | InstanceName → `smia_machine0@ejabberd` | (same as Stage A) |
+| `LEGO_machine0.aasx` | `rel_SkillNegAvail_agentSvc` semanticId → `http://www.w3id.org/upv-ehu/gcis/css-smia#accessibleThroughAgentService` | SMIA's Track 3 uses exact IRI string matching. Capital 'A' → IRI not found → `Skill_NegAvailability` OWL instance has no linked `SkillInterface` → `get_associated_skill_interface_instances()` returns `None` → negotiation score defaults to 0.0 for all machines → winner selection is arbitrary or fails |
+| `LEGO_machine1.aasx` | Same `rel_SkillNegAvail_agentSvc` IRI fix | Same impact |
+| `LEGO_machine2.aasx` | Same `rel_SkillNegAvail_agentSvc` IRI fix | Same impact |
+| `LEGO_machine2.aasx` | `SMIA_agent` shell `id` → `urn:uuid:6373_1111_2062_0002` | Duplicate UUID with machine0's SMIA shell — AAS Part 1 §5.3.1 requires globally unique shell IDs; BaSyx SDK may raise a conflict error during model loading |
 | `SMIA_orchestrator.aasx` | `SMIA_agent` shell → `InstanceName`: remove trailing space → `smia_orch@ejabberd` | Trailing space makes the JID invalid; SPADE rejects it; operator GUI cannot route requests to the orchestrator |
 | `SMIA_orchestrator.aasx` | `rel_CapPick_isRealizedBy_*` and `rel_CapPlace_isRealizedBy_*`: semanticId `isRealizedBySkill` → `http://www.w3id.org/hsu-aut/css#isRealizedBy` | `isRealizedBySkill` is not a valid CSS IRI — Track 3 cannot link the relationship. The orchestrator functions correctly without it (its dispatch logic is in `OrchestratorDispatchBehaviour`, not the CSS model), but the AASX is semantically incorrect and will fail AAS validation |
 | `SMIA_orchestrator.aasx` | `Capability_PickPiece` and `Capability_PlacePiece` child property: rename `position` (xs:int) → `color` (xs:string) | `OrchestratorDispatchBehaviour._find_capability_color()` scans all AASXs for a property named `color` inside the matching capability SMC. The orchestrator's own AASX is also in the `aas/` folder — if it has a `position` property instead of `color`, the color filter won't match and the orchestrator's own AASX won't contaminate results. However, this is a semantic correctness issue: the orchestrator's AAS must reflect that it accepts `color` (not `position`) as the input parameter from the operator |

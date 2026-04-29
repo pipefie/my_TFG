@@ -670,7 +670,7 @@ XMPP provides:
 - **Federated messaging**: Agents on different XMPP servers can communicate if the servers are peered.
 - **Security**: TLS encryption and SASL authentication.
 
-In this project, **ejabberd** is used as the XMPP server. ejabberd is a mature, production-grade open-source XMPP server written in Erlang. The SMIA agent JID is `SMIA_agent@ejabberd` and the operator agent JID is `operator001@ejabberd`.
+In this project, **ejabberd** is used as the XMPP server. ejabberd is a mature, production-grade open-source XMPP server written in Erlang. The SMIA agent JID is `smia_machine0@ejabberd` and the operator agent JID is `operator001@ejabberd`.
 
 ### 9.4 SPADE: Smart Python Agent Development Environment
 
@@ -903,7 +903,7 @@ SMIA uses SPADE's `metadata` field to carry FIPA-ACL semantics. A CSS capability
 
 | Field | Value |
 |---|---|
-| `to` | Recipient SMIA JID (e.g., `SMIA_agent@ejabberd`) |
+| `to` | Recipient SMIA JID (e.g., `smia_machine0@ejabberd`) |
 | `sender` | Sender JID (e.g., `operator001@ejabberd`) |
 | `body` | JSON: `{"skill": "Skill_PickPiece", "constraints": [], "params": {"position": 0}}` |
 | `performative` | `Request` |
@@ -984,7 +984,7 @@ The Case 0 scenario is as follows:
 
 1. A human **operator** opens the SMIA Operator web GUI in a browser.
 2. The operator clicks **"Load"** to discover available SMIA agents in the network.
-3. The SMIA Operator scans the AAS folder, finds `LEGO_factory_case0.aasx` (the AAS model of the fischertechnik factory — note the historical naming), and queries the corresponding SMIA agent via XMPP.
+3. The SMIA Operator scans the AAS folder, finds `LEGO_machine0.aasx` (the AAS model of the fischertechnik factory — note the historical naming), and queries the corresponding SMIA agent via XMPP.
 4. The operator sees the factory SMIA with its available capabilities: `Capability_PickPiece` and `Capability_PlacePiece` (both bound to the warehouse crane).
 5. The operator selects **`Capability_PickPiece`** and clicks **"Submit"**.
 6. The SMIA Operator sends a FIPA-ACL `REQUEST` message to the SMIA agent.
@@ -1035,7 +1035,7 @@ Rather than connecting SMIA directly to the MQTT broker, Node-RED was placed as 
 - Reusability (the flow can be shared and modified without touching SMIA).
 
 **XMPP credential management:**
-Both agent accounts (`SMIA_agent@ejabberd` and `operator001@ejabberd`) are automatically registered by ejabberd's `CTL_ON_CREATE` feature when the container starts for the first time. This makes deployment reproducible: no manual account creation is required.
+Both agent accounts (`smia_machine0@ejabberd` and `operator001@ejabberd`) are automatically registered by ejabberd's `CTL_ON_CREATE` feature when the container starts for the first time. This makes deployment reproducible: no manual account creation is required.
 
 ---
 
@@ -1093,12 +1093,12 @@ The software system is composed of five functional layers:
 
 ### 13.3 AAS Model Architecture
 
-The `LEGO_factory_case0.aasx` package contains the complete digital twin of the fischertechnik Training Factory warehouse crane asset.
+The `LEGO_machine0.aasx` package contains the complete digital twin of the fischertechnik Training Factory warehouse crane asset.
 
-> **Note on naming:** The file and AAS shell identifiers (`LEGO_factory_case0.aasx`, `LEGO_factory`) are historical naming artifacts from the initial development phase. They refer to the fischertechnik Training Factory Industry 4.0 24V and should be interpreted as such in all technical documentation.
+> **Note on naming:** The file and AAS shell identifiers (`LEGO_machine0.aasx`, `LEGO_factory`) are historical naming artifacts from the initial development phase. They refer to the fischertechnik Training Factory Industry 4.0 24V and should be interpreted as such in all technical documentation.
 
 ```
-LEGO_factory_case0.aasx      ← digital twin of fischertechnik Training Factory (warehouse crane)
+LEGO_machine0.aasx      ← digital twin of fischertechnik Training Factory (warehouse crane)
 ├── LEGO_factory (AAS shell, id: urn:uuid:6475_0111_2062_9689)
 │   ├── SubmodelWithCapabilitySkillOntology  ← CSS concept definitions
 │   ├── AssetInterfacesDescription           ← HTTP endpoint descriptions (AID)
@@ -1134,7 +1134,7 @@ docker-compose.yml
 ├── xmpp-server (ejabberd)
 │   ├── ports: 5222, 5269, 5280, 5443
 │   ├── volume: ./xmpp_server/ejabberd.yml
-│   ├── Auto-registers: SMIA_agent@ejabberd:asd
+│   ├── Auto-registers: smia_machine0@ejabberd:asd
 │   └── Auto-registers: operator001@ejabberd:gcis1234
 │
 ├── smia (SMIA agent)
@@ -1157,7 +1157,7 @@ docker-compose.yml
 
 ### 14.1 AAS Model Creation (AASX Package Explorer)
 
-The `LEGO_factory_case0.aasx` model (representing the fischertechnik Training Factory warehouse crane) was created using **AASX Package Explorer**, an open-source Windows tool distributed by IDTA. The creation process follows the **CSS-enriched AAS development workflow** defined in the SMIA paper (Fig. 6):
+The `LEGO_machine0.aasx` model (representing the fischertechnik Training Factory warehouse crane) was created using **AASX Package Explorer**, an open-source Windows tool distributed by IDTA. The creation process follows the **CSS-enriched AAS development workflow** defined in the SMIA paper (Fig. 6):
 
 > For each SubmodelElement: if CSS-related → query Protégé for the IRI → add to `semanticId` field. For each relationship: get the CSS `ObjectProperty` IRI → add to `RelationshipElement` `semanticId`. Then add the AID submodel, embed the OWL file, and save the AASX.
 
@@ -1177,14 +1177,14 @@ The SMIA agent is configured via a properties file that defines the XMPP credent
 
 ```properties
 [DT]
-dt.agentID=SMIA_agent@ejabberd      # XMPP JID
+dt.agentID=smia_machine0@ejabberd      # XMPP JID
 dt.password=asd                      # XMPP password
 dt.xmpp-server=ejabberd              # XMPP server hostname (Docker container name)
 
 [AAS]
 aas.model.serialization=AASX        # Use AASX format
 aas.model.folder=/smia_archive/config/aas  # Path inside container
-aas.model.file=LEGO_factory_case0.aasx     # Which file to load
+aas.model.file=LEGO_machine0.aasx     # Which file to load
 
 [ONTOLOGY]
 ontology.file=CSS-ontology-smia.owl  # OWL filename
@@ -1331,7 +1331,7 @@ Two major architectural decisions shape the Case 0 deployment. Both were chosen 
 | Reproducibility | The same images, volumes, and configuration produce identical behaviour on any machine with Docker installed |
 | Isolated network | Containers communicate via Docker bridge; the hostname `ejabberd` resolves internally without touching host network configuration |
 | Controlled startup order | Health-check-based `depends_on` ensures agents connect to ejabberd only after it is ready, eliminating race conditions |
-| Automated XMPP account provisioning | `CTL_ON_CREATE` registers both agent accounts (`SMIA_agent@ejabberd` and `operator001@ejabberd`) on the first container start, removing manual `ejabberdctl` steps |
+| Automated XMPP account provisioning | `CTL_ON_CREATE` registers both agent accounts (`smia_machine0@ejabberd` and `operator001@ejabberd`) on the first container start, removing manual `ejabberdctl` steps |
 | Version-controlled configuration | All service definitions, ejabberd configuration, and AASX files are tracked in git alongside the source code |
 | Clean code injection via Dockerfiles | Custom agent code is baked into images at build time via `COPY` — no fragile runtime volume mounts for Python files. AASX models and ejabberd config are still mounted as volumes (data, not code) for easy updates without rebuilds |
 
@@ -1475,7 +1475,7 @@ The most significant validation result is the confirmation that **SMIA configure
 - The capability or skill names.
 - The MQTT topic or payload format.
 
-All of this information is read from `LEGO_factory_case0.aasx` (the fischertechnik factory AAS) at startup. If a new machine with a different endpoint were added by creating a new AASX model, SMIA would handle it without any code modification.
+All of this information is read from `LEGO_machine0.aasx` (the fischertechnik factory AAS) at startup. If a new machine with a different endpoint were added by creating a new AASX model, SMIA would handle it without any code modification.
 
 ### 15.4 Quantitative Performance Metrics (paper §5.2.3)
 
@@ -1539,9 +1539,9 @@ The Case 1 system runs eight Docker services on a single host, all sharing the `
 | `ejabberd` | `ghcr.io/processone/ejabberd` | XMPP message broker — routes all FIPA-ACL messages between agents | — |
 | `mosquitto-central` | `eclipse-mosquitto:2` | Containerised MQTT broker; bridges outbound commands to the physical machine's broker | — |
 | `nodered` | `nodered/node-red:latest` | HTTP→MQTT bridge; exposes `/smia/lego/pick`, `/smia/lego/place`, `/smia/lego/availability` | — |
-| `smia-machine0` | custom (Dockerfile) | Manufacturing SMIA, red colour constraint | `LEGO_factory_case0.aasx` |
-| `smia-machine1` | custom (Dockerfile) | Manufacturing SMIA, blue colour constraint | `LEGO_machine1_case0.aasx` |
-| `smia-machine2` | custom (Dockerfile) | Manufacturing SMIA, white colour constraint | `LEGO_machine2_case0.aasx` |
+| `smia-machine0` | custom (Dockerfile) | Manufacturing SMIA, red colour constraint | `LEGO_machine0.aasx` |
+| `smia-machine1` | custom (Dockerfile) | Manufacturing SMIA, blue colour constraint | `LEGO_machine1.aasx` |
+| `smia-machine2` | custom (Dockerfile) | Manufacturing SMIA, white colour constraint | `LEGO_machine2.aasx` |
 | `smia-orchestrator` | custom (Dockerfile) | Orchestrator SMIA — FIPA-CNP initiator | `SMIA_orchestrator.aasx` |
 | `smia-operator` | custom (Dockerfile) | Operator web GUI; discovers SMIAs by scanning `aas/` folder | `SMIA_Operator_article.aasx` |
 
@@ -1560,9 +1560,9 @@ The AAS standard allows multiple shells in one AASX package. In the SMIA philoso
 
 **In practice:**
 - The `AAS_ID` Docker environment variable (e.g., `urn:uuid:6475_0111_2062_9689`) tells SMIA which shell to use for self-configuration. SMIA reads the AID and CSS submodels from the `LEGO_factory` shell only.
-- The operator GUI's `get_smia_jid_from_aas_store()` searches the entire AASX for a submodel with the `SoftwareNameplate` semantic ID, reads the `InstanceName` property, and displays that JID in the GUI list. The GUI shows `SMIA_agent@ejabberd` — not the shell's `idShort` attribute.
+- The operator GUI's `get_smia_jid_from_aas_store()` searches the entire AASX for a submodel with the `SoftwareNameplate` semantic ID, reads the `InstanceName` property, and displays that JID in the GUI list. The GUI shows `smia_machine0@ejabberd` — not the shell's `idShort` attribute.
 - The `idShort` of the `SMIA_agent` shell is a display label in AASX Package Explorer only. It has no runtime significance. All three machines use `SMIA_agent` as the idShort in their respective AASX files — this is not a conflict because `idShort` uniqueness is only required within a single AASX package.
-- The `InstanceName` value must be the **full XMPP JID** including the ejabberd domain — e.g., `SMIA_agent@ejabberd`, `smia_machine1@ejabberd`. The orchestrator's `_extract_jid_from_store()` uses this value directly as the target address for CFP messages. A value like `smia_agent` (missing `@ejabberd`) is not a valid XMPP address and will cause the machine to be silently excluded from all negotiations.
+- The `InstanceName` value must be the **full XMPP JID** including the ejabberd domain — e.g., `smia_machine0@ejabberd`, `smia_machine1@ejabberd`. The orchestrator's `_extract_jid_from_store()` uses this value directly as the target address for CFP messages. A value like `smia_agent` (missing `@ejabberd`) is not a valid XMPP address and will cause the machine to be silently excluded from all negotiations.
 - Each `SMIA_agent` shell must also have a **globally unique `id` (UUID)**. The AAS standard Part 1 (§5.3.1) requires that all shell identifiers be unique across packages. If two machines share the same SMIA agent shell UUID, the BaSyx SDK `DictObjectStore` may silently discard one during deserialization — making that machine's JID unreadable by the orchestrator.
 
 **End-to-end flow (10 steps):**
@@ -1807,7 +1807,7 @@ Instead, `OrchestratorDispatchBehaviour._discover_machines_for_request()` scans 
 4. Exclude the orchestrator's own JID (avoid sending CFPs to itself).
 
 **Implication for extensibility.** To add a fourth machine (e.g., machine3 handling yellow pieces), it is sufficient to:
-- Create `LEGO_machine3_case0.aasx` with `Capability_PickPiece/color = "yellow"`
+- Create `LEGO_machine3.aasx` with `Capability_PickPiece/color = "yellow"`
 - Add `yellow → position="3"` to `COLOR_POSITION_MAP` in the orchestrator behaviour
 - Add an ejabberd account and a Docker Compose service
 - No changes to any existing machine or orchestrator Python code
@@ -2131,10 +2131,10 @@ The operator sees all four agents including `smia_orch@ejabberd`. A capability r
 ```
 OrchestratorDispatchBehaviour started.
 new CSSRequest from operator (thread=...)
-Eligible machine: SMIA_agent@ejabberd (color=red) from LEGO_factory_case0.aasx
-CFP sent to SMIA_agent@ejabberd (neg_thread=...)
-received winner INFORM (thread=...) from SMIA_agent@ejabberd
-execution REQUEST sent to SMIA_agent@ejabberd (exec_thread=...)
+Eligible machine: smia_machine0@ejabberd (color=red) from LEGO_machine0.aasx
+CFP sent to smia_machine0@ejabberd (neg_thread=...)
+received winner INFORM (thread=...) from smia_machine0@ejabberd
+execution REQUEST sent to smia_machine0@ejabberd (exec_thread=...)
 result forwarded to operator (exec_thread=...)
 ```
 

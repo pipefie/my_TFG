@@ -26,7 +26,7 @@ services:
       - ERLANG_COOKIE=${EJABBERD_COOKIE}
       # Registers all SMIA agent accounts on first container creation.
       # To add a new machine: append ; register <user> ejabberd ${NEW_PASSWD}
-      - CTL_ON_CREATE=! register SMIA_agent ejabberd ${MACHINE0_PASSWD} ; register operator001 ejabberd ${OPERATOR_PASSWD} ; register smia_machine1 ejabberd ${MACHINE1_PASSWD} ; register smia_machine2 ejabberd ${MACHINE2_PASSWD} ; register smia_orch ejabberd ${ORCH_PASSWD} ; register smia_machine3 ejabberd ${MACHINE3_PASSWD} ; register smia_machine4 ejabberd ${MACHINE4_PASSWD} ; register smia_machine5 ejabberd ${MACHINE5_PASSWD}
+      - CTL_ON_CREATE=! register smia_machine0 ejabberd ${MACHINE0_PASSWD} ; register operator001 ejabberd ${OPERATOR_PASSWD} ; register smia_machine1 ejabberd ${MACHINE1_PASSWD} ; register smia_machine2 ejabberd ${MACHINE2_PASSWD} ; register smia_orch ejabberd ${ORCH_PASSWD} ; register smia_machine3 ejabberd ${MACHINE3_PASSWD} ; register smia_machine4 ejabberd ${MACHINE4_PASSWD} ; register smia_machine5 ejabberd ${MACHINE5_PASSWD}
     ports:
       - "5222:5222"
       - "5269:5269"

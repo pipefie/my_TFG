@@ -220,7 +220,7 @@ The orchestrator uses `add_new_agent_capability` to register `OrchestratorDispat
     │ FIPA-ACL REQUEST (ontology=css-service) over XMPP :5222
     ▼
 [ejabberd container]  — XMPP routing
-    │ routes to SMIA_agent@ejabberd (machine0)
+    │ routes to smia_machine0@ejabberd (machine0)
     ▼
 [smia-machine0 container]  — SMIA machine agent (fischertechnik factory)
     │ 1. Capability_PickPiece → isRealizedBy → Skill_PickPiece
@@ -310,9 +310,12 @@ SMIA/
 │   ├── .env                                ← credentials (gitignored; copy from .env.example)
 │   ├── .env.example                        ← template with all required variables
 │   ├── aas/                                ← ALL AASX files (operator scans this folder)
-│   │   ├── LEGO_factory_case0.aasx         ← machine0 (SMIA_agent@ejabberd)
-│   │   ├── LEGO_machine1_case0.aasx        ← machine1 (smia_machine1@ejabberd)
-│   │   ├── LEGO_machine2_case0.aasx        ← machine2 (smia_machine2@ejabberd)
+│   │   ├── LEGO_machine0.aasx              ← machine0 (smia_machine0@ejabberd, red)
+│   │   ├── LEGO_machine1.aasx              ← machine1 (smia_machine1@ejabberd, blue)
+│   │   ├── LEGO_machine2.aasx              ← machine2 (smia_machine2@ejabberd, white)
+│   │   ├── LEGO_machine3.aasx              ← machine3 (smia_machine3@ejabberd, red duplicate)
+│   │   ├── LEGO_machine4.aasx              ← machine4 (smia_machine4@ejabberd, blue duplicate)
+│   │   ├── LEGO_machine5.aasx              ← machine5 (smia_machine5@ejabberd, multicolour red,blue)
 │   │   ├── SMIA_orchestrator.aasx          ← orchestrator (smia_orch@ejabberd)
 │   │   └── SMIA_Operator_article.aasx      ← operator agent's own AAS
 │   ├── docker/
@@ -366,9 +369,12 @@ reset:   docker compose -f my_models/docker-compose.yml down -v   ← wipes ejab
 | `ejabberd` | `ghcr.io/processone/ejabberd` | XMPP broker; auto-registers all agents via CTL_ON_CREATE | 5222 |
 | `mosquitto-central` | `eclipse-mosquitto:2` | MQTT broker; bridges to fischertechnik machine | 1883 |
 | `nodered` | `nodered/node-red:latest` | HTTP→MQTT bridge; loads flows from `./nodered/flows.json` | 1880 |
-| `smia-machine0` | `docker/smia-machine/Dockerfile` | Machine agent (SMIA_agent@ejabberd), LEGO_factory_case0.aasx | — |
-| `smia-machine1` | `docker/smia-machine/Dockerfile` | Machine agent (smia_machine1@ejabberd), LEGO_machine1_case0.aasx | — |
-| `smia-machine2` | `docker/smia-machine/Dockerfile` | Machine agent (smia_machine2@ejabberd), LEGO_machine2_case0.aasx | — |
+| `smia-machine0` | `docker/smia-machine/Dockerfile` | Machine agent (smia_machine0@ejabberd), LEGO_machine0.aasx, red | — |
+| `smia-machine1` | `docker/smia-machine/Dockerfile` | Machine agent (smia_machine1@ejabberd), LEGO_machine1.aasx, blue | — |
+| `smia-machine2` | `docker/smia-machine/Dockerfile` | Machine agent (smia_machine2@ejabberd), LEGO_machine2.aasx, white | — |
+| `smia-machine3` | `docker/smia-machine/Dockerfile` | Machine agent (smia_machine3@ejabberd), LEGO_machine3.aasx, red duplicate | — |
+| `smia-machine4` | `docker/smia-machine/Dockerfile` | Machine agent (smia_machine4@ejabberd), LEGO_machine4.aasx, blue duplicate | — |
+| `smia-machine5` | `docker/smia-machine/Dockerfile` | Machine agent (smia_machine5@ejabberd), LEGO_machine5.aasx, multicolour red+blue | — |
 | `smia-orchestrator` | `docker/smia-orchestrator/Dockerfile` | Orchestrator (smia_orch@ejabberd), SMIA_orchestrator.aasx | — |
 | `smia-operator` | `additional_tools/.../Dockerfile` | Operator web GUI (operator001@ejabberd) | 10000 |
 
@@ -396,7 +402,7 @@ Build is needed after any `.py` file change: `docker compose -f my_models/docker
 
 ## 8. AASX Models — Structure (all 5 files)
 
-### 8.1 Machine AASXs (LEGO_factory_case0, LEGO_machine1_case0, LEGO_machine2_case0)
+### 8.1 Machine AASXs (LEGO_machine0, LEGO_machine1, LEGO_machine2)
 
 All three have the same structure (with different UUIDs, JIDs, and color values):
 
@@ -817,7 +823,7 @@ Case 1 message count with 3 machines: 1 (operator→orch) + 3 (CFP→machines) +
 | machine1 AAS id | `urn:uuid:6475_0111_2062_0001` |
 | machine2 AAS id | `urn:uuid:6475_0111_2062_0002` |
 | orchestrator AAS id | `urn:uuid:8888_0001_2026_0001` |
-| Machine0 XMPP JID | `SMIA_agent@ejabberd` |
+| Machine0 XMPP JID | `smia_machine0@ejabberd` |
 | Machine1 XMPP JID | `smia_machine1@ejabberd` |
 | Machine2 XMPP JID | `smia_machine2@ejabberd` |
 | Orchestrator XMPP JID | `smia_orch@ejabberd` |

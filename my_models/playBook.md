@@ -64,13 +64,13 @@ Naming note:
 ### 3.1 Files
 1. `my_models/docker-compose.yml`
 2. `my_models/smia-initialization.properties`
-3. `my_models/aas/LEGO_factory_case0.aasx`
+3. `my_models/aas/LEGO_machine0.aasx`
 4. `my_models/aas/SMIA_Operator_article.aasx`
 5. `my_models/flow_dida_central_lego.json`
 6. `src/smia/agents/smia_agent.py` (patched and mounted into container)
 
 ### 3.2 Hashes (reproducibility)
-1. `LEGO_factory_case0.aasx`: `2bab8d6a6a1f3b6a67e3c20a9707990e918575553d0878950da14236bf9f12ca`
+1. `LEGO_machine0.aasx`: `2bab8d6a6a1f3b6a67e3c20a9707990e918575553d0878950da14236bf9f12ca`
 2. `flow_dida_central_lego.json`: `fb1a5a5ddcbafa970b0363b8728ee283aebea339471d0e8d401f3cb0b5dc3565`
 3. `docker-compose.yml`: `a4fbbe724c653656729eb843c435d1d6dfda0b9b9d01308be737a2d749863be5`
 4. `smia-initialization.properties`: `992d4ae7b43e637c952ec84006b4f0ec6287b76d78ab923093408a554f328b46`
@@ -79,9 +79,9 @@ Naming note:
 1. `smia`:
    - image: `ekhurtado/smia:latest-alpine`
    - env:
-     - `AAS_MODEL_NAME=LEGO_factory_case0.aasx`
+     - `AAS_MODEL_NAME=LEGO_machine0.aasx`
      - `AAS_ID=urn:uuid:6475_0111_2062_9689`
-     - `AGENT_ID=SMIA_agent@ejabberd`
+     - `AGENT_ID=smia_machine0@ejabberd`
      - `AGENT_PASSWD=asd`
    - volumes:
      - `../src/smia/agents/smia_agent.py:/usr/local/lib/python3.12/site-packages/smia/agents/smia_agent.py`
@@ -104,12 +104,12 @@ Naming note:
    - exposed port: `10000`
 
 ### 3.4 `smia-initialization.properties` (external file)
-1. `dt.agentID=SMIA_agent@ejabberd`
+1. `dt.agentID=smia_machine0@ejabberd`
 2. `dt.password=asd`
 3. `dt.xmpp-server=ejabberd`
 4. `aas.model.serialization=AASX`
 5. `aas.model.folder=/smia_archive/config/aas`
-6. `aas.model.file=LEGO_factory_case0.aasx`
+6. `aas.model.file=LEGO_machine0.aasx`
 7. `ontology.file=CSS-ontology-smia.owl`
 8. `ontology.inside-aasx=true`
 
@@ -119,7 +119,7 @@ Note: the AASX package also contains an embedded `aasx/smia-initialization.prope
 
 ## 4) AAS Configuration (Case 0) with Concrete Mapping
 
-Source verified from `my_models/LEGO_factory_case0.json` and `LEGO_factory_case0.aasx` internal XML.
+Source verified from `my_models/LEGO_machine0.json` and `LEGO_machine0.aasx` internal XML.
 
 ### 4.1 AAS identities
 1. Main training factory AAS ID: `urn:uuid:6475_0111_2062_9689`
@@ -202,7 +202,7 @@ Capability scope note:
 
 ## 5) AASX Package Explorer Verification Checklist (What to Click)
 
-Open `my_models/aas/LEGO_factory_case0.aasx` in AASX Package Explorer and verify:
+Open `my_models/aas/LEGO_machine0.aasx` in AASX Package Explorer and verify:
 1. `Submodels` -> `AssetInterfacesDescription` exists.
 2. `AssetInterfacesDescription` -> `InterfaceHTTP` exists.
 3. `InterfaceHTTP` -> `EndpointMetadata` -> `base` is `http://192.168.155.10:1880`.
@@ -411,7 +411,7 @@ This section records issues actually observed in this setup cycle.
 
 5. Symptom: XMPP auth/online issues.
    - Check Compose env:
-     - `SMIA_agent@ejabberd / asd`
+     - `smia_machine0@ejabberd / asd`
      - `operator001@ejabberd / gcis1234`
    - Check ejabberd container health and port 5222.
 
@@ -442,7 +442,7 @@ Expected patterns:
 
 1. Clone repo and go to `SMIA` root.
 2. Ensure `my_models/aas` contains:
-   - `LEGO_factory_case0.aasx`
+   - `LEGO_machine0.aasx`
    - `SMIA_Operator_article.aasx`
 3. Ensure `my_models/docker-compose.yml` mounts are exactly as listed.
 4. Deploy Node-RED flow from `my_models/flow_dida_central_lego.json` in DIDA central.

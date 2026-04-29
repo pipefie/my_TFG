@@ -7,7 +7,7 @@
 
 > **Builds on Case 0.** This document assumes familiarity with `doc_case0.md`. Only differences and additions are described from scratch; concepts already documented in Case 0 are referenced, not repeated.
 
-> **Naming note:** File names (`LEGO_factory_case0.aasx`, `LEGO_machine1_case0.aasx`, etc.) and AAS identifiers are historical artifacts. They refer to the fischertechnik Training Factory warehouse crane. Do not rename them — they appear in running configs and logs.
+> **Naming note:** AAS identifiers (`LEGO_factory`, `/smia/lego/pick`, MQTT topic `vicom/61/piso_0/lab/lego/commands`) and the AAS `idShort` values inside the AASX packages are historical artifacts from the initial `LEGO_factory_case0` naming. The AASX filenames have been standardised to `LEGO_machine0.aasx`, `LEGO_machine1.aasx`, etc. Do not change the internal AAS `idShort` or IRI values — they appear in running logs and OWL instance names.
 
 ---
 
@@ -41,8 +41,8 @@ SMIA runs entirely inside a single Python thread using Python's `asyncio` event 
 ### 0.3 Full XMPP JID vs. Bare JID
 
 XMPP addresses have two forms:
-- **Bare JID:** `username@domain` — the account identity (e.g., `SMIA_agent@ejabberd`)
-- **Full JID:** `username@domain/resource` — the specific active connection (e.g., `SMIA_agent@ejabberd/1718375723884498033169`)
+- **Bare JID:** `username@domain` — the account identity (e.g., `smia_machine0@ejabberd`)
+- **Full JID:** `username@domain/resource` — the specific active connection (e.g., `smia_machine0@ejabberd/1718375723884498033169`)
 
 SPADE's `str(msg.sender)` returns the full JID. The orchestrator uses the sender's full JID when addressing the winner's execution REQUEST to ensure the reply reaches the same active connection, not an alternative session if the same account were connected twice.
 
@@ -265,14 +265,14 @@ All 8 services share the `smia-net` Docker bridge network. Docker DNS resolves a
     │    - Reads SoftwareNameplate → InstanceName → JID per AASX
     │    - Reads Capability_PickPiece/color property per AASX
     │    - Filters: only machines where color == "red"
-    │    → eligible machines: ["SMIA_agent@ejabberd"]
+    │    → eligible machines: ["smia_machine0@ejabberd"]
     │ 4. Generates neg_thread=T_neg (UUID), reserves T_neg
     │ 5. Stores: pending_orchestrations[T_neg] = {phase: 'negotiation', op_thread: T_op, ...}
     │
     │ FIPA-ACL CFP (performative=cfp, protocol=fipa-contract-net, ontology=css-service)
-    │ thread=T_neg, to=SMIA_agent@ejabberd
+    │ thread=T_neg, to=smia_machine0@ejabberd
     │ body={capabilityIRI, negCriterion: Skill_NegAvailability IRI,
-    │       negTargets: [SMIA_agent@ejabberd], negRequester: smia_orch@ejabberd,
+    │       negTargets: [smia_machine0@ejabberd], negRequester: smia_orch@ejabberd,
     │       skillParams: {color: "red"}}
     ▼
 [smia-machine0 container — NegotiatingBehaviour → HandleNegotiationBehaviour]
@@ -296,7 +296,7 @@ All 8 services share the `smia-net` Docker bridge network. Docker DNS resolves a
     │ 4. Builds execution request: skillParams = {position: "0"} (position, not color)
     │
     │ FIPA-ACL REQUEST (performative=request, ontology=css-service)
-    │ thread=T_exec, to=SMIA_agent@ejabberd
+    │ thread=T_exec, to=smia_machine0@ejabberd
     │ body={capabilityIRI: Capability_PickPiece IRI, skillParams: {position: "0"}}
     ▼
 [smia-machine0 — ACLHandlingBehaviour → HandleCapabilityBehaviour]
@@ -394,9 +394,9 @@ New files added for Case 1 (relative to Case 0):
 SMIA/
 ├── my_models/
 │   ├── aas/
-│   │   ├── LEGO_factory_case0.aasx         ← machine0 (red pieces, slot 0) — updated from Case 0
-│   │   ├── LEGO_machine1_case0.aasx        ← machine1 (blue pieces, slot 1) — NEW
-│   │   ├── LEGO_machine2_case0.aasx        ← machine2 (white pieces, slot 2) — NEW
+│   │   ├── LEGO_machine0.aasx         ← machine0 (red pieces, slot 0) — updated from Case 0
+│   │   ├── LEGO_machine1.aasx        ← machine1 (blue pieces, slot 1) — NEW
+│   │   ├── LEGO_machine2.aasx        ← machine2 (white pieces, slot 2) — NEW
 │   │   ├── SMIA_orchestrator.aasx          ← orchestrator — NEW
 │   │   └── SMIA_Operator_article.aasx      ← operator (unchanged from Case 0)
 │   ├── docker/
@@ -670,7 +670,7 @@ All inter-agent messages follow the FIPA-ACL standard. In SMIA's implementation 
 {
   "capabilityIRI": "http://www.w3id.org/upv-ehu/gcis/css-smia#Capability_PickPiece",
   "negCriterion":  "http://www.w3id.org/hsu-aut/css#Skill_NegAvailability",
-  "negTargets":    ["SMIA_agent@ejabberd"],
+  "negTargets":    ["smia_machine0@ejabberd"],
   "negRequester":  "smia_orch@ejabberd",
   "skillParams":   {"http://www.w3id.org/hsu-aut/css#color": "red"}
 }
@@ -681,7 +681,7 @@ All inter-agent messages follow the FIPA-ACL standard. In SMIA's implementation 
 {
   "capabilityIRI": "...",
   "negCriterion":  "...",
-  "negTargets":    ["SMIA_agent@ejabberd", "smia_machine1@ejabberd"],
+  "negTargets":    ["smia_machine0@ejabberd", "smia_machine1@ejabberd"],
   "negRequester":  "smia_orch@ejabberd",
   "skillParams":   {"...": "red"},
   "negValue":      1.0
@@ -816,7 +816,7 @@ Present on the second AAS shell (`SMIA_agent`). Contains the XMPP JID in `Softwa
 SoftwareNameplate  [semanticId: https://admin-shell.io/idta/SoftwareNameplate/1/0]
 └── SoftwareNameplateInstance  [SMC]
     ├── InstanceName  [Property, semanticId: .../InstanceName]
-    │                 value: "SMIA_agent@ejabberd"   ← full XMPP JID
+    │                 value: "smia_machine0@ejabberd"   ← full XMPP JID
     ├── InstalledVersion  [Property]   value: "0.3.1"
     └── ...
 ```
@@ -1389,7 +1389,7 @@ Browse to `http://localhost:10000/smia_operator` to access the operator GUI.
 | Service | Image | Role | Port |
 |---|---|---|---|
 | `xmpp-server` (`ejabberd`) | `ghcr.io/processone/ejabberd` | XMPP message broker; routes FIPA-ACL messages between all agents | 5222 |
-| `smia-machine0` | Built from `docker/smia-machine/Dockerfile` | Machine agent (red pieces, slot 0); JID: `SMIA_agent@ejabberd` | — |
+| `smia-machine0` | Built from `docker/smia-machine/Dockerfile` | Machine agent (red pieces, slot 0); JID: `smia_machine0@ejabberd` | — |
 | `smia-machine1` | Built from `docker/smia-machine/Dockerfile` | Machine agent (blue pieces, slot 1); JID: `smia_machine1@ejabberd` | — |
 | `smia-machine2` | Built from `docker/smia-machine/Dockerfile` | Machine agent (white pieces, slot 2); JID: `smia_machine2@ejabberd` | — |
 | `smia-orchestrator` | Built from `docker/smia-orchestrator/Dockerfile` | Orchestrator; JID: `smia_orch@ejabberd` | — |
@@ -1448,19 +1448,19 @@ EJABBERD_COOKIE=change_me_in_production
 # AAS_ID:   the 'id' attribute of the AAS shell SMIA should self-configure from
 # AGENT_ID: full XMPP JID (must match the account registered in ejabberd CTL_ON_CREATE)
 # PASSWD:   XMPP account password (must match CTL_ON_CREATE registration)
-MACHINE0_AAS_FILE=LEGO_factory_case0.aasx
+MACHINE0_AAS_FILE=LEGO_machine0.aasx
 MACHINE0_AAS_ID=urn:uuid:6475_0111_2062_9689
-MACHINE0_AGENT_ID=SMIA_agent@ejabberd
+MACHINE0_AGENT_ID=smia_machine0@ejabberd
 MACHINE0_PASSWD=change_me
 
 # ── Machine 1 ────────────────────────────────────────────────────
-MACHINE1_AAS_FILE=LEGO_machine1_case0.aasx
+MACHINE1_AAS_FILE=LEGO_machine1.aasx
 MACHINE1_AAS_ID=urn:uuid:6475_0111_2062_0001
 MACHINE1_AGENT_ID=smia_machine1@ejabberd
 MACHINE1_PASSWD=change_me
 
 # ── Machine 2 ────────────────────────────────────────────────────
-MACHINE2_AAS_FILE=LEGO_machine2_case0.aasx
+MACHINE2_AAS_FILE=LEGO_machine2.aasx
 MACHINE2_AAS_ID=urn:uuid:6475_0111_2062_0002
 MACHINE2_AGENT_ID=smia_machine2@ejabberd
 MACHINE2_PASSWD=change_me
@@ -1702,7 +1702,7 @@ The MQTT Out node is configured with `broker: mosquitto-central`, `port: 1883`. 
 - Docker Desktop or Docker Engine with Compose v2 plugin installed.
 - Network access to the fischertechnik Windows machine (for MQTT bridge).
 - The fischertechnik machine's MQTT broker must be running and subscribed to `vicom/61/piso_0/lab/lego/commands`.
-- Files: `LEGO_factory_case0.aasx`, `LEGO_machine1_case0.aasx`, `LEGO_machine2_case0.aasx`, `SMIA_orchestrator.aasx`, `SMIA_Operator_article.aasx` all present in `my_models/aas/`. **Only `.aasx` files — no other file types.**
+- Files: `LEGO_machine0.aasx`, `LEGO_machine1.aasx`, `LEGO_machine2.aasx`, `SMIA_orchestrator.aasx`, `SMIA_Operator_article.aasx` all present in `my_models/aas/`. **Only `.aasx` files — no other file types.**
 
 ### 17.2 First-Time Setup
 
@@ -1747,7 +1747,7 @@ docker compose -f my_models/docker-compose.yml logs -f smia-machine0 smia-orches
 
 1. Open browser: `http://localhost:10000/smia_operator`
 2. Click **"Load SMIA list"** — should show available agents.
-3. Select `SMIA_agent@ejabberd` (machine0).
+3. Select `smia_machine0@ejabberd` (machine0).
 4. Select `Capability_PickPiece`.
 5. Select `Skill_PickPiece`.
 6. No parameter input field appears — machine AASXs define no `hasParameter` for `Skill_PickPiece`. The GUI sends empty `skillParams`. Node-RED uses `DEFAULT_POSITION = 0`.
@@ -1763,7 +1763,7 @@ docker compose -f my_models/docker-compose.yml logs -f smia-machine0 smia-orches
 6. Click **Send**.
 
 Expected behavior:
-- The orchestrator discovers the matching machine (e.g., `SMIA_agent@ejabberd` for `red`).
+- The orchestrator discovers the matching machine (e.g., `smia_machine0@ejabberd` for `red`).
 - CFP is sent; machine wins immediately (1 target → no PROPOSE exchange needed).
 - Orchestrator sends REQUEST to winner with `{position: "0"}`.
 - Machine executes HTTP POST to Node-RED; crane moves.
@@ -1971,6 +1971,6 @@ Use this checklist to reproduce the Case 1 deployment from scratch on a new mach
 **Functional test:**
 - [ ] `http://localhost:10000/smia_operator` — GUI loads
 - [ ] "Load SMIA list" — shows `smia_orch@ejabberd` and machine agents
-- [ ] Case 0 flow (direct to `SMIA_agent@ejabberd`) — works
+- [ ] Case 0 flow (direct to `smia_machine0@ejabberd`) — works
 - [ ] Case 1 flow (via `smia_orch@ejabberd`, color=`red`) — INFORM received, crane moves
 - [ ] `curl http://localhost:1880/smia/lego/availability` — returns `1.0`
