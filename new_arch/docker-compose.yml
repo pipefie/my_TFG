@@ -1,0 +1,288 @@
+# ================================================================
+# SMIA Flexible Manufacturing — Vicomtech DII
+# ================================================================
+# First-time setup:
+#   cp .env.example .env        # fill in real credentials
+#   docker compose build        # build custom agent images
+#   docker compose up -d        # start all services
+#
+# Common operations:
+#   docker compose logs -f smia-machine0 smia-orchestrator smia-operator
+#   docker compose down                  # stop, keep data volumes
+#   docker compose down -v               # stop + wipe ejabberd DB (full reset)
+#
+# Selective startup (Case 0 — single machine, no orchestrator):
+#   docker compose up -d xmpp-server mosquitto-central nodered smia-machine0 smia-operator
+#
+# Full Case 1 (all 11 services):
+#   docker compose up -d
+#
+# Operator GUI: http://localhost:10000/smia_operator
+#
+# IMPORTANT: Use 'docker compose' (v2, with space).
+#            'docker-compose' (v1) crashes with KeyError: 'ContainerConfig'.
+# ================================================================
+
+services:
+
+  # ── XMPP message broker ──────────────────────────────────────────
+  xmpp-server:
+    image: ghcr.io/processone/ejabberd
+    container_name: ejabberd
+    environment:
+      - ERLANG_NODE_ARG=admin@ejabberd
+      - ERLANG_COOKIE=${EJABBERD_COOKIE}
+      # Registers all SMIA agent XMPP accounts on first container creation.
+      # To add a new machine: append '; register <user> ejabberd ${NEW_PASSWD}'
+      - CTL_ON_CREATE=! register smia_machine0 ejabberd ${MACHINE0_PASSWD} ; register smia_machine1 ejabberd ${MACHINE1_PASSWD} ; register smia_machine2 ejabberd ${MACHINE2_PASSWD} ; register smia_machine3 ejabberd ${MACHINE3_PASSWD} ; register smia_machine4 ejabberd ${MACHINE4_PASSWD} ; register smia_machine5 ejabberd ${MACHINE5_PASSWD} ; register smia_orch ejabberd ${ORCH_PASSWD} ; register operator001 ejabberd ${OPERATOR_PASSWD}
+    ports:
+      - "5222:5222"
+      - "5269:5269"
+      - "5280:5280"
+      - "5443:5443"
+    volumes:
+      - ./config/ejabberd.yml:/opt/ejabberd/conf/ejabberd.yml
+      - ejabberd_data:/opt/ejabberd/database
+    healthcheck:
+      test: netstat -nl | grep -q 5222
+      start_period: 5s
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+    networks:
+      - smia-net
+
+  # ── MQTT broker (bridges to physical machine broker) ─────────────
+  mosquitto-central:
+    image: eclipse-mosquitto:2
+    container_name: mosquitto-central
+    volumes:
+      - ./config/mosquitto/mosquitto.conf:/mosquitto/conf/mosquitto.conf
+      - ./config/mosquitto/conf.d:/etc/mosquitto/conf.d
+      - mosquitto_data:/mosquitto/data
+    # No host port binding — internal Docker DNS (mosquitto-central:1883) is enough.
+    # Port 1883 on the host is typically occupied by the existing DIDA Central broker.
+    # If you need to debug MQTT from the host, add: ports: ["1884:1883"]
+    restart: unless-stopped
+    networks:
+      - smia-net
+
+  # ── Node-RED flow engine (HTTP → MQTT bridge for crane) ──────────
+  # Flows are loaded from ./config/nodered/flows.json on startup.
+  # Edit config/mosquitto/conf.d/bridge.conf to set the machine broker IP.
+  nodered:
+    image: nodered/node-red:latest
+    user: root    # node-red runs as uid 1000; host dirs may be owned by a different uid
+    container_name: nodered
+    environment:
+      - NODE_RED_CREDENTIAL_SECRET=${NODERED_CREDENTIAL_SECRET}
+      - FLOWS=flows.json
+    volumes:
+      - ./config/nodered:/data
+    ports:
+      - "1880:1880"
+    depends_on:
+      - mosquitto-central
+    restart: unless-stopped
+    networks:
+      - smia-net
+
+  # ── Machine 0 — fischertechnik crane, red pieces ─────────────────
+  smia-machine0:
+    build:
+      context: .
+      dockerfile: agents/machine/Dockerfile
+    container_name: smia-machine0
+    environment:
+      - AAS_MODEL_NAME=${MACHINE0_AAS_FILE}
+      - AAS_ID=${MACHINE0_AAS_ID}
+      - AGENT_ID=${MACHINE0_AGENT_ID}
+      - AGENT_PASSWD=${MACHINE0_PASSWD}
+      - NODERED_URL=${NODERED_URL}
+    depends_on:
+      xmpp-server:
+        condition: service_healthy
+      nodered:
+        condition: service_started
+    volumes:
+      - ./aas:/smia_archive/config/aas
+    restart: unless-stopped
+    networks:
+      - smia-net
+
+  # ── Machine 1 — blue pieces ───────────────────────────────────────
+  smia-machine1:
+    build:
+      context: .
+      dockerfile: agents/machine/Dockerfile
+    container_name: smia-machine1
+    environment:
+      - AAS_MODEL_NAME=${MACHINE1_AAS_FILE}
+      - AAS_ID=${MACHINE1_AAS_ID}
+      - AGENT_ID=${MACHINE1_AGENT_ID}
+      - AGENT_PASSWD=${MACHINE1_PASSWD}
+      - NODERED_URL=${NODERED_URL}
+    depends_on:
+      xmpp-server:
+        condition: service_healthy
+      nodered:
+        condition: service_started
+    volumes:
+      - ./aas:/smia_archive/config/aas
+    restart: unless-stopped
+    networks:
+      - smia-net
+
+  # ── Machine 2 — white pieces ──────────────────────────────────────
+  smia-machine2:
+    build:
+      context: .
+      dockerfile: agents/machine/Dockerfile
+    container_name: smia-machine2
+    environment:
+      - AAS_MODEL_NAME=${MACHINE2_AAS_FILE}
+      - AAS_ID=${MACHINE2_AAS_ID}
+      - AGENT_ID=${MACHINE2_AGENT_ID}
+      - AGENT_PASSWD=${MACHINE2_PASSWD}
+      - NODERED_URL=${NODERED_URL}
+    depends_on:
+      xmpp-server:
+        condition: service_healthy
+      nodered:
+        condition: service_started
+    volumes:
+      - ./aas:/smia_archive/config/aas
+    restart: unless-stopped
+    networks:
+      - smia-net
+
+  # ── Machine 3 — red pieces (duplicate for negotiation testing) ────
+  smia-machine3:
+    build:
+      context: .
+      dockerfile: agents/machine/Dockerfile
+    container_name: smia-machine3
+    environment:
+      - AAS_MODEL_NAME=${MACHINE3_AAS_FILE}
+      - AAS_ID=${MACHINE3_AAS_ID}
+      - AGENT_ID=${MACHINE3_AGENT_ID}
+      - AGENT_PASSWD=${MACHINE3_PASSWD}
+      - NODERED_URL=${NODERED_URL}
+    depends_on:
+      xmpp-server:
+        condition: service_healthy
+      nodered:
+        condition: service_started
+    volumes:
+      - ./aas:/smia_archive/config/aas
+    restart: unless-stopped
+    networks:
+      - smia-net
+
+  # ── Machine 4 — blue pieces (duplicate for negotiation testing) ───
+  smia-machine4:
+    build:
+      context: .
+      dockerfile: agents/machine/Dockerfile
+    container_name: smia-machine4
+    environment:
+      - AAS_MODEL_NAME=${MACHINE4_AAS_FILE}
+      - AAS_ID=${MACHINE4_AAS_ID}
+      - AGENT_ID=${MACHINE4_AGENT_ID}
+      - AGENT_PASSWD=${MACHINE4_PASSWD}
+      - NODERED_URL=${NODERED_URL}
+    depends_on:
+      xmpp-server:
+        condition: service_healthy
+      nodered:
+        condition: service_started
+    volumes:
+      - ./aas:/smia_archive/config/aas
+    restart: unless-stopped
+    networks:
+      - smia-net
+
+  # ── Machine 5 — red + blue multicolour ───────────────────────────
+  smia-machine5:
+    build:
+      context: .
+      dockerfile: agents/machine/Dockerfile
+    container_name: smia-machine5
+    environment:
+      - AAS_MODEL_NAME=${MACHINE5_AAS_FILE}
+      - AAS_ID=${MACHINE5_AAS_ID}
+      - AGENT_ID=${MACHINE5_AGENT_ID}
+      - AGENT_PASSWD=${MACHINE5_PASSWD}
+      - NODERED_URL=${NODERED_URL}
+    depends_on:
+      xmpp-server:
+        condition: service_healthy
+      nodered:
+        condition: service_started
+    volumes:
+      - ./aas:/smia_archive/config/aas
+    restart: unless-stopped
+    networks:
+      - smia-net
+
+  # ── Orchestrator — FIPA-CNP multi-machine dispatcher ─────────────
+  smia-orchestrator:
+    build:
+      context: .
+      dockerfile: agents/orchestrator/Dockerfile
+    container_name: smia-orchestrator
+    environment:
+      - AAS_MODEL_NAME=${ORCH_AAS_FILE}
+      - AAS_ID=${ORCH_AAS_ID}
+      - AGENT_ID=${ORCH_AGENT_ID}
+      - AGENT_PASSWD=${ORCH_PASSWD}
+    depends_on:
+      xmpp-server:
+        condition: service_healthy
+      smia-machine0:
+        condition: service_started
+      smia-machine1:
+        condition: service_started
+      smia-machine2:
+        condition: service_started
+      smia-machine3:
+        condition: service_started
+      smia-machine4:
+        condition: service_started
+      smia-machine5:
+        condition: service_started
+    volumes:
+      - ./aas:/smia_archive/config/aas
+    restart: unless-stopped
+    networks:
+      - smia-net
+
+  # ── Operator GUI — http://localhost:10000/smia_operator ───────────
+  smia-operator:
+    build:
+      context: .
+      dockerfile: agents/operator/Dockerfile
+    container_name: smia-operator
+    environment:
+      - AAS_MODEL_NAME=${OPERATOR_AAS_FILE}
+      - AGENT_ID=${OPERATOR_AGENT_ID}
+      - AGENT_PASSWD=${OPERATOR_PASSWD}
+    depends_on:
+      xmpp-server:
+        condition: service_healthy
+    volumes:
+      - ./aas:/smia_archive/config/aas
+    ports:
+      - "10000:10000"
+    restart: unless-stopped
+    networks:
+      - smia-net
+
+networks:
+  smia-net:
+    driver: bridge
+
+volumes:
+  ejabberd_data:
+  mosquitto_data:

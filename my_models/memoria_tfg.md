@@ -20,9 +20,9 @@
 
 This work investigates and implements a flexible manufacturing scenario grounded in two complementary industrial standards: the Asset Administration Shell (AAS) — the reference framework for Industrial Digital Twins within Industry 4.0 — and the Capability-Skill-Service (CSS) ontological model, which describes what a manufacturing asset can do and how it does it. The implementation vehicle is SMIA (Self-configurable Manufacturing Industrial Agents), an open-source research framework developed at the University of the Basque Country (UPV/EHU) that combines AAS and CSS to generate autonomous software agents directly from standardized machine descriptions.
 
-Two use cases are implemented. Case 0 validates the fundamental self-configuration concept: a single SMIA agent representing a fischertechnik Training Factory Industry 4.0 24V warehouse crane reads its AAS model at startup, derives the complete execution path autonomously — from a human operator's capability request to a physical MQTT command that moves the crane — without any asset-specific code in the agent. Case 1 extends this to a multi-agent scenario with three machine agents and an orchestrator: when an operator requests a pick task specifying a colour constraint, the orchestrator discovers eligible machines from the AAS folder, runs a FIPA Contract Net Protocol (FIPA-CNP) negotiation round to select the most available machine, delegates execution to the winner, and returns the result to the operator.
+Two use cases are implemented. Case 0 validates the fundamental self-configuration concept: a single SMIA agent representing a fischertechnik Training Factory Industry 4.0 24V warehouse crane reads its AAS model at startup, derives the complete execution path autonomously — from a human operator's capability request to a physical MQTT command that moves the crane — without any asset-specific code in the agent. Case 1 extends this to a multi-agent scenario with six machine agents (three colours, with duplicates and a multicolour agent) and an orchestrator: when an operator requests a pick task specifying a colour constraint, the orchestrator discovers eligible machines from the AAS folder, runs a FIPA Contract Net Protocol (FIPA-CNP) negotiation round to select the most available machine, delegates execution to the winner, and returns the result to the operator.
 
-The primary software contribution of this TFG is the `OrchestratorDispatchBehaviour` — the FIPA-CNP initiator side of the negotiation, which does not exist in the base SMIA framework. The system is deployed as eight Docker containers, fully reproducible from a single `docker compose up` command. Both use cases are validated end-to-end against a real physical asset.
+The primary software contribution of this TFG is the `OrchestratorDispatchBehaviour` — the FIPA-CNP initiator side of the negotiation, which does not exist in the base SMIA framework. The system is deployed as eleven Docker containers, fully reproducible from a single `docker compose up` command. Both use cases are validated end-to-end against a real physical asset.
 
 ---
 
@@ -298,11 +298,11 @@ The project was structured in seven sequential phases:
 - 6.4 Debug operator GUI `hasParameter` processing bugs
 - 6.5 E2E validation (orchestrator receives request, selects machine, crane moves)
 
-**Phase 7 — Extended testing (April – May 2026)**
-- 7.1 Add duplicate-colour machine agents (two machines per colour) to test availability-based selection under competition
-- 7.2 Add a multicolour machine agent (capable of multiple colours) and validate it participates in negotiation for each
-- 7.3 Migrate project to a dedicated repository (clean separation of TFG assets from the upstream SMIA repo)
-- 7.4 Validate all extended scenarios end-to-end; update documentation
+**Phase 7 — Extended testing (April – May 2026) ✓ Complete**
+- 7.1 ✓ Add duplicate-colour machine agents (machines 3 and 4 — red and blue duplicates)
+- 7.2 ✓ Add a multicolour machine agent (machine5 — `color="red,blue"`) and validate it participates in negotiation for both colours
+- 7.3 ✓ Prepare new standalone repo layout (`new_arch/` Dockerfiles and docker-compose.yml aligned with clean repo structure); write professional `README.md` and `PATCHES.md` for upstream contribution
+- 7.4 ✓ Implement per-machine availability tracking (`machine_busy_<id>` flags in Node-RED); validate all extended scenarios end-to-end
 
 **Phase 8 — Memory writing and finalization (April – May 2026)**
 - 8.1 Complete `doc_case1.md` technical reference
@@ -347,7 +347,7 @@ Ph.8 Memory + submit    │       ◐             │       ◐            │  
 | M3 | Multi-agent AASX models complete | Mid-March 2026 | 3 machine AASXs + orchestrator AASX |
 | M4 | FIPA-CNP flow operational | Late March 2026 | Orchestrator selects winner, crane executes |
 | M5 | All bugs resolved; E2E Case 1 validated | Mid-April 2026 | Full Case 1 working end-to-end |
-| M6 | Extended negotiation scenarios validated | End of April 2026 | Duplicate-colour + multicolour machines working; repo migrated |
+| M6 | Extended negotiation scenarios validated ✓ | End of April 2026 | Machines 3–5 deployed; multicolour filter implemented; per-machine busy tracking; new repo layout prepared |
 | M7 | TFG memory finalized and submitted | End of May 2026 | This document (LaTeX) + `memoire.md` + `doc_case1.md` |
 
 ---
@@ -485,26 +485,26 @@ Four Docker services suffice for Case 0: `ejabberd`, `smia-machine0`, `smia-oper
 
 #### 7.1.3 System Architecture — Case 1
 
-Case 1 adds three machine agents, an orchestrator, a containerized MQTT broker, and a containerized Node-RED instance:
+Case 1 adds six machine agents, an orchestrator, a containerized MQTT broker, and a containerized Node-RED instance:
 
 ```
 [Browser] ──► [smia-operator] ──FIPA-ACL──► [ejabberd]
                                                  │
-                              [smia-orchestrator] ←── operator REQUEST
+                              [smia-orchestrator] ←── operator REQUEST (color=red)
                                  │ AAS discovery (scans /aas/*.aasx)
-                                 │ colour filter (red → machine0)
-                                 │ CFP (fipa-contract-net)
-                              [smia-machine0] [smia-machine1] [smia-machine2]
+                                 │ colour filter: machines where color list contains "red"
+                                 │ CFP (fipa-contract-net) → machine0, machine3, machine5
+                              [smia-machine0] [smia-machine3] [smia-machine5]
+                                 │ GET /smia/lego/availability?machine=<id>
                                  │ PROPOSE exchange (peer-to-peer)
                                  │ INFORM(winner) → orchestrator
-                              [smia-machine0 (winner)]
-                                 │ HTTP POST
-                              [nodered] ──MQTT──► [mosquitto-central]
-                                                        │ bridge
-                                                   [Physical crane]
+                              [smia-machineN (winner)]
+                                 │ HTTP POST /smia/lego/pick?machine=<id>&position=0
+                              [nodered] sets machine_busy_<id>=true
+                                 ──MQTT──► [mosquitto-central] ──bridge──► [Physical crane]
 ```
 
-Eight Docker services share the `smia-net` bridge network. Docker DNS resolves service names (`ejabberd`, `nodered`, `mosquitto-central`) internally without any IP configuration.
+Eleven Docker services share the `smia-net` bridge network: three infrastructure services (`ejabberd`, `mosquitto-central`, `nodered`), six machine agents (`smia-machine0` through `smia-machine5`), one orchestrator, and one operator. Docker DNS resolves service names internally without any IP configuration.
 
 ### 7.2 Implementation
 
@@ -512,13 +512,26 @@ Eight Docker services share the `smia-net` bridge network. Docker DNS resolves s
 
 All AAS models were created using **AASX Package Explorer**. Each machine AASX contains two AAS shells:
 
-1. **Asset shell** (`LEGO_factory`, `LEGO_machine1`, `LEGO_machine2`): holds the AID submodel, CSS capabilities/skills, and semantic relationships. Loaded by SMIA during self-configuration (filtered by `AAS_ID` environment variable).
+1. **Asset shell** (`LEGO_factory`, `LEGO_machine1` … `LEGO_machine5`): holds the AID submodel, CSS capabilities/skills, and semantic relationships. Loaded by SMIA during self-configuration (filtered by `AAS_ID` environment variable).
 
-2. **Agent shell** (`SMIA_agent`, `SMIA_machine1`, `SMIA_machine2`): holds only the `SoftwareNameplate` submodel, read by the operator GUI and orchestrator for agent discovery (JID extraction from `InstanceName` property).
+2. **Agent shell** (`SMIA_agent`, `SMIA_machine1` … `SMIA_machine5`): holds only the `SoftwareNameplate` submodel, read by the operator GUI and orchestrator for agent discovery (JID extraction from `InstanceName` property).
+
+Six machine AASXs were created in total:
+
+| File | JID | Color | Notes |
+|---|---|---|---|
+| `LEGO_machine0.aasx` | `smia_machine0@ejabberd` | red | Original Case 0 machine |
+| `LEGO_machine1.aasx` | `smia_machine1@ejabberd` | blue | — |
+| `LEGO_machine2.aasx` | `smia_machine2@ejabberd` | white | — |
+| `LEGO_machine3.aasx` | `smia_machine3@ejabberd` | red | Duplicate — tests negotiation under competition |
+| `LEGO_machine4.aasx` | `smia_machine4@ejabberd` | blue | Duplicate — same purpose |
+| `LEGO_machine5.aasx` | `smia_machine5@ejabberd` | red,blue | Multicolour — participates in both red and blue negotiations |
+
+Machines 3 and 4 are direct clones of machines 0 and 1 with different UUIDs and JIDs. Machine 5 has `color = "red,blue"` (comma-separated); the orchestrator's discovery filter uses list membership (`color_filter in color.split(',')`) to match it for both red and blue requests.
 
 The **AID submodel** specifies the HTTP interface:
 - `base = http://nodered:1880` (Docker DNS name of the containerized Node-RED)
-- `actions/pickPiece`: POST to `/smia/lego/pick` (machine0) or `/smia/lego/pick?position=N` (machines 1 and 2)
+- `actions/pickPiece`: POST to `/smia/lego/pick?machine=smia_machineN&position=N` — both the machine identifier and the warehouse slot are encoded as URL query parameters
 
 The **CapabilitiesAndSkills submodel** defines:
 - `Capability_PickPiece` (semanticId: `css-smia#AssetCapability`) with a `color` property (`"red"`, `"blue"`, or `"white"`)
@@ -550,7 +563,16 @@ The machine agent requires one extension beyond the base SMIA: reporting its ava
 
 **`Skill_NegAvailability`** is a new AAS element created by this TFG — it does not exist in the upstream SMIA framework or in the CSS ontology. It is defined as a `Property` with `semanticId = css#Skill` and linked to the `machineAvailValue` SkillInterface via `accessibleThroughAgentService`. When SMIA's self-configuration loads it (Track 2), OWLready2 creates an individual named `Skill_NegAvailability` in the `css:Skill` class — giving it the IRI `http://www.w3id.org/hsu-aut/css#Skill_NegAvailability`. This IRI must match exactly the `NEG_CRITERION_IRI` constant in `orchestrator_dispatch_behaviour.py:126`.
 
-The agent service function `get_machine_availability()` (file: `smia_machine_agent_services.py`) makes an async HTTP GET to `http://nodered:1880/smia/lego/availability` and returns `1.0` (machine free) or `0.0` (busy). It uses `aiohttp` instead of the synchronous `requests` library because SMIA runs all behaviours in a single Python asyncio event loop — a blocking HTTP call would freeze the entire event loop and prevent SMIA from receiving or sending any messages.
+The agent service function `get_machine_availability()` (file: `smia_machine_agent_services.py`) makes an async HTTP GET to Node-RED and returns `1.0` (machine free) or `0.0` (busy). It uses `aiohttp` instead of the synchronous `requests` library because SMIA runs all behaviours in a single Python asyncio event loop — a blocking HTTP call would freeze the entire event loop.
+
+The URL includes a per-machine identifier derived from the `AGENT_ID` environment variable:
+```python
+MACHINE_ID = os.environ.get('AGENT_ID', 'machine').split('@')[0]
+# e.g. 'smia_machine0@ejabberd' → 'smia_machine0'
+url = f"{NODE_RED_BASE}/smia/lego/availability?machine={MACHINE_ID}"
+```
+
+Node-RED maintains a separate boolean flag per machine (`machine_busy_smia_machine0`, `machine_busy_smia_machine1`, etc.) in its global context. The `/smia/lego/pick` handler sets `machine_busy_<id>=true` on receipt and clears it after 8 seconds (enough time for the crane to complete its cycle). This ensures that when two machines with the same colour are both queried during FIPA-CNP negotiation, each reports its own real availability rather than sharing a single flag.
 
 **Registration** in `smia_machine_starter.py`:
 ```python
@@ -572,7 +594,13 @@ The base SMIA framework implements the FIPA-CNP **responder/proposer** side (`Ha
 | 3 | `INFORM` + execution thread | Result from winner → forward to operator |
 | 4 | `FAILURE` + tracked thread | Propagate failure to operator |
 
-**AAS-based machine discovery** (`_discover_machines_for_request()`): the orchestrator scans every `.aasx` file in the shared AAS folder at runtime, reads each machine's XMPP JID from `SoftwareNameplate.InstanceName` and its colour from `Capability_PickPiece.color`, and filters by the requested colour. This eliminates any hardcoded machine list — adding a fourth machine requires only a new AASX file, a new ejabberd account, and a new Docker Compose service, with no changes to orchestrator code.
+**AAS-based machine discovery** (`_discover_machines_for_request()`): the orchestrator scans every `.aasx` file in the shared AAS folder at runtime, reads each machine's XMPP JID from `SoftwareNameplate.InstanceName` and its colour from `Capability_PickPiece.color`, and filters by the requested colour. The color value may be a comma-separated list (e.g., `"red,blue"` for machine5); the filter checks membership in that list:
+```python
+machine_colors = [c.strip().lower() for c in (color or '').split(',')]
+if color_filter.lower() not in machine_colors:
+    continue
+```
+This eliminates any hardcoded machine list — adding a new machine requires only a new AASX file, a new ejabberd account, and a new Docker Compose service, with no changes to orchestrator code.
 
 **`_get_skill_param(params, name)`**: a helper function that extracts skill parameter values tolerating both bare keys (`'color'`) and full IRI keys (`'http://www.w3id.org/hsu-aut/css#color'`), since the operator GUI prepends the CSS namespace to parameter names before sending them.
 
@@ -594,19 +622,21 @@ Validated end-to-end on 2026-03-04. The successful validation sequence:
 
 #### 7.3.2 Case 1 End-to-End Validation
 
-Implemented and under E2E validation as of April 2026. The expected orchestrator log sequence for a successful `color=red` request:
+Validated end-to-end. The orchestrator log sequence for a successful `color=red` request with multiple eligible machines:
 
 ```
 OrchestratorDispatchBehaviour started.
 new CSSRequest from operator (thread=op_T)
 Eligible machine: smia_machine0@ejabberd (color=red) from LEGO_machine0.aasx
-CFP sent to smia_machine0@ejabberd (neg_thread=neg_T)
+Eligible machine: smia_machine3@ejabberd (color=red) from LEGO_machine3.aasx
+Eligible machine: smia_machine5@ejabberd (color=red,blue) from LEGO_machine5.aasx
+CFP sent to [smia_machine0, smia_machine3, smia_machine5] (neg_thread=neg_T)
 received winner INFORM from smia_machine0@ejabberd
 execution REQUEST sent to smia_machine0@ejabberd
 result forwarded to operator
 ```
 
-**Validation of RQ2:** Three machine agents with different colour constraints self-configure from the same Python codebase with different AASX models. The orchestrator discovers eligible machines at runtime from the AAS folder — no machine list is hardcoded anywhere. Adding a fourth machine (colour=yellow) requires only a new AASX + docker-compose service block, zero code changes.
+**Validation of RQ2:** Six machine agents (three colours, with duplicates and a multicolour agent) self-configure from the same Python codebase with different AASX models. The orchestrator discovers eligible machines at runtime — no machine list is hardcoded. Machine5 participates in both red and blue negotiations by declaring `color="red,blue"`. Adding a seventh machine requires only a new AASX + docker-compose service block, zero code changes.
 
 #### 7.3.3 Performance Metrics
 
@@ -636,7 +666,7 @@ Two custom Docker images extend the base `ekhurtado/smia:latest-alpine` image vi
 4. `WORKDIR /` — adds `/` to Python's `sys.path` so `import smia_machine_agent_services` resolves
 5. `CMD ["python3", "-u", "smia_machine_starter.py"]` — overrides the default SMIA launcher
 
-All three machine agents share this single Dockerfile; they differ only in their AASX model and environment variables.
+All six machine agents share this single Dockerfile; they differ only in their AASX model and environment variables (`AAS_MODEL_NAME`, `AAS_ID`, `AGENT_ID`).
 
 **Orchestrator image** (`docker/smia-orchestrator/Dockerfile`): same pattern, with two patches (adds `acl_handling_behaviour.py` race condition fix) and two additional files (`smia_orchestrator_starter.py`, `orchestrator_dispatch_behaviour.py`).
 
@@ -931,7 +961,7 @@ Yes — confirmed by Case 0. The SMIA agent reads the `LEGO_machine0.aasx` model
 
 **RQ2: Can the same approach scale from a single agent to a multi-agent FIPA-CNP negotiation, with machine selection based on runtime availability, without modifying agent code?**
 
-Yes — confirmed by Case 1. All three machine agents run identical Python code (`smia_machine_starter.py`, `smia_machine_agent_services.py`). Their difference is entirely in their AASX model and environment variables. The orchestrator discovers eligible machines at runtime by scanning the AAS folder — no machine list is hardcoded. The FIPA-CNP protocol selects the most available machine dynamically. This validates requirements R5 (distributed systems) and R6 (P2P FIPA-ACL communication).
+Yes — confirmed by Case 1. All six machine agents run identical Python code (`smia_machine_starter.py`, `smia_machine_agent_services.py`). Their difference is entirely in their AASX model and environment variables. The orchestrator discovers eligible machines at runtime by scanning the AAS folder — no machine list is hardcoded. The FIPA-CNP protocol selects the most available machine dynamically. Multicolour support (machine5 responding to both red and blue requests) required only a comma-separated value in the AASX `color` property and a one-line filter change in the orchestrator — zero new agent code. This validates requirements R4 (adaptability), R5 (distributed systems), and R6 (P2P FIPA-ACL communication).
 
 The primary software contribution — `OrchestratorDispatchBehaviour` — fills the gap left by the base SMIA framework, which only provides the responder/proposer side of FIPA-CNP. The contribution is designed for upstream submission to the SMIA repository.
 
@@ -947,7 +977,7 @@ Yes — within the acceptable range. Self-configuration time is under 7 seconds 
 
 2. **Strict busy-rejection:** Currently, if all machines are busy, the orchestrator waits indefinitely. A timeout with a `FAILURE` response to the operator would make the system more predictable in production.
 
-3. **Multi-machine-per-colour:** The current deployment has one machine per colour. The FIPA-CNP protocol already supports multiple machines competing for the same colour (peer PROPOSE exchange). Deploying two machines per colour would exercise the full negotiation path.
+3. **Configurable colour-to-slot mapping:** The current colour-to-warehouse-slot mapping (red=0, blue=1, white=2) is hardcoded in `orchestrator_dispatch_behaviour.py`. Moving this mapping to the AASX model (e.g., as a `position` property on each machine's `Capability_PickPiece`) would make it fully AAS-driven and remove the last hardcoded element from the orchestrator.
 
 4. **Direct MQTT asset connection:** The current architecture uses HTTP → Node-RED → MQTT. The AID standard (IDTA 02017) and the SMIA `AssetConnection` abstraction (`ArchitectureStyle.PUBSUB`) are designed to support MQTT natively. Implementing a `MQTTAssetConnection` class would eliminate the Node-RED middleware layer.
 
@@ -1097,14 +1127,17 @@ AAS: SMIA_agent  (id: urn:uuid:6373_1111_2062_6896)
 
 ```yaml
 services:
-  ejabberd:         ghcr.io/processone/ejabberd  — XMPP broker (port 5222)
-  mosquitto-central: eclipse-mosquitto:2          — MQTT broker (port 1883)
-  nodered:          nodered/node-red:latest        — HTTP→MQTT bridge (port 1880)
-  smia-machine0:    build: docker/smia-machine     — machine agent (smia_machine0@ejabberd)
-  smia-machine1:    build: docker/smia-machine     — machine agent (smia_machine1@ejabberd)
-  smia-machine2:    build: docker/smia-machine     — machine agent (smia_machine2@ejabberd)
-  smia-orchestrator: build: docker/smia-orchestrator — orchestrator (smia_orch@ejabberd)
-  smia-operator:    build: additional_tools/...    — web GUI (port 10000)
+  ejabberd:          ghcr.io/processone/ejabberd   — XMPP broker (port 5222)
+  mosquitto-central: eclipse-mosquitto:2            — MQTT broker (internal)
+  nodered:           nodered/node-red:latest        — HTTP→MQTT bridge (port 1880)
+  smia-machine0:     build: docker/smia-machine     — red   (smia_machine0@ejabberd)
+  smia-machine1:     build: docker/smia-machine     — blue  (smia_machine1@ejabberd)
+  smia-machine2:     build: docker/smia-machine     — white (smia_machine2@ejabberd)
+  smia-machine3:     build: docker/smia-machine     — red duplicate  (smia_machine3@ejabberd)
+  smia-machine4:     build: docker/smia-machine     — blue duplicate (smia_machine4@ejabberd)
+  smia-machine5:     build: docker/smia-machine     — red+blue multicolour (smia_machine5@ejabberd)
+  smia-orchestrator: build: docker/smia-orchestrator — FIPA-CNP dispatcher (smia_orch@ejabberd)
+  smia-operator:     build: additional_tools/...    — web GUI (port 10000)
 
 All services: network smia-net (Docker bridge, DNS resolves service names)
 Credentials: from my_models/.env (gitignored; template: .env.example)
@@ -1113,48 +1146,70 @@ AAS files: shared volume my_models/aas/ → /smia_archive/config/aas/ in all age
 
 ### Appendix C — Node-RED Flow Structure
 
+Per-machine busy state is tracked using separate global context flags keyed by machine ID (`smia_machine0`, `smia_machine1`, etc.). This allows independent availability reporting when multiple machines with the same colour participate in a FIPA-CNP round simultaneously.
+
 ```
 HTTP In (POST /smia/lego/pick)
     → Function (pick_handler):
-        1. Parse body + query params
-        2. Position fallback: body.position → query.position → DEFAULT_POSITION=0
-        3. global.set("machine_busy", true)
-        4. Validate position (int, 0–8)
-        5. Build payload: "bandera_custom:<position>"
+        1. machineId = query.machine || 'default'
+        2. position  = query.position || body.position || DEFAULT_POSITION (0)
+        3. global.set('machine_busy_' + machineId, true)
+        4. Validate position (int, 0–8); build payload "bandera_custom:<position>"
+        5. chainMsg.payload = { action:'pick', position, machine: machineId }
         → MQTT Out (mosquitto-central:1883, topic: vicom/61/piso_0/lab/lego/commands, QoS=1)
-        → Function: global.set("machine_busy", false)
-    → HTTP Response (200)
+        → Delay (8 s)
+        → Function (clear_busy): global.set('machine_busy_' + msg.payload.machine, false)
+    → HTTP Response 200
 
 HTTP In (GET /smia/lego/availability)
     → Function (availability_handler):
-        var busy = global.get("machine_busy") || false;
+        var machineId = req.query.machine || 'default';
+        var busy = global.get('machine_busy_' + machineId) || false;
         msg.payload = busy ? "0.0" : "1.0";
-    → HTTP Response (200, content-type: text/plain)
+    → HTTP Response 200 (text/plain)
 ```
 
 ### Appendix D — Environment Variable Reference (`.env.example`)
 
 ```env
 # ejabberd
-EJABBERD_ERLANG_COOKIE=<random_string>
+EJABBERD_COOKIE=<random_string>
 
-# Machine 0 (smia_machine0@ejabberd, LEGO_machine0.aasx)
+# Machine 0 (smia_machine0@ejabberd, LEGO_machine0.aasx, red)
 MACHINE0_AAS_FILE=LEGO_machine0.aasx
 MACHINE0_AAS_ID=urn:uuid:6475_0111_2062_9689
 MACHINE0_AGENT_ID=smia_machine0@ejabberd
 MACHINE0_PASSWD=<password>
 
-# Machine 1 (smia_machine1@ejabberd, LEGO_machine1.aasx)
+# Machine 1 (smia_machine1@ejabberd, LEGO_machine1.aasx, blue)
 MACHINE1_AAS_FILE=LEGO_machine1.aasx
 MACHINE1_AAS_ID=urn:uuid:6475_0111_2062_0001
 MACHINE1_AGENT_ID=smia_machine1@ejabberd
 MACHINE1_PASSWD=<password>
 
-# Machine 2 (smia_machine2@ejabberd, LEGO_machine2.aasx)
+# Machine 2 (smia_machine2@ejabberd, LEGO_machine2.aasx, white)
 MACHINE2_AAS_FILE=LEGO_machine2.aasx
 MACHINE2_AAS_ID=urn:uuid:6475_0111_2062_0002
 MACHINE2_AGENT_ID=smia_machine2@ejabberd
 MACHINE2_PASSWD=<password>
+
+# Machine 3 (smia_machine3@ejabberd, LEGO_machine3.aasx, red — duplicate for negotiation testing)
+MACHINE3_AAS_FILE=LEGO_machine3.aasx
+MACHINE3_AAS_ID=urn:uuid:6475_0111_2062_0003
+MACHINE3_AGENT_ID=smia_machine3@ejabberd
+MACHINE3_PASSWD=<password>
+
+# Machine 4 (smia_machine4@ejabberd, LEGO_machine4.aasx, blue — duplicate)
+MACHINE4_AAS_FILE=LEGO_machine4.aasx
+MACHINE4_AAS_ID=urn:uuid:6475_0111_2062_0004
+MACHINE4_AGENT_ID=smia_machine4@ejabberd
+MACHINE4_PASSWD=<password>
+
+# Machine 5 (smia_machine5@ejabberd, LEGO_machine5.aasx, red+blue multicolour)
+MACHINE5_AAS_FILE=LEGO_machine5.aasx
+MACHINE5_AAS_ID=urn:uuid:6475_0111_2062_0005
+MACHINE5_AGENT_ID=smia_machine5@ejabberd
+MACHINE5_PASSWD=<password>
 
 # Orchestrator (smia_orch@ejabberd, SMIA_orchestrator.aasx)
 ORCH_AAS_FILE=SMIA_orchestrator.aasx
@@ -1163,6 +1218,7 @@ ORCH_AGENT_ID=smia_orch@ejabberd
 ORCH_PASSWD=<password>
 
 # Operator (operator001@ejabberd)
+OPERATOR_AAS_FILE=SMIA_Operator_article.aasx
 OPERATOR_AGENT_ID=operator001@ejabberd
 OPERATOR_PASSWD=<password>
 
@@ -1170,7 +1226,7 @@ OPERATOR_PASSWD=<password>
 NODERED_URL=http://nodered:1880
 NODERED_CREDENTIAL_SECRET=<random_string>
 
-# MQTT bridge (physical machine — set in mosquitto/conf.d/bridge.conf)
+# MQTT bridge (physical machine — set actual IP in config/mosquitto/conf.d/bridge.conf)
 MACHINE_MQTT_HOST=192.168.155.10
 MACHINE_MQTT_PORT=1883
 ```
