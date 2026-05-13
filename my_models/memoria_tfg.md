@@ -22,7 +22,7 @@ This work investigates and implements a flexible manufacturing scenario grounded
 
 Two use cases are implemented. Case 0 validates the fundamental self-configuration concept: a single SMIA agent representing a fischertechnik Training Factory Industry 4.0 24V warehouse crane reads its AAS model at startup, derives the complete execution path autonomously — from a human operator's capability request to a physical MQTT command that moves the crane — without any asset-specific code in the agent. Case 1 extends this to a multi-agent scenario with six machine agents (three colours, with duplicates and a multicolour agent) and an orchestrator: when an operator requests a pick task specifying a colour constraint, the orchestrator discovers eligible machines from the AAS folder, runs a FIPA Contract Net Protocol (FIPA-CNP) negotiation round to select the most available machine, delegates execution to the winner, and returns the result to the operator.
 
-The primary software contribution of this TFG is the `OrchestratorDispatchBehaviour` — the FIPA-CNP initiator side of the negotiation, which does not exist in the base SMIA framework. The system is deployed as eleven Docker containers, fully reproducible from a single `docker compose up` command. Both use cases are validated end-to-end against a real physical asset.
+The primary software contribution of this TFG is the `OrchestratorDispatchBehaviour` — the FIPA-CNP initiator side of the negotiation, which does not exist in the base SMIA framework. Five bugs were identified in the SMIA framework and patched at Docker image build time, with upstream PRs planned. The system is deployed as eleven Docker containers, fully reproducible from a single `docker compose up` command. The final MVP adds a Node-RED virtual factory dashboard that replaces the physical crane, making the system self-contained and demonstrable without external hardware.
 
 ---
 
@@ -218,7 +218,7 @@ Design and implement a prototype flexible manufacturing scenario in which a phys
    - Implement `get_machine_availability()` as an agent service for real-time availability reporting via Node-RED.
    - Implement `OrchestratorDispatchBehaviour` as the FIPA-CNP initiator — the missing piece of the multi-agent negotiation.
 
-6. **Identify and patch upstream bugs** in the SMIA framework (`smia_agent.py` asset-connection lookup, `acl_handling_behaviour.py` race condition, `operator_gui_logic.py` `hasParameter` processing) and document them for upstream contribution.
+6. **Identify and patch upstream bugs** in the SMIA framework — five bugs patched: `smia_agent.py` (asset-connection lookup), `acl_handling_behaviour.py` (orchestrator race condition), `operator_gui_logic.py` (`hasParameter` processing), `negotiating_behaviour.py` (concurrent negotiation cross-contamination), `handle_negotiation_behaviour.py` (deadlock with 3+ machines) — and document them for upstream contribution.
 
 7. **Validate the complete end-to-end pipeline** for both cases: operator capability request → XMPP → SMIA skill resolution → HTTP POST → MQTT → physical crane actuation.
 
@@ -661,18 +661,20 @@ Two custom Docker images extend the base `ekhurtado/smia:latest-alpine` image vi
 
 **Machine image** (`docker/smia-machine/Dockerfile`):
 1. `FROM ekhurtado/smia:latest-alpine` — SMIA, Python, all dependencies already installed
-2. `COPY + RUN` — applies the `smia_agent.py` bug fix using a version-independent path detection (`python3 -c "import smia, os; print(os.path.dirname(smia.__file__))"`)
+2. `COPY + RUN` — applies three patches (`smia_agent.py`, `negotiating_behaviour.py`, `handle_negotiation_behaviour.py`) using version-independent path detection (`python3 -c "import smia, os; print(os.path.dirname(smia.__file__))"`)
 3. `COPY` — places `smia_machine_starter.py` and `smia_machine_agent_services.py` at `/`
 4. `WORKDIR /` — adds `/` to Python's `sys.path` so `import smia_machine_agent_services` resolves
 5. `CMD ["python3", "-u", "smia_machine_starter.py"]` — overrides the default SMIA launcher
 
 All six machine agents share this single Dockerfile; they differ only in their AASX model and environment variables (`AAS_MODEL_NAME`, `AAS_ID`, `AGENT_ID`).
 
-**Orchestrator image** (`docker/smia-orchestrator/Dockerfile`): same pattern, with two patches (adds `acl_handling_behaviour.py` race condition fix) and two additional files (`smia_orchestrator_starter.py`, `orchestrator_dispatch_behaviour.py`).
+**Orchestrator image** (`docker/smia-orchestrator/Dockerfile`): same pattern, with four patches (adds `acl_handling_behaviour.py`, `negotiating_behaviour.py`, `handle_negotiation_behaviour.py` on top of `smia_agent.py`) and two additional files (`smia_orchestrator_starter.py`, `orchestrator_dispatch_behaviour.py`).
+
+**Operator image** (`smia_operator_agent/Dockerfile`): uses `ekhurtado/smia:latest-alpine-base` (lighter variant); applies Patch 5 (`operator_gui_logic.py`) implicitly by COPY-ing the patched file to `/` — no `RUN` step needed since this file is not part of the installed SMIA package.
 
 #### 7.4.2 Patches Applied to the SMIA Framework
 
-During the implementation of Case 1, three bugs were identified in the base SMIA framework. All were fixed via build-time patches applied in the Dockerfiles (the patched files replace the originals inside the container image at build time, using a version-independent path detection technique). All patches are pending upstream PR submission to the SMIA repository. Each bug is documented in full below.
+During the implementation of Cases 0 and 1, five bugs were identified in the base SMIA framework (v0.3.x). All were fixed via build-time patches applied in the Dockerfiles (the patched files replace the originals inside the container image at build time, using a version-independent path detection technique). All patches are pending upstream PR submission to the SMIA repository. Each bug is documented in full below.
 
 ---
 
@@ -798,6 +800,64 @@ This: (1) uses the correct dictionary `self.myagent.skills_info` (keyed by AAS s
 
 *AASX design consequence discovered during debugging:* The SkillParameter element's `id_short` must be `color` (not `SkillParameter_color`). The GUI uses the id_short directly as the HTML form field name, so it must match the parameter name used downstream in the FIPA-ACL message body and in `_get_skill_param(params, 'color')` in the orchestrator code.
 
+---
+
+**Bug 4 — `negotiating_behaviour.py`: concurrent negotiations cross-contaminate each other's messages**
+
+*Affected file:* `src/smia/behaviours/negotiating_behaviour.py`
+
+*When it was first encountered:* Case 1 multi-machine testing, when two operator requests were sent in quick succession (or when the orchestrator triggered back-to-back negotiations). Negotiation outcomes became incorrect — a machine would declare itself winner when it should not, or the wrong machine would win.
+
+*Root cause:* `NegotiatingBehaviour` spawns a `HandleNegotiationBehaviour` instance for each incoming CFP to manage the proposal exchange. In the upstream code, this instance was registered with SPADE's `add_behaviour()` without a message template:
+
+```python
+self.myagent.add_behaviour(specific_neg_handling_behaviour)   # no template
+```
+
+Without a per-thread template, SPADE delivered every incoming `PROPOSE` message to **every registered `HandleNegotiationBehaviour` instance**, regardless of which negotiation thread the PROPOSE belonged to. When two negotiations ran concurrently, each handler received messages from the other's exchange and made decisions based on wrong values.
+
+*Fix:* Pass a combined per-thread SPADE template when registering the behaviour:
+
+```python
+handle_neg_template = (
+    GeneralUtils.create_acl_template(performative=PROPOSE, protocol=CNP, thread=msg.thread)
+    | GeneralUtils.create_acl_template(performative=REQUEST, protocol=CNP, thread=msg.thread)
+)
+self.myagent.add_behaviour(specific_neg_handling_behaviour, handle_neg_template)
+```
+
+Each `HandleNegotiationBehaviour` now only receives messages whose `thread` matches the specific CFP it was spawned for. The `REQUEST` performative is also included because Patch 5 (below) introduces a retry mechanism that sends `REQUEST`-for-negValue messages on the same thread.
+
+---
+
+**Bug 5 — `handle_negotiation_behaviour.py`: negotiation deadlock with three or more machines**
+
+*Affected file:* `src/smia/behaviours/specific_handle_behaviours/handle_negotiation_behaviour.py`
+
+*When it was first encountered:* Case 1 testing with three eligible machines (color=red request reaching machines 0, 3, and 5). Negotiations frequently failed to resolve: the orchestrator waited indefinitely for a winner INFORM that never arrived.
+
+*Root cause — three interacting problems:*
+
+(A) **Race on PROPOSE arrival.** When a machine receives a CFP, it computes its availability value and immediately sends PROPOSE messages to all other negotiation targets. If a PROPOSE arrives at a peer *before* that peer has processed its own CFP and registered its `HandleNegotiationBehaviour`, the PROPOSE falls through to the generic `ACLHandlingBehaviour`, which ignores it. Because the upstream code had no retry mechanism, this lost message meant the recipient could never determine whether it had the highest value among all peers.
+
+(B) **Premature behaviour exit.** When a machine received a PROPOSE with a higher value than its own, it called `exit_negotiation(is_winner=False)` immediately and removed the behaviour. Any late PROPOSE from a machine that had not yet replied was then delivered to a behaviour that no longer existed. The recipient therefore had an incomplete picture of the negotiation state.
+
+(C) **10-second blocking receive.** The original loop used `await self.receive(timeout=10)`. This meant the behaviour could only take one action every 10 seconds, making any retry mechanism impractically slow.
+
+*Fix (multi-part):*
+
+1. **Deferred exit:** instead of calling `exit_negotiation()` immediately on detecting a loss, the result is stored in `self.negotiation_result`. The behaviour stays alive until the end of the iteration budget and only terminates then.
+
+2. **Short receive timeout + iteration counter:** the receive timeout is reduced to 0.01 s. Each iteration without a message increments `self.iterations_pending`. The total budget is `max(5, len(targets) + 3)` iterations.
+
+3. **REQUEST-for-negValue retry:** at randomly chosen iterations within 20–60% of the budget, the machine sends a `REQUEST` message to any peer that has not yet sent a PROPOSE, explicitly asking for its value. This recovers from lost initial PROPOSE messages.
+
+4. **Individual PROPOSE dispatch with small delays:** PROPOSE messages are sent to targets one at a time (with `asyncio.sleep(0.01)` between sends) rather than broadcasting to all simultaneously, reducing the chance that all machines flood each other before any `HandleNegotiationBehaviour` is registered.
+
+5. **Thread reservation:** `on_start()` calls `add_reserved_thread(self.neg_thread)` and `exit_negotiation()` calls `remove_reserved_thread()`, cooperating with `ACLHandlingBehaviour`'s reservation mechanism.
+
+---
+
 ### 7.5 Launch
 
 #### 7.5.1 Docker Compose Deployment
@@ -913,7 +973,7 @@ The scope is explicitly limited to the **warehouse crane** (Hochregallager). The
 
 ### 8.3 Open Source and Transparency
 
-The SMIA framework is published under an open-source license [3]. This TFG's contributions — the `OrchestratorDispatchBehaviour`, agent service, AAS models, and bug fixes — are intended for upstream contribution to the SMIA repository, increasing the framework's openness and reproducibility. The three bug fixes identified (§7.4.2) are documented with root cause analysis and minimal patches, enabling independent verification.
+The SMIA framework is published under an open-source license [3]. This TFG's contributions — the `OrchestratorDispatchBehaviour`, agent service, AAS models, and bug fixes — are intended for upstream contribution to the SMIA repository, increasing the framework's openness and reproducibility. The five bug fixes identified (§7.4.2) are documented with root cause analysis and minimal patches, enabling independent verification.
 
 ### 8.4 Bias and Discrimination
 
@@ -944,8 +1004,10 @@ The following non-trivial issues were identified and resolved during implementat
 | 7 | `hasImplementationType not found` at boot | Qualifier `semanticId` was `https://www.w3id.org/...` instead of `http://www.w3id.org/...` (a single character typo inserted by AASX Package Explorer autofill); SMIA's `get_qualifier_value_by_semantic_id()` does exact string comparison | Fixed all three machine AASXs (four qualifiers per file); documented the correct IRI in CLAUDE.md |
 | 8 | Orchestrator race condition: both `ACLHandlingBehaviour` and `OrchestratorDispatchBehaviour` handle the same `css-service` message | SPADE broadcasts every incoming message to all matching behaviours; `ACLHandlingBehaviour` processed the operator REQUEST before `OrchestratorDispatchBehaviour` could reserve its thread | Patched `acl_handling_behaviour.py`: early return for `css-service` ontology messages when `pending_orchestrations` attribute is present (orchestrator-only) |
 | 9 | Operator GUI crash (`SyntaxError`) on Load when selecting orchestrator | Two latent bugs in `operator_gui_logic.py`'s `hasParameter` block, never triggered because no default SMIA AASX uses `hasParameter` relationships. Bug 1: `css_elems_info['skillData']` → `KeyError`. Bug 2: `param_set.add(skill_param)` where `skill_param` is a list → `TypeError: unhashable type` | Patched `operator_gui_logic.py`: replaced block with `self.myagent.skills_info[skill].update(p.id_short for p in skill_params_list)` |
+| 10 | Concurrent negotiations produce incorrect outcomes (wrong machine wins) | `NegotiatingBehaviour` registered `HandleNegotiationBehaviour` without a per-thread SPADE message template; all instances received all PROPOSE messages regardless of thread, making concurrent negotiations corrupt each other | Patched `negotiating_behaviour.py`: pass `handle_neg_template_propose | handle_neg_template_request` (both filtered to `msg.thread`) to `add_behaviour()` |
+| 11 | Negotiation deadlock with three or more eligible machines; orchestrator waits indefinitely for winner INFORM | Three interacting problems: (A) initial PROPOSE can arrive before the peer's `HandleNegotiationBehaviour` is registered → silently dropped, never retried; (B) machine exits the behaviour immediately on detecting a loss → late PROPOSE from slow peers hits a dead behaviour; (C) 10-second receive timeout prevents any retry logic | Patched `handle_negotiation_behaviour.py`: short 0.01 s receive timeout + iteration counter; deferred exit (keep behaviour alive until budget exhausted); REQUEST-for-negValue retry at random iterations 20–60% of budget; individual PROPOSE dispatch with async micro-delays; proper thread reservation/release |
 
-Each of these issues was diagnosed by reading SMIA source code, identifying the precise line causing the failure, and applying a minimal targeted fix. The pattern across incidents 6, 7, and 9 is consistent: SMIA uses exact string comparison throughout, and a single-character error in any semanticId IRI causes a silent failure that manifests as a `NoneType` error later in the execution chain — far from the actual defect. This experience underscores the importance of precise IRI authoring and better validation tooling in AAS-based systems.
+Each of these issues was diagnosed by reading SMIA source code, identifying the precise line causing the failure, and applying a minimal targeted fix. The pattern across incidents 6, 7, and 9 is consistent: SMIA uses exact string comparison throughout, and a single-character error in any semanticId IRI causes a silent failure that manifests as a `NoneType` error later in the execution chain — far from the actual defect. Incidents 10 and 11 reflect an important limitation of the SMIA negotiation algorithm under concurrent load: the protocol was designed and tested for sequential, single-negotiation scenarios and needed robustness improvements before being able to handle the multi-machine configurations required by this TFG. All five patches are documented in `PATCHES.md` with root cause analysis, and are pending upstream PR submission to the SMIA repository.
 
 ---
 
@@ -963,7 +1025,7 @@ Yes — confirmed by Case 0. The SMIA agent reads the `LEGO_machine0.aasx` model
 
 Yes — confirmed by Case 1. All six machine agents run identical Python code (`smia_machine_starter.py`, `smia_machine_agent_services.py`). Their difference is entirely in their AASX model and environment variables. The orchestrator discovers eligible machines at runtime by scanning the AAS folder — no machine list is hardcoded. The FIPA-CNP protocol selects the most available machine dynamically. Multicolour support (machine5 responding to both red and blue requests) required only a comma-separated value in the AASX `color` property and a one-line filter change in the orchestrator — zero new agent code. This validates requirements R4 (adaptability), R5 (distributed systems), and R6 (P2P FIPA-ACL communication).
 
-The primary software contribution — `OrchestratorDispatchBehaviour` — fills the gap left by the base SMIA framework, which only provides the responder/proposer side of FIPA-CNP. The contribution is designed for upstream submission to the SMIA repository.
+The primary software contribution — `OrchestratorDispatchBehaviour` — fills the gap left by the base SMIA framework, which only provides the responder/proposer side of FIPA-CNP. Five bugs were identified and patched in the SMIA framework during this TFG; two of them (`negotiating_behaviour.py`, `handle_negotiation_behaviour.py`) were required to make multi-machine negotiation robust under realistic concurrent load. All contributions are designed for upstream submission to the SMIA repository.
 
 **RQ3: Is the overhead of the standardization layer acceptable for real-time manufacturing actuation?**
 
@@ -973,11 +1035,13 @@ Yes — within the acceptable range. Self-configuration time is under 7 seconds 
 
 ### 10.2 Future Work
 
-1. **Upstream contributions:** Submit the three framework bug fixes and `OrchestratorDispatchBehaviour` as PRs to the SMIA repository, making them available to the broader community.
+1. **Upstream contributions:** Submit the five framework bug fixes and `OrchestratorDispatchBehaviour` as PRs to the SMIA repository, making them available to the broader community. Clean-up required before PR submission: remove `TODO BORRAR BUG TEST` warning log lines from `acl_handling_behaviour.py` and `handle_negotiation_behaviour.py`.
 
-2. **Strict busy-rejection:** Currently, if all machines are busy, the orchestrator waits indefinitely. A timeout with a `FAILURE` response to the operator would make the system more predictable in production.
+2. **Node-RED virtual factory dashboard (MVP):** Replace the MQTT output in the current Node-RED flows with a visual Node-RED dashboard (using the `node-red-dashboard` package) that simulates the warehouse: four coloured slots, animated picking state per machine, real-time machine busy/free status panel, and operations log. This removes the dependency on the physical fischertechnik crane, making the entire system self-contained and demonstrable from a single `docker compose up` on any laptop. The HTTP API endpoints (`/smia/lego/pick`, `/smia/lego/availability`) and per-machine busy flag logic remain unchanged — only the Node-RED output changes from MQTT publish to dashboard update.
 
-3. **Configurable colour-to-slot mapping:** The current colour-to-warehouse-slot mapping (red=0, blue=1, white=2) is hardcoded in `orchestrator_dispatch_behaviour.py`. Moving this mapping to the AASX model (e.g., as a `position` property on each machine's `Capability_PickPiece`) would make it fully AAS-driven and remove the last hardcoded element from the orchestrator.
+3. **Strict busy-rejection:** Currently, if all machines are busy, the orchestrator waits indefinitely. A timeout with a `FAILURE` response to the operator would make the system more predictable in production.
+
+4. **Configurable colour-to-slot mapping:** The current colour-to-warehouse-slot mapping (red=0, blue=1, white=2) is hardcoded in `orchestrator_dispatch_behaviour.py`. Moving this mapping to the AASX model (e.g., as a `position` property on each machine's `Capability_PickPiece`) would make it fully AAS-driven and remove the last hardcoded element from the orchestrator.
 
 4. **Direct MQTT asset connection:** The current architecture uses HTTP → Node-RED → MQTT. The AID standard (IDTA 02017) and the SMIA `AssetConnection` abstraction (`ArchitectureStyle.PUBSUB`) are designed to support MQTT natively. Implementing a `MQTTAssetConnection` class would eliminate the Node-RED middleware layer.
 
